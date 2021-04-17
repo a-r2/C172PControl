@@ -1,0 +1,19 @@
+<PropertyList>
+  <version type="int">2</version>
+  <route>
+    <wp>
+      <type type="string">runway</type>
+      <departure type="bool">true</departure>
+      <generated type="bool">true</generated>
+      <ident type="string">03</ident>
+      <icao type="string">LEBA</icao>
+    </wp>
+    <wp n="1">
+      <type type="string">offset-navaid</type>
+      <alt-restrict type="string">at</alt-restrict>
+      <altitude-ft type="double">300</altitude-ft>
+      <lon type="double">-4.834528</lon>
+      <lat type="double">37.863510</lat>
+    </wp>
+  </route>
+</PropertyList>

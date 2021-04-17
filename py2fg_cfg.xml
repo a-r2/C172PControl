@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+ <PropertyList>
+    <generic>
+        <input>
+
+            <line_separator>newline</line_separator>
+            <var_separator>tab</var_separator>
+     
+            <chunk>
+               <node>/sim/speed-up</node>
+               <name>Simulation rate</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+            
+            <chunk>
+               <node>/sim/frame-rate-throttle-hz</node>
+               <name>Frames per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+            
+            <chunk>
+               <node>/sim/max-simtime-per-frame</node>
+               <name>Maximum timestep per video frame</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+            
+        </input>
+    </generic>
+ </PropertyList>

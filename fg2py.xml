@@ -1,0 +1,823 @@
+<?xml version="1.0"?>
+ <PropertyList>
+    <generic>
+        <output>
+
+            <line_separator>newline</line_separator>
+            <var_separator>tab</var_separator>
+     
+            <chunk>
+               <node>/fdm/jsbsim/simulation/sim-time-sec</node>
+               <name>Simulation time from start in seconds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/simulation/dt</node>
+               <name>Simulation timestep in seconds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/position/distance-from-start-lon-mt</node>
+               <name>Relative longitude from start in meters</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/distance-from-start-lat-mt</node>
+               <name>Relative latitude from start in meters</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/distance-from-start-mag-mt</node>
+               <name>Relative magnitude from start in meters</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/long-gc-deg</node>
+               <name>Longitude (GNSS) in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/long-gc-rad</node>
+               <name>Longitude (GNSS) in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/lat-gc-deg</node>
+               <name>Latitude (GNSS) in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/lat-gc-rad</node>
+               <name>Latitude (GNSS) in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/geod-alt-ft</node>
+               <name>Altitude (GNSS) in feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/geod-alt-km</node>
+               <name>Altitude (GNSS) in kilometers</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/h-agl-ft</node>
+               <name>Barometric altitude (QFE) in feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/h-agl-km</node>
+               <name>Barometric altitude (QFE) in kilometers</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/h-sl-ft</node>
+               <name>Barometric altitude (QNH) in feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/h-sl-meters</node>
+               <name>Barometric altitude (QNH) in meters</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/attitude/phi-deg</node>
+               <name>Roll angle in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/attitude/phi-rad</node>
+               <name>Roll angle in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/attitude/theta-deg</node>
+               <name>Pitch angle in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/attitude/theta-rad</node>
+               <name>Pitch angle in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/attitude/psi-deg</node>
+               <name>Yaw angle in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/attitude/psi-rad</node>
+               <name>Yaw angle in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/alpha-deg</node>
+               <name>Angle of attack in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/alpha-rad</node>
+               <name>Angle of attack in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/beta-deg</node>
+               <name>Side-slip angle in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/beta-rad</node>
+               <name>Side-slip angle in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/flight-path/gamma-deg</node>
+               <name>Path angle in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/flight-path/gamma-rad</node>
+               <name>Path angle in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/v-north-fps</node>
+               <name>North velocity (NED) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/v-east-fps</node>
+               <name>East velocity (NED) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/v-down-fps</node>
+               <name>Down velocity (NED) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/u-fps</node>
+               <name>Longitudinal velocity (body) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/v-fps</node>
+               <name>Transversal velocity (body) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/w-fps</node>
+               <name>Vertical velocity (body) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/u-aero-fps</node>
+               <name>Longitudinal aerodynamic velocity (wind) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/v-aero-fps</node>
+               <name>Transversal aerodynamic velocity (wind) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/w-aero-fps</node>
+               <name>Vertical aerodynamic velocity (wind) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/atmosphere/wind-north-fps</node>
+               <name>North wind velocity (NED) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/atmosphere/wind-east-fps</node>
+               <name>East wind velocity (NED) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/atmosphere/wind-down-fps</node>
+               <name>Down wind velocity (NED) in feet per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/phidot-rad_sec</node>
+               <name>Rate of change of roll angle in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/thetadot-rad_sec</node>
+               <name>Rate of change of pitch angle in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/psidot-rad_sec</node>
+               <name>Rate of change of yaw angle in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/p-aero-rad_sec</node>
+               <name>Roll velocity (body) in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/q-aero-rad_sec</node>
+               <name>Pitch velocity (body) in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/r-aero-rad_sec</node>
+               <name>Yaw velocity (body) in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/alphadot-deg_sec</node>
+               <name>Rate of change of angle of attack in degrees per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/alphadot-rad_sec</node>
+               <name>Rate of change of angle of attack in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/betadot-deg_sec</node>
+               <name>Rate of change of side-slip angle in degrees per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/betadot-rad_sec</node>
+               <name>Rate of change of side-slip angle in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/accelerations/udot-ft_sec2</node>
+               <name>Longitudinal acceleration (body) in feet per second squared</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/accelerations/vdot-ft_sec2</node>
+               <name>Transversal acceleration (body)in feet per second squared</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/accelerations/wdot-ft_sec2</node>
+               <name>Vertical acceleration (body) in feet per second squared</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/accelerations/pdot-rad_sec2</node>
+               <name>Roll acceleration (body) in radians per second squared</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/accelerations/qdot-rad_sec2</node>
+               <name>Pitch acceleration (body) in radians per second squared</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/accelerations/rdot-rad_sec2</node>
+               <name>Yaw acceleration (body) in radians per second squared</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbx-aero-lbs</node>
+               <name>Longitudinal aerodynamic force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbx-external-lbs</node>
+               <name>Longitudinal external force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbx-gear-lbs</node>
+               <name>Longitudinal gear force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbx-prop-lbs</node>
+               <name>Longitudinal propeller force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbx-total-lbs</node>
+               <name>Longitudinal total force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fby-aero-lbs</node>
+               <name>Transversal aerodynamic force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fby-external-lbs</node>
+               <name>Transversal external force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fby-gear-lbs</node>
+               <name>Transversal gear force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fby-prop-lbs</node>
+               <name>Transversal propeller force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fby-total-lbs</node>
+               <name>Transversal total force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbz-aero-lbs</node>
+               <name>Vertical aerodynamic force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbz-external-lbs</node>
+               <name>Vertical external force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbz-gear-lbs</node>
+               <name>Vertical gear force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbz-prop-lbs</node>
+               <name>Vertical propeller force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/forces/fbz-total-lbs</node>
+               <name>Vertical total force (body) in pounds</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/l-aero-lbsft</node>
+               <name>Aerodynamic roll moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/l-external-lbsft</node>
+               <name>External roll moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/l-gear-lbsft</node>
+               <name>Gear roll moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/l-prop-lbsft</node>
+               <name>Propeller roll moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/l-total-lbsft</node>
+               <name>Total roll moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/m-aero-lbsft</node>
+               <name>Aerodynamic pitch moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/m-external-lbsft</node>
+               <name>External pitch moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/m-gear-lbsft</node>
+               <name>Gear pitch moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/m-prop-lbsft</node>
+               <name>Propeller pitch moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/m-total-lbsft</node>
+               <name>Total pitch moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/n-aero-lbsft</node>
+               <name>Aerodynamic yaw moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/n-external-lbsft</node>
+               <name>External yaw moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/n-gear-lbsft</node>
+               <name>Gear yaw moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/n-prop-lbsft</node>
+               <name>Propeller yaw moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/moments/n-total-lbsft</node>
+               <name>Total yaw moment (body) in pounds per feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/right-aileron-pos-deg</node>
+               <name>Right aileron position in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/right-aileron-pos-rad</node>
+               <name>Right aileron position in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/right-aileron-pos-norm</node>
+               <name>Normalized right aileron position</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/left-aileron-pos-deg</node>
+               <name>Left aileron position in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/left-aileron-pos-rad</node>
+               <name>Left aileron position in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/left-aileron-pos-norm</node>
+               <name>Normalized left aileron position</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/elevator-pos-deg</node>
+               <name>Elevators position in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/elevator-pos-rad</node>
+               <name>Elevators position in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/elevator-pos-norm</node>
+               <name>Normalized elevator position</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/flap-pos-deg</node>
+               <name>Flaps position in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/flap-pos-rad</node>
+               <name>Flaps position in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/flap-pos-norm</node>
+               <name>Normalized flaps position</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/rudder-pos-deg</node>
+               <name>Rudder position in degrees</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/rudder-pos-rad</node>
+               <name>Rudder position in radians</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/rudder-pos-norm</node>
+               <name>Normalized rudder position</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/throttle-pos-norm</node>
+               <name>Normalized engine throttle position</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/fcs/mixture-pos-norm</node>
+               <name>Normalized engine mixture position</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/orientation/upside-down</node>
+               <name>Upside-down state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+                <node>/fdm/jsbsim/gear/unit/WOW</node>
+               <name>Wheel 1 weight-on-wheel state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+                <node>/fdm/jsbsim/gear/unit[1]/WOW</node>
+               <name>Wheel 2 weight-on-wheel state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+                <node>/fdm/jsbsim/gear/unit[2]/WOW</node>
+               <name>Wheel 3 weight-on-wheel state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/bi2vel</node>
+               <name>Wing span divided by twice the velocity</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/ci2vel</node>
+               <name>Wing chord divided by twice the velocity</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/h_b-mac-ft</node>
+               <name>Altitude of mean aerodynamic chord (MAC) divided by wing span</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/qbar-psf</node>
+               <name>Dynamic pressure</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/qbarUW-psf</node>
+               <name>Dynamic pressure (XZ plane of wind frame)</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/function/qbar-propwash-psf</node>
+               <name>Dynamic pressure due to propeller induced velocity</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/function/qbar-induced-psf</node>
+               <name>Dynamic pressure including propulsion induced velocity</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/aero/stall-hyst-norm</node>
+               <name>Normalized stall (aerodynamic) hysteresis</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/propulsion/engine/advance-ratio</node>
+               <name>Advance ratio</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/propulsion/engine/propeller-rpm</node>
+               <name>Propeller rpm</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+ 
+        </output>
+    </generic>
+ </PropertyList>

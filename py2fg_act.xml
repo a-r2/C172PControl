@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+ <PropertyList>
+    <generic>
+        <input>
+
+            <line_separator>newline</line_separator>
+            <var_separator>tab</var_separator>
+     
+            <chunk>
+               <node>/controls/flight/aileron</node>
+               <name>Normalized ailerons command</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/controls/flight/elevator</node>
+               <name>Normalized elevators command</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/controls/flight/flaps</node>
+               <name>Normalized flaps command</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/controls/flight/rudder</node>
+               <name>Normalized rudder command</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/controls/engines/current-engine/throttle</node>
+               <name>Normalized engine throttle command</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/controls/engines/current-engine/mixture</node>
+               <name>Normalized engine mixture command</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/controls/flight/aileron-trim</node>
+               <name>Normalized roll trim</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/controls/flight/elevator-trim</node>
+               <name>Normalized pitch trim</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/controls/flight/rudder-trim</node>
+               <name>Normalized yaw trim</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+        </input>
+    </generic>
+ </PropertyList>
