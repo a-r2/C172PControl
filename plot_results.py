@@ -129,8 +129,9 @@ def plot(rxdata, txdata, dyndata):
     DynPressProp   = rxdata[:,111]
     DynPressInd    = rxdata[:,112]
     NormStallHyst  = rxdata[:,113]
-    AdvRatio       = rxdata[:,114]
-    PropRPM        = rxdata[:,115]
+    Density        = rxdata[:,114]
+    AdvRatio       = rxdata[:,115]
+    PropRPM        = rxdata[:,116]
     
     NormAilCmd       = txdata[:,0]
     NormElevsCmd     = txdata[:,1]
@@ -146,14 +147,17 @@ def plot(rxdata, txdata, dyndata):
     D       = dyndata[:,1]
     S       = dyndata[:,2]
     L       = dyndata[:,3]
-    l       = dyndata[:,4]
-    m       = dyndata[:,5]
-    n       = dyndata[:,6]
+    T       = dyndata[:,4]
+    l       = dyndata[:,5]
+    m       = dyndata[:,6]
+    n       = dyndata[:,7]
 
     Faero = np.zeros((dyndata.shape[0], 3))
+    Fprop = np.zeros((dyndata.shape[0], 1))
     Maero = np.zeros((dyndata.shape[0], 3))
     for i in range(min(rxdata.shape[0], dyndata.shape[0])):
         Faero[i,:] = wind_to_body(AttackAng[i], SideSlipAng[i]).rotate([-D[i], S[i], -L[i]])
+        Fprop[i]   = N_to_lbs(T[i])
         Maero[i,:] = [l[i], m[i], n[i]]
 
     labels = list()
@@ -529,19 +533,19 @@ def plot(rxdata, txdata, dyndata):
         fig.canvas.manager.window.wm_geometry("%dx%d+0+0" % (fullwidth, fullheight))
         plt.suptitle('Evolution of the aircraft aerodynamic force in body frame')
         plt.subplot(3,1,1)
-        plt.plot(TimeRX, XAeroForce, TimeDyn, Faero[:,0],'.--')
+        plt.plot(TimeRX, XAeroForce, TimeDyn, Faero[:,0], '--.')
         plt.xlim(TimeRX[0], TimeRX[-1])
         plt.grid()
         plt.xlabel(labels[0])
         plt.ylabel(labels[42])
         plt.subplot(3,1,2)
-        plt.plot(TimeRX, YAeroForce, TimeDyn, Faero[:,1],'.--')
+        plt.plot(TimeRX, YAeroForce, TimeDyn, Faero[:,1], '--.')
         plt.xlim(TimeRX[0], TimeRX[-1])
         plt.grid()
         plt.xlabel(labels[0])
         plt.ylabel(labels[47])
         plt.subplot(3,1,3)
-        plt.plot(TimeRX, ZAeroForce, TimeDyn, Faero[:,2],'.--')
+        plt.plot(TimeRX, ZAeroForce, TimeDyn, Faero[:,2], '--.')
         plt.xlim(TimeRX[0], TimeRX[-1])
         plt.grid()
         plt.xlabel(labels[0])
@@ -607,7 +611,7 @@ def plot(rxdata, txdata, dyndata):
         fig.canvas.manager.window.wm_geometry("%dx%d+0+0" % (fullwidth, fullheight))
         plt.suptitle('Evolution of the aircraft propeller force in body frame')
         plt.subplot(3,1,1)
-        plt.plot(TimeRX, XPropForce)
+        plt.plot(TimeRX, XPropForce, TimeDyn, Fprop, '--.')
         plt.xlim(TimeRX[0], TimeRX[-1])
         plt.grid()
         plt.xlabel(labels[0])
@@ -659,19 +663,19 @@ def plot(rxdata, txdata, dyndata):
         fig.canvas.manager.window.wm_geometry("%dx%d+0+0" % (fullwidth, fullheight))
         plt.suptitle('Evolution of the aircraft aerodynamic moment in body frame')
         plt.subplot(3,1,1)
-        plt.plot(TimeRX, PAeroMoment, TimeDyn, Maero[:,0],'.--')
+        plt.plot(TimeRX, PAeroMoment, TimeDyn, Maero[:,0], '--.')
         plt.xlim(TimeRX[0], TimeRX[-1])
         plt.grid()
         plt.xlabel(labels[0])
         plt.ylabel(labels[57])
         plt.subplot(3,1,2)
-        plt.plot(TimeRX, QAeroMoment, TimeDyn, Maero[:,1],'.--')
+        plt.plot(TimeRX, QAeroMoment, TimeDyn, Maero[:,1], '--.')
         plt.xlim(TimeRX[0], TimeRX[-1])
         plt.grid()
         plt.xlabel(labels[0])
         plt.ylabel(labels[62])
         plt.subplot(3,1,3)
-        plt.plot(TimeRX, RAeroMoment, TimeDyn, Maero[:,2],'.--')
+        plt.plot(TimeRX, RAeroMoment, TimeDyn, Maero[:,2], '--.')
         plt.xlim(TimeRX[0], TimeRX[-1])
         plt.grid()
         plt.xlabel(labels[0])

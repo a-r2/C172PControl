@@ -36,7 +36,7 @@ def initialize():
     #CSVKinematicsLog(KIN_LOG_FILENAME, **csvkinargs) #calculated kinematics log
 
     #Dynamics
-    Aerodynamics(rx2dyn_out, dyn2csv_in, event_start) #calculate aerodynamics
+    Dynamics(rx2dyn_out, dyn2csv_in, event_start) #calculate aerodynamics
 
     #Actuation
     Actuation(ACT_TYPE, rx2act_out, act2csv_in, act2tx_in, event_start) #calculate actuation

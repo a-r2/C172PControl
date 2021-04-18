@@ -382,7 +382,7 @@ CP = np.array(
 CP_interp = interpolate.interp1d(CP[:,0], CP[:,1], bounds_error=False, fill_value=(CP[0,1], CP[-1,1]))
 
 ''' PARAMETERS CONVERSION '''
-PROP_DIAM = in_to_m(PROP_DIAM_IN)
+PROP_DIAM_M = in_to_m(PROP_DIAM_IN)
 
 ''' DRAG '''
 def D0(qbar_psf):
@@ -598,16 +598,12 @@ def ndr(qbar_induced_psf, rudder_pos_rad):
     return n6
 
 ''' PROPULSION '''
-def engine_thrust(advance_ratio, density, rps_prop):
+def engine_thrust(advance_ratio, density, rpm_prop):
     #Engine (160 HP) thrust
-
-    T = CT_interp(advance_ratio) * density * (rps_prop ** 2) * (PROP_DIAM ** 4)
-
+    T = CT_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 2) * (PROP_DIAM_M ** 4)
     return T
 
-def engine_power(advance_ratio, density, rps_prop):
+def engine_power(advance_ratio, density, rpm_prop):
     #Engine (160 HP) power
-
-    P = CP_interp(advance_ratio) * density * (rps_prop ** 3) * (PROP_DIAM ** 5)
-
+    P = CP_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 3) * (PROP_DIAM_M ** 5)
     return P

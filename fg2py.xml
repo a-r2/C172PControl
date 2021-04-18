@@ -805,6 +805,13 @@
             </chunk>
      
             <chunk>
+               <node>/fdm/jsbsim/atmosphere/rho-slugs_ft3</node>
+               <name>Density</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+ 
+            <chunk>
                <node>/fdm/jsbsim/propulsion/engine/advance-ratio</node>
                <name>Advance ratio</name>
                <type>float</type>
@@ -817,7 +824,7 @@
                <type>float</type>
                <format>%f</format>
             </chunk>
- 
+
         </output>
     </generic>
  </PropertyList>

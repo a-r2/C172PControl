@@ -5,6 +5,30 @@ from math import cos, sin, asin, atan2
 from pyquaternion import Quaternion
 
 ''' CONVERSIONS '''
+def angles_deg_conversion(rxdata):
+    #Radians to degrees conversion
+
+    rxdata[:,39] = rad_to_deg(rxdata[:,39]) #Rate of change of roll angle in degrees per second
+    rxdata[:,40] = rad_to_deg(rxdata[:,40]) #Rate of change of pitch angle in degrees per second
+    rxdata[:,41] = rad_to_deg(rxdata[:,41]) #Rate of change of yaw angle in degrees per second
+    rxdata[:,42] = rad_to_deg(rxdata[:,42]) #Roll velocity (body) in degrees per second
+    rxdata[:,43] = rad_to_deg(rxdata[:,43]) #Pitch velocity (body) in degrees per second
+    rxdata[:,44] = rad_to_deg(rxdata[:,44]) #Yaw velocity (body) in degrees per second
+    rxdata[:,52] = rad_to_deg(rxdata[:,52]) #Roll acceleration (body) in degrees per squared second 
+    rxdata[:,53] = rad_to_deg(rxdata[:,53]) #Pitch acceleration (body) in degrees per squared second 
+    rxdata[:,54] = rad_to_deg(rxdata[:,54]) #Yaw acceleration (body) in degrees per squared second 
+
+    TELEM_RX_KEYS = list(settings.TELEM_RX_PLOT.keys())
+    
+    for i in range(len(settings.TELEM_RX_PLOT)):
+        unit = settings.TELEM_RX_PLOT[TELEM_RX_KEYS[i]][0][0] #current unit
+        if 'rad' in unit:
+            settings.TELEM_RX_PLOT[TELEM_RX_KEYS[i]][0][0] = unit.replace('rad', 'º') 
+        else:
+            continue
+
+    return rxdata
+
 def deg_to_rad(degrees):
     #Degrees to radians conversion (unconstrained)
     return np.radians(degrees)
@@ -66,7 +90,7 @@ def km_to_m(kilometers):
 
 def lbs_to_N(pounds):
     #Pounds to Newtons conversions
-    return 4.4482216282509 * pounds
+    return 4.448221628250858 * pounds
 
 def lbsft_to_Nm(poundsfeet):
     #Pounds-feet to Newtons-meters conversion
@@ -74,15 +98,13 @@ def lbsft_to_Nm(poundsfeet):
     newtonsmeters = ft_to_m(newtonsfeet)
     return newtonsmeters
 
-def psf_to_pa(poundsfootsquared):
-    #Pounds per foot squared to Pascal conversion
-    newtonsfootsquared = lbs_to_N(poundsfootsquared)
-    pascal = newtonsfootsquared / (ft_to_m(1) ** 2)
-    return pascal 
-
 def m_to_ft(meters):
     #Meters to feet conversion
     return meters / ft_to_m(1)
+
+def N_to_lbs(newtons):
+    #Newtons to pounds conversions
+    return 0.22480894244319 * newtons
 
 def rad_to_deg(radians):
     #Radians to degrees conversion (unconstrained)
@@ -91,6 +113,12 @@ def rad_to_deg(radians):
 def rad_to_deg_360(radians):
     #Degrees to radians conversion (constrained to [0, 360))
     return np.degrees(radians % (2 * pi))
+
+def psf_to_pa(poundspersquaredfoot):
+    #Pounds per squared foot to Pascal conversion
+    newtonspersquaredfoot = lbs_to_N(poundspersquaredfoot)
+    pascals = newtonspersquaredfoot / (ft_to_m(1) ** 2)
+    return pascals 
 
 def quat_to_euler(q):
     #Quaternion to Euler angles
@@ -107,6 +135,10 @@ def quat_to_euler(q):
     e = np.array([phi, theta, psi])
 
     return e 
+
+def rpm_to_rps(rpm):
+    #Revolutions per minute to revolutions per second conversion
+    return rpm / 60
 
 def SI_conversion(rxdata):
     #Imperial units to SI units conversion
@@ -161,6 +193,7 @@ def SI_conversion(rxdata):
     rxdata[:,109] = psf_to_pa(rxdata[:,109]) #Dynamic pressure in pascals
     rxdata[:,110] = psf_to_pa(rxdata[:,110]) #Dynamic pressure (XZ plane) in pascals
     rxdata[:,111] = psf_to_pa(rxdata[:,111]) #Dynamic pressure (propeller) in pascals
+    rxdata[:,114] = slugft3_to_kgm3(rxdata[:,114]) #Density in kg per cubic metre
 
     TELEM_RX_KEYS = list(settings.TELEM_RX_PLOT.keys())
     
@@ -174,29 +207,15 @@ def SI_conversion(rxdata):
 
     return rxdata
 
-def angles_deg_conversion(rxdata):
-    #Radians to degrees conversion
+def slug_to_kg(slugs):
+    #Slugs to kilograms conversion
+    return 14.593903 * slugs 
 
-    rxdata[:,39] = rad_to_deg(rxdata[:,39]) #Rate of change of roll angle in degrees per second
-    rxdata[:,40] = rad_to_deg(rxdata[:,40]) #Rate of change of pitch angle in degrees per second
-    rxdata[:,41] = rad_to_deg(rxdata[:,41]) #Rate of change of yaw angle in degrees per second
-    rxdata[:,42] = rad_to_deg(rxdata[:,42]) #Roll velocity (body) in degrees per second
-    rxdata[:,43] = rad_to_deg(rxdata[:,43]) #Pitch velocity (body) in degrees per second
-    rxdata[:,44] = rad_to_deg(rxdata[:,44]) #Yaw velocity (body) in degrees per second
-    rxdata[:,52] = rad_to_deg(rxdata[:,52]) #Roll acceleration (body) in degrees per squared second 
-    rxdata[:,53] = rad_to_deg(rxdata[:,53]) #Pitch acceleration (body) in degrees per squared second 
-    rxdata[:,54] = rad_to_deg(rxdata[:,54]) #Yaw acceleration (body) in degrees per squared second 
-
-    TELEM_RX_KEYS = list(settings.TELEM_RX_PLOT.keys())
-    
-    for i in range(len(settings.TELEM_RX_PLOT)):
-        unit = settings.TELEM_RX_PLOT[TELEM_RX_KEYS[i]][0][0] #current unit
-        if 'rad' in unit:
-            settings.TELEM_RX_PLOT[TELEM_RX_KEYS[i]][0][0] = unit.replace('rad', 'º') 
-        else:
-            continue
-
-    return rxdata
+def slugft3_to_kgm3(slugspercubicfoot):
+    #Slugs per cubic feet to kilograms per cubic metre conversion
+    kilograms = slug_to_kg(slugspercubicfoot)
+    kilogramspercubicmetre = kilograms / (ft_to_m(1) ** 3)
+    return kilogramspercubicmetre  
 
 ''' FRAME ROTATIONS '''
 def body_to_stability(alpha):

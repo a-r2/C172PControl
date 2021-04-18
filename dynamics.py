@@ -4,15 +4,15 @@ import numpy as np
 from c172p_model import *
 from settings import *
 
-DYN_LEN = 6 #[D, S, L, l, m, n]
+DYN_LEN = 7 #[D, S, L, T, l, m, n]
 
-class Aerodynamics():
+class Dynamics():
     def __init__(self, rx2dyn_out, dyn2csv_in, event_start):
         self.csvdyn = np.zeros((MODEL_HZ, DYN_LEN + 1)) #array for storing dynamics
-        self.proc = mp.Process(target=self.forces_moments_wind, args=(rx2dyn_out, dyn2csv_in, event_start), daemon=True) #process for calculating actuation 
+        self.proc = mp.Process(target=self.forces_moments_body, args=(rx2dyn_out, dyn2csv_in, event_start), daemon=True) #process for calculating actuation 
         self.proc.start()
-    def forces_moments_wind(self, rx2dyn_out, dyn2csv_in, event_start):
-        #Aerodynamic forces and moments applied to the aircraft in wind frame
+    def forces_moments_body(self, rx2dyn_out, dyn2csv_in, event_start):
+        #Aerodynamic and propulsive forces and moments applied to the aircraft in body frame
         event_start.wait() #wait for simulation start event
         while True:
             rxdata      = rx2dyn_out.recv() #receive RX telemetry
@@ -39,6 +39,9 @@ class Aerodynamics():
                 qbar_propwash_psf     = rxdata[i,111]
                 qbar_induced_psf      = rxdata[i,112]
                 stall_hyst_norm       = rxdata[i,113]
+                density               = rxdata[i,114]
+                advance_ratio         = rxdata[i,115]
+                rpm_prop              = rxdata[i,116]
 
                 D1 = D0(qbar_psf)
                 D2 = DDf(qbar_psf, h_b_mac_ft, flaps_pos_deg)
@@ -54,6 +57,8 @@ class Aerodynamics():
                 L3 = LDe(qbar_psf, elev_pos_rad)
                 L4 = Ladot(qbarUW_psf, alphadot_rad_sec, ci2vel)
                 L5 = Lq(qbar_psf, q_rad_sec, ci2vel)
+
+                T1 = engine_thrust(advance_ratio, density, rpm_prop)
 
                 l1 = lb(qbar_psf, beta_rad, alpha_rad)
                 l2 = lp(qbar_psf, beta_rad, bi2vel, p_rad_sec) 
@@ -78,11 +83,12 @@ class Aerodynamics():
                 D = D1 + D2 + D3 + D4 + D5
                 S = S1 + S2
                 L = L1 + L2 + L3 + L4 + L5
+                T = T1
                 l = l1 + l2 + l3 + l4 + l5
                 m = m1 + m2 + m3 + m4 + m5 + m6
                 n = n1 + n2 + n3 + n4 + n5 + n6
             
-                self.csvdyn[i,:] = [time, D, S, L, l, m, n]
+                self.csvdyn[i,:] = [time, D, S, L, T, l, m, n]
 
             dyn2csv_in.send(self.csvdyn[:framescount,:]) #send calculated dynamics to store in CSV
             self.csvdyn = np.empty((MODEL_HZ, DYN_LEN + 1)) #empty array 

@@ -12,6 +12,8 @@ ACT_TYPE = 1
 
 ''' DYNAMICS '''
 DYN_LOG_FILENAME = 'dynamics_log'
+
+''' KINEMATICS '''
 KIN_LOG_FILENAME = 'kinematics_log'
 
 ''' INITIALIZATION '''
@@ -142,9 +144,10 @@ TELEM_WAIT = 10 #wait in seconds after FlightGear start before establishing tele
 #111 Dynamic pressure due to propeller induced velocity in pounds per squared foot
 #112 Dynamic pressure including propulsion induced velocity in pounds per squared foot
 #113 Normalized stall (aerodynamic) hysteresis
-#114 Advance ratio
-#115 Propeller revolutions per minute
-TELEM_RX_LEN = 116 #do not modify unless fg2py.xml is also modified accordingly
+#114 Density in slugs per cubic foot
+#115 Advance ratio
+#116 Propeller revolutions per minute
+TELEM_RX_LEN = 117 #do not modify unless fg2py.xml is also modified accordingly
 
 ''' TRANSMITTING TELEMETRY '''
 #0 Normalized aileron command
@@ -178,7 +181,7 @@ WP_TUPLE =  (
             )
 
 ''' PLOTTING '''
-PLOTS = [16, 21] #list(range(1,39))
+PLOTS = [16, 19, 21] #list(range(1,39))
 IMPERIAL_CONVERSION = True #from SI to imperial
 ANGLES_CONVERSION = False #from radians to degrees
 #0 Time
