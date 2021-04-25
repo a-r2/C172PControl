@@ -1,7 +1,7 @@
 ''' SIMULATION '''
 SIM_RATE = 1 #simulation rate with respect to real time (recommended: 0.125, 0.25, 0.5, 1)
 FPS = 100 #frames per real time second
-MAX_TIME_PER_FRAME = 1/100 #1/(10 * FPS) #timestep per video frame
+MAX_TIME_PER_FRAME = 1/100 #timestep per video frame
 MODEL_HZ = 100 #model iterations per simulation second
 ACT_HZ = 10 #actuation frequency
 CFG_IP_ADDRESS = 'localhost'

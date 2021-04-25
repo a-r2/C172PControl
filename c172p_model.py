@@ -1,8 +1,9 @@
+import multiprocessing as mp
 import numpy as np
 import math
 
+from settings import *
 from scipy import interpolate
-
 from utils import *
 
 ''' PARAMETERS '''
@@ -607,3 +608,107 @@ def engine_power(advance_ratio, density, rpm_prop):
     #Engine (160 HP) power
     P = CP_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 3) * (PROP_DIAM_M ** 5)
     return P
+
+''' MODEL '''
+STATE_LEN = 13 #[pn_dot, pe_dot, pd_dot, q0_dot, q1_dot, q2_dot, q3_dot, u_dot, v_dot, w_dot, p_dot, q_dot, r_dot]
+INPUT_LEN = 5 #[delta_a, delta_e, delta_f, delta_r, delta_t]
+
+class Model():
+    def __init__(self, rx2nlm_out, rx2lm_out, nlm2act_in, lm2act_in, nlm2csv_in, lm2csv_in, eq2lm_out, event_start):
+        self.csvnlm = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing non-linear model
+        self.csvlm = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing linear model
+        self.proc1 = mp.Process(target=self.non_linear, args=(rx2nlm_out, nlm2act_in, nlm2csv_in, event_start), daemon=True) #process for calculating non-linear model
+        self.proc2 = mp.Process(target=self.linear, args=(rx2lm_out, lm2act_in, lm2csv_in, event_start), daemon=True) #process for calculating linear model
+        self.proc1.start()
+        self.proc2.start()
+    def non_linear(self, rx2nlm_out, nlm2act_in, nlm2csv_in, event_start):
+        #Analytic non-linear model
+        event_start.wait() #wait for simulation start event
+        while True:
+            rxdata      = rx2nlm_out.recv() #receive RX telemetry
+            framescount = rxdata.shape[0]
+            for i in range(framescount):                
+                time  = rxdata[i,0]
+                phi   = rxdata[i,16]
+                theta = rxdata[i,18]
+                psi   = rxdata[i,20]
+                u     = rxdata[i,30]
+                v     = rxdata[i,31]
+                w     = rxdata[i,32]
+                p     = rxdata[i,42]
+                q     = rxdata[i,43]
+                r     = rxdata[i,44]
+                fx    = rxdata[i,59]
+                fy    = rxdata[i,64]
+                fz    = rxdata[i,69]
+                l     = rxdata[i,74]
+                m     = rxdata[i,79]
+                n     = rxdata[i,84]
+            
+                x_dot = np.zeros(STATE_LEN)
+                (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
+                x_dot[0:3] = body_to_vehicle(phi, theta, psi) * np.array([u, v, w])
+                x_dot[3:6] = np.array([r*v-q*w, p*w-r*u, q*u-p*v]) + np.array([fx, fy, fz]) / m
+                x_dot[6:10] = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) * np.array([q0, q1, q2, q3])
+                x_dot[10:13] = np.array([gamma1*p*q-gamma2*q*r, gamma5*p*r-gamma6*(p**2-r**2), gamma7*p*q-gamma1*q*r]) + np.array([gamma3*l+gamma4*n, m/Iyy, gamma4*l+gamma8*n])
+
+                self.csvnlm[i,:] = [time, x_dot]
+
+            nlm2csv_in.send(self.csvnlm[:framescount,:]) #send calculated non-linear model to store in CSV
+            self.csvnlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
+
+    def linear(self, rx2lm_out, lm2act_in, lm2csv_in, eq2lm_out, event_start):
+        #Analytic linear model
+        event_start.wait() #wait for simulation start event
+        while True:
+            rxdata      = rx2lm_out.recv() #receive RX telemetry
+            eqdata      = eq2lm_out.recv() #receive equilibrium point
+            framescount = rxdata.shape[0]
+            for i in range(framescount):                
+                time  = rxdata[i,0]
+                phi   = rxdata[i,16]
+                theta = rxdata[i,18]
+                psi   = rxdata[i,20]
+                u     = rxdata[i,30]
+                v     = rxdata[i,31]
+                w     = rxdata[i,32]
+                p     = rxdata[i,42]
+                q     = rxdata[i,43]
+                r     = rxdata[i,44]
+                fx    = rxdata[i,59]
+                fy    = rxdata[i,64]
+                fz    = rxdata[i,69]
+                l     = rxdata[i,74]
+                m     = rxdata[i,79]
+                n     = rxdata[i,84]
+
+                pn_eq    = eqdata[i,0]
+                pe_eq    = eqdata[i,1]
+                pd_eq    = eqdata[i,2]
+                phi_eq   = eqdata[i,3]
+                theta_eq = eqdata[i,4]
+                psi_eq   = eqdata[i,5]
+                u_eq     = eqdata[i,6]
+                v_eq     = eqdata[i,7]
+                w_eq     = eqdata[i,8]
+                p_eq     = eqdata[i,9]
+                q_eq     = eqdata[i,10]
+                r_eq     = eqdata[i,11]
+                (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
+
+                x_dot = np.zeros(STATE_LEN)
+                A     = np.zeros((STATE_LEN, STATE_LEN))
+                B     = np.zeros((STATE_LEN, INPUT_LEN))
+                (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
+                A[1,:] = [0, 0, 0, 2*(q0_eq*u_eq-q3_eq*v_eq+q2_eq*w_eq), 2*(q1_eq*u_eq+q2_eq*v_eq+q3_eq*w_eq), 2*(-q2_eq*u_eq+q1_eq*v_eq+q0_eq*w_eq), 2*(-q3_eq*u_eq-q0_eq*v_eq+q1_eq*w_eq), (q0_eq**2+q1_eq**2-q2_eq**2-q3_eq**2), 2*(q1_eq*q2_eq-q0_eq*q3_eq), 2*(q1_eq*q3_eq+q0_eq*q2_eq), 0, 0, 0]
+                A[2,:] = [0, 0, 0, 2*(q3_eq*u_eq+q0_eq*v_eq-q1_eq*w_eq), 2*(q2_eq*u_eq-q1_eq*v_eq-q0_eq*w_eq), 2*(q1_eq*u_eq+q2_eq*v_eq+q3_eq*w_eq), 2*(q0_eq*u_eq-q3_eq*v_eq+q2_eq*w_eq), 2*(q1_eq*q2_eq+q0_eq*q3_eq), (q0_eq**2+q2_eq**2-q1_eq**2-q3_eq**2), 2*(q2_eq*q3_eq-q0_eq*q1_eq), 0, 0, 0]
+                A[3,:] = [0, 0, 0, 2*(-q2_eq*u_eq+q1_eq*v_eq+q0_eq*w_eq), 2*(q3_eq*u_eq-q0_eq*v_eq-q1_eq*w_eq), 2*(-q0_eq*u_eq+q3_eq*v_eq-q2_eq*w_eq), 2*(q1_eq*u_eq+q2_eq*v_eq+q3_eq*w_eq), 2*(q1_eq*q3_eq-q0_eq*q2_eq), 2*(q2_eq*q3_eq+q0_eq*q1_eq), (q0_eq**2+q3_eq**2-q1_eq**2-q2_eq**2), 0, 0, 0]
+                A[4,:] = [0, 0, 0, 0, -0.5*p_eq, -0.5*q_eq, -0.5*r_eq, 0, 0, 0, -0.5*q1_eq, -0.5*q2_eq, -0.5*q3_eq]
+                A[5,:] = [0, 0, 0, 0.5*p_eq, 0, 0.5*r_eq, -0.5*q_eq, 0, 0, 0, 0.5*q0_eq, -0.5*q3_eq, 0.5*q2_eq]
+                A[6,:] = [0, 0, 0, 0.5*q_eq, -0.5*r_eq, 0, 0.5*p_eq, 0, 0, 0, 0.5*q3_eq, 0.5*q0_eq, -0.5*q1_eq]
+                A[7,:] = [0, 0, 0, 0.5*r_eq, 0.5*q_eq, -0.5*p_eq, 0, 0, 0, 0, -0.5*q2_eq, 0.5*q1_eq, 0.5*q0_eq]
+
+                self.csvlm[i,:] = [time, x_dot]
+
+            lm2csv_in.send(self.csvlm[:framescount,:]) #send calculated linear model to store in CSV
+            self.csvlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 

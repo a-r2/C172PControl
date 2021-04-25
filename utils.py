@@ -37,12 +37,12 @@ def deg_to_rad_2pi(degrees):
     #Degrees to radians conversion (constrained to [0, 2pi))
     return np.radians(degrees % 360)
 
-def euler_to_quat(e):
-    #Euler angles to quaternion
+def euler_to_attquat(euler):
+    #Euler angles to attitude quaternion
 
-    phi   = e[0]
-    theta = e[1]
-    psi   = e[2]
+    phi   = euler[0]
+    theta = euler[1]
+    psi   = euler[2]
 
     q_Z = vehicle_to_vehicle1(psi)
     q_Y = vehicle1_to_vehicle2(theta)
@@ -95,7 +95,7 @@ def lbs_to_N(pounds):
 def lbsft_to_Nm(poundsfeet):
     #Pounds-feet to Newtons-meters conversion
     newtonsfeet   = lbs_to_N(poundsfeet)
-    newtonsmeters = ft_to_m(newtonsfeet)
+    newtonsmeters = newtonsfeet * ft_to_m(1)
     return newtonsmeters
 
 def m_to_ft(meters):
@@ -120,13 +120,18 @@ def psf_to_pa(poundspersquaredfoot):
     pascals = newtonspersquaredfoot / (ft_to_m(1) ** 2)
     return pascals 
 
-def quat_to_euler(q):
-    #Quaternion to Euler angles
+def attquat_diff(quat, p, q, r):
+    #Differentiation of attitude quaternion
 
-    q0 = q[0]
-    q1 = q[1]
-    q2 = q[2]
-    q3 = q[3]
+    return quat.derivative([p, q, r])
+
+def attquat_to_euler(quat):
+    #Attitude quaternion to Euler angles
+
+    q0 = quat[0]
+    q1 = quat[1]
+    q2 = quat[2]
+    q3 = quat[3]
 
     phi   = atan2(2 * (q0 * q1 + q2 * q3), q0 ** 2 + q3 ** 2 - q1 ** 2 - q2 ** 2)
     theta = asin(2 * (q0 * q2 - q1 * q3))
@@ -211,10 +216,16 @@ def slug_to_kg(slugs):
     #Slugs to kilograms conversion
     return 14.593903 * slugs 
 
+def slugft2_to_kgm2(slugssquaredfoot):
+    #Slugs squared foot to kilograms squared metre conversion
+    kilogramssquaredfoot = slug_to_kg(slugssquaredfoot)
+    kilogramspercubicmetre = kilogramssquaredfoot * ft_to_m(1) ** 2
+    return kilogramspercubicmetre  
+
 def slugft3_to_kgm3(slugspercubicfoot):
     #Slugs per cubic feet to kilograms per cubic metre conversion
-    kilograms = slug_to_kg(slugspercubicfoot)
-    kilogramspercubicmetre = kilograms / (ft_to_m(1) ** 3)
+    kilogramspercubicfoot = slug_to_kg(slugspercubicfoot)
+    kilogramspercubicmetre = kilogramspercubicfoot / (ft_to_m(1) ** 3)
     return kilogramspercubicmetre  
 
 ''' FRAME ROTATIONS '''
