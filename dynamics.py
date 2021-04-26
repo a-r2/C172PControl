@@ -43,50 +43,56 @@ class Dynamics():
                 advance_ratio         = rxdata[i,115]
                 rpm_prop              = rxdata[i,116]
 
-                D1 = D0(qbar_psf)
-                D2 = DDf(qbar_psf, h_b_mac_ft, flaps_pos_deg)
-                D3 = Dwbh(qbar_psf, h_b_mac_ft, alpha_rad, flaps_pos_deg)
-                D4 = DDe(qbar_psf, elev_pos_rad)
-                D5 = Dbeta(qbar_psf, beta_rad)
+                fxaero1 = fxaero1(qbar_psf)
+                fxaero2 = fxaero2(qbar_psf, h_b_mac_ft, flaps_pos_deg)
+                fxaero3 = fxaero3(qbar_psf, h_b_mac_ft, alpha_rad, flaps_pos_deg)
+                fxaero4 = fxaero4(qbar_psf, beta_rad)
 
-                S1 = Yb(qbar_psf, beta_rad, flaps_pos_deg)
-                S2 = Ydr(qbar_psf, rudder_pos_rad)
+                fyaero1 = fyaero1(qbar_psf, beta_rad, flaps_pos_deg)
+                fyaero2 = fyaero2(qbar_psf, rudder_pos_rad)
 
-                L1 = Lwbh(qbar_psf, h_b_mac_ft, alpha_rad, stall_hyst_norm)
-                L2 = LDf(qbar_psf, h_b_mac_ft, flaps_pos_deg)
-                L3 = LDe(qbar_psf, elev_pos_rad)
-                L4 = Ladot(qbarUW_psf, alphadot_rad_sec, ci2vel)
-                L5 = Lq(qbar_psf, q_rad_sec, ci2vel)
+                fzaero1 = fzaero1(qbar_psf, h_b_mac_ft, alpha_rad, stall_hyst_norm)
+                fzaero2 = fzaero2(qbar_psf, h_b_mac_ft, flaps_pos_deg)
+                fzaero3 = fzaero3(qbar_psf, elev_pos_rad)
+                fzaero4 = fzaero4(qbarUW_psf, alphadot_rad_sec, ci2vel)
+                fzaero5 = fzaero5(qbar_psf, q_rad_sec, ci2vel)
 
-                T1 = engine_thrust(advance_ratio, density, rpm_prop)
+                fxthrust = fxthrust(advance_ratio, density, rpm_prop)
 
-                l1 = lb(qbar_psf, beta_rad, alpha_rad)
-                l2 = lp(qbar_psf, beta_rad, bi2vel, p_rad_sec) 
-                l3 = lr(qbar_psf, bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm)
-                l4 = lDa(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm)
-                l5 = ldr(qbar_psf, rudder_pos_rad)
+                mxaero1 = mxaero1(qbar_psf, beta_rad, alpha_rad)
+                mxaero2 = mxaero2(qbar_psf, bi2vel, p_rad_sec) 
+                mxaero3 = mxaero3(qbar_psf, bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm)
+                mxaero4 = mxaero4(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm)
+                mxaero5 = mxaero5(qbar_psf, rudder_pos_rad)
 
-                m1 = m0(qbar_psf)
-                m2 = malpha(qbar_psf, alpha_deg, alpha_rad)
-                m3 = mq(qbar_psf, ci2vel, q_rad_sec)
-                m4 = madot(qbarUW_psf, ci2vel, alphadot_rad_sec)
-                m5 = mde(qbar_induced_psf, elev_pos_rad, alpha_deg)
-                m6 = mdf(qbar_psf, flaps_pos_deg)
+                myaero1 = myaero1(qbar_psf)
+                myaero2 = myaero2(qbar_psf, alpha_deg, alpha_rad)
+                myaero3 = myaero3(qbar_psf, ci2vel, q_rad_sec)
+                myaero4 = myaero4(qbarUW_psf, ci2vel, alphadot_rad_sec)
+                myaero5 = myaero5(qbar_induced_psf, elev_pos_rad, alpha_deg)
+                myaero6 = myaero6(qbar_psf, flaps_pos_deg)
 
-                n1 = nb(qbar_psf, beta_rad)
-                n2 = nspw(qbar_propwash_psf)
-                n3 = nr(qbar_psf, bi2vel, r_rad_sec)
-                n4 = nrf(qbar_psf, bi2vel, r_rad_sec, alpha_rad)
-                n5 = nda(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad)
-                n6 = ndr(qbar_induced_psf, rudder_pos_rad)
+                mzaero1 = mzaero1(qbar_psf, beta_rad)
+                mzaero2 = mzaero2(qbar_propwash_psf)
+                mzaero3 = mzaero3(qbar_psf, bi2vel, r_rad_sec)
+                mzaero4 = mzaero4(qbar_psf, bi2vel, r_rad_sec, alpha_rad)
+                mzaero5 = mzaero5(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad)
+                mzaero6 = mzaero6(qbar_induced_psf, rudder_pos_rad)
 
-                D = D1 + D2 + D3 + D4 + D5
-                S = S1 + S2
-                L = L1 + L2 + L3 + L4 + L5
-                T = T1
-                l = l1 + l2 + l3 + l4 + l5
-                m = m1 + m2 + m3 + m4 + m5 + m6
-                n = n1 + n2 + n3 + n4 + n5 + n6
+                fxaero = fxaero1 + fxaero2 + fxaero3 + fxaero4 + fxthrust
+                fyaero = fyaero1 + fyaero2
+                fzaero = fzaero1 + fzaero2 + fzaero3 + fzaero4 + fzaero5 + fzaero6
+                mxaero = mxaero1 + mxaero2 + mxaero3 + mxaero4
+                myaero = myaero1 + myaero2 + myaero3 + myaero4 + myaero5 + myaero6
+                mzaero = mzaero1 + mzaero2 + mzaero3 + mzaero4 + mzaero5 + mzaero6
+
+                D = - fxaero
+                Y = fyaero
+                L = - fzaero
+                T = fxthrust
+                l = mxaero
+                m = myaero
+                n = mzaero
             
                 self.csvdyn[i,:] = [time, D, S, L, T, l, m, n]
 

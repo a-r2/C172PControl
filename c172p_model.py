@@ -385,229 +385,141 @@ CP_interp = interpolate.interp1d(CP[:,0], CP[:,1], bounds_error=False, fill_valu
 ''' PARAMETERS CONVERSION '''
 PROP_DIAM_M = in_to_m(PROP_DIAM_IN)
 
-''' DRAG '''
-def D0(qbar_psf):
-    #Drag at null lift
+''' LONGITUDINAL AERODYNAMIC FORCE (-DRAG) '''
+def fxaero1(qbar_psf):
+    #Longitudinal aerodynamic force contribution (-drag) offset
+    return - qbar_psf * SW_SQFT * 0.0270
 
-    D1 = qbar_psf * SW_SQFT * 0.0270
+def fxaero2(qbar_psf, h_b_mac_ft, flaps_pos_deg):
+    #Longitudinal aerodynamic force contribution (-drag) due to ground effect and flaps position
+    return - qbar_psf * SW_SQFT * kCDge_interp(h_b_mac_ft) * CD2_interp(flaps_pos_deg)
 
-    return D1
+def fxaero3(qbar_psf, h_b_mac_ft, alpha_rad, flaps_pos_deg):
+    #Longitudinal aerodynamic force contribution (-drag) due to ground effect, angle of attack and flaps position
+    return - qbar_psf * SW_SQFT * kCDge_interp(h_b_mac_ft) * CD3_interp(alpha_rad, flaps_pos_deg)
 
-def DDf(qbar_psf, h_b_mac_ft, flaps_pos_deg):
-    #Delta drag due to flaps position
+def fxaero4(qbar_psf, beta_rad):
+    #Longitudinal aerodynamic force contribution (-drag) due to side-slip angle
+    return - qbar_psf * SW_SQFT * abs(beta_rad) * 0.1500
 
-    D2 = qbar_psf * SW_SQFT * kCDge_interp(h_b_mac_ft) * CD2_interp(flaps_pos_deg)
+''' TRANSVERSAL AERODYNAMIC FORCE '''
+def fyaero1(qbar_psf, beta_rad, flaps_pos_deg):
+    #Transversal aerodynamic force contribution due to side-slip angle and flaps position
+    return qbar_psf * SW_SQFT * CY1_interp(beta_rad, flaps_pos_deg)
 
-    return D2
+def fyaero2(qbar_psf, rudder_pos_rad):
+    #Transversal aerodynamic force contribution due to rudder position
+    return qbar_psf * SW_SQFT * rudder_pos_rad * 0.1500
 
-def Dwbh(qbar_psf, h_b_mac_ft, alpha_rad, flaps_pos_deg):
-    #Drag due to angle of attack and flaps position
+''' VERTICAL AERODYNAMIC FORCE (-LIFT) '''
+def fzaero1(qbar_psf, h_b_mac_ft, alpha_rad, stall_hyst_norm):
+    #Vertical aerodynamic force contribution (-lift) due to ground effect, angle of attack and stall state
+    return - qbar_psf * SW_SQFT * kCLge_interp(h_b_mac_ft) * CL1_interp(alpha_rad, stall_hyst_norm)
 
-    D3 = qbar_psf * SW_SQFT * kCDge_interp(h_b_mac_ft) * CD3_interp(alpha_rad, flaps_pos_deg)
+def fzaero2(qbar_psf, h_b_mac_ft, flaps_pos_deg):
+    #Vertical aerodynamic force contribution (-lift) due to ground effect and flaps position
+    return - qbar_psf * SW_SQFT * kCLge_interp(h_b_mac_ft) * CL2_interp(flaps_pos_deg)
 
-    return D3
+def fzaero3(qbar_psf, elev_pos_rad):
+    #Vertical aerodynamic force contribution (-lift) due to elevators position
+    return - qbar_psf * SW_SQFT * elev_pos_rad * 0.4300
 
-def DDe(qbar_psf, elev_pos_rad):
-    #Delta drag due to elevators position
+def fzaero4(qbarUW_psf, alphadot_rad_sec, ci2vel):
+    #Vertical aerodynamic force contribution (-lift) due to rate of change of angle of attack
+    return - qbarUW_psf * SW_SQFT * alphadot_rad_sec * ci2vel * 1.7000
 
-    D4 = qbar_psf * SW_SQFT * abs(elev_pos_rad) * 0.0000
+def fzaero5(qbar_psf, q_rad_sec, ci2vel):
+    #Vertical aerodynamic force contribution (-lift) due to pitch velocity
+    return - qbar_psf * SW_SQFT * q_rad_sec * ci2vel * 3.9000
 
-    return D4
+''' LONGITUDINAL AERODYNAMIC MOMENT '''
+def mxaero1(qbar_psf, beta_rad, alpha_rad):
+    #Longitudinal aerodynamic moment contribution due to side-slip angle and angle of attack
+    return qbar_psf * SW_SQFT * BW_FT * beta_rad * -0.0920 * Cl1_interp(alpha_rad)
 
-def Dbeta(qbar_psf, beta_rad):
-    #Delta drag due to side-slip angle
+def mxaero2(qbar_psf, bi2vel, p_rad_sec):
+    #Longitudinal aerodynamic moment contribution due to longitudinal angular velocity
+    return qbar_psf * SW_SQFT * BW_FT * bi2vel * p_rad_sec * -0.4840
 
-    D5 = qbar_psf * SW_SQFT * abs(beta_rad) * 0.1500
-
-    return D5
-
-''' SIDE '''
-def Yb(qbar_psf, beta_rad, flaps_pos_deg):
-    #Side force due to side-slip angle
-    
-    Y1 = qbar_psf * SW_SQFT * CY1_interp(beta_rad, flaps_pos_deg)
-
-    return Y1
-
-def Ydr(qbar_psf, rudder_pos_rad):
-    #Delta side force due to rudder position
-
-    Y2 = qbar_psf * SW_SQFT * rudder_pos_rad * 0.1500
-
-    return Y2
-
-''' LIFT '''
-def Lwbh(qbar_psf, h_b_mac_ft, alpha_rad, stall_hyst_norm):
-    #Lift due to angle of attack and stall state
-
-    L1 = qbar_psf * SW_SQFT * kCLge_interp(h_b_mac_ft) * CL1_interp(alpha_rad, stall_hyst_norm)
-
-    return L1
-
-def LDf(qbar_psf, h_b_mac_ft, flaps_pos_deg):
-    #Delta lift due to flaps position
-
-    L2 = qbar_psf * SW_SQFT * kCLge_interp(h_b_mac_ft) * CL2_interp(flaps_pos_deg)
-
-    return L2
-
-def LDe(qbar_psf, elev_pos_rad):
-    #Delta lift due to elevators position
-
-    L3 = qbar_psf * SW_SQFT * elev_pos_rad * 0.4300
-
-    return L3
-
-def Ladot(qbarUW_psf, alphadot_rad_sec, ci2vel):
-    #Lift due to rate of change of angle of attack
-
-    L4 = qbarUW_psf * SW_SQFT * alphadot_rad_sec * ci2vel * 1.7000
-
-    return L4
-
-def Lq(qbar_psf, q_rad_sec, ci2vel):
-    #Lift due to pitch velocity
-
-    L5 = qbar_psf * SW_SQFT * q_rad_sec * ci2vel * 3.9000
-
-    return L5
-
-''' ROLL '''
-def lb(qbar_psf, beta_rad, alpha_rad):
-    #Roll moment due to side-slip angle
-    
-    l1 = qbar_psf * SW_SQFT * BW_FT * beta_rad * -0.0920 * Cl1_interp(alpha_rad)
-
-    return l1
-
-def lp(qbar_psf, beta_rad, bi2vel, p_rad_sec):
-    #Roll moment due to roll velocity
-
-    l2 = qbar_psf * SW_SQFT * BW_FT * bi2vel * p_rad_sec * -0.4840
-
-    return l2
-
-def lr(qbar_psf, bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
-    #Roll moment due to yaw velocity
-
+def mxaero3(qbar_psf, bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
+    #Longitudinal aerodynamic moment contribution due to vertical angular velocity, flaps position, angle of attack and stall state
     if stall_hyst_norm:
-        l3 = qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl32_interp(alpha_rad, r_rad_sec)
-
+        return qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl32_interp(alpha_rad, r_rad_sec)
     else:
-        l3 = qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl33_interp(alpha_rad, r_rad_sec)
+        return qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl33_interp(alpha_rad, r_rad_sec)
 
-    return l3
+def mxaero4(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
+    #Longitudinal aerodynamic moment contribution due to ailerons position
+    return qbar_psf * SW_SQFT * BW_FT * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * 0.2290 * Cl4_interp(alpha_rad, stall_hyst_norm)
 
-def lDa(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
-    #Delta roll moment due to ailerons position
+def mxaero5(qbar_psf, rudder_pos_rad):
+    #Longitudinal aerodynamic moment due to rudder position
+    return qbar_psf * SW_SQFT * BW_FT * rudder_pos_rad * 0.0147
 
-    l4 = qbar_psf * SW_SQFT * BW_FT * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * 0.2290 * Cl4_interp(alpha_rad, stall_hyst_norm)
+''' TRANSVERSAL AERODYNAMIC MOMENT '''
+def myaero1(qbar_psf):
+    #Transversal aerodynamic moment contribution offset
+    return qbar_psf * SW_SQFT * CBARW_FT * Cm1_interp(qbar_psf)
 
-    return l4
+def myaero2(qbar_psf, alpha_deg, alpha_rad):
+    #Transversal aerodynamic moment contribution due to angle of attack
+    return qbar_psf * SW_SQFT * CBARW_FT * math.sin(alpha_rad) * -1.8000 * Cm2_interp(alpha_deg)
 
-def ldr(qbar_psf, rudder_pos_rad):
-    #Delta roll moment due to rudder position
+def myaero3(qbar_psf, ci2vel, q_rad_sec):
+    #Transversal aerodynamic moment contribution due to transversal angular velocity
+    return qbar_psf * SW_SQFT * CBARW_FT * ci2vel * q_rad_sec * -12.4000
 
-    l5 = qbar_psf * SW_SQFT * BW_FT * rudder_pos_rad * 0.0147
+def maeroy4(qbarUW_psf, ci2vel, alphadot_rad_sec):
+    #Transversal aerodynamic moment contribution due to rate of change of angle of attack
+    return qbarUW_psf  * SW_SQFT * CBARW_FT * ci2vel * alphadot_rad_sec * -7.2700
 
-    return l5
+def maeroy5(qbar_induced_psf, elev_pos_rad, alpha_deg):
+    #Transversal aerodynamic moment contribution due to elevator position and angle of attack
+    return qbar_induced_psf * SW_SQFT * CBARW_FT * elev_pos_rad * -1.2800 * Cm5_interp(elev_pos_rad, alpha_deg)
 
-''' PITCH '''
-def m0(qbar_psf):
-    #Pitch moment at null angle of attack
+def maeroy6(qbar_psf, flaps_pos_deg):
+    #Transversal aerodynamic moment contribution due to flaps position
+    return qbar_psf * SW_SQFT * CBARW_FT * Cm6_interp(flaps_pos_deg) * 0.7000
 
-    m1 = qbar_psf * SW_SQFT * CBARW_FT * Cm1_interp(qbar_psf)
+''' VERTICAL AERODYNAMIC MOMENT '''
+def mzaero1(qbar_psf, beta_rad):
+    #Vertical aerodynamic moment contribution due to side-slip angle
+    return qbar_psf * SW_SQFT * BW_FT * Cn1_interp(beta_rad)
 
-    return m1
+def mzaero2(qbar_propwash_psf):
+    #Vertical aerodynamic moment contribution due to spiralling propwash
+    return qbar_propwash_psf * SW_SQFT * BW_FT * -0.0500 * SPIRAL_PROPWASH_COEFF
 
-def malpha(qbar_psf, alpha_deg, alpha_rad):
-    #Pitch moment due to angle of attack
+def mzaero3(qbar_psf, bi2vel, r_rad_sec):
+    #Vertical aerodynamic moment contribution due to vertical angular velocity 
+    return qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * -0.0937
 
-    m2 = qbar_psf * SW_SQFT * CBARW_FT * math.sin(alpha_rad) * -1.8000 * Cm2_interp(alpha_deg)
+def mzaero4(qbar_psf, bi2vel, r_rad_sec, alpha_rad):
+    #Vertical aerodynamic moment contribution due to vertical angular velocity and angle of attack
+    return qbar_psf * SW_SQFT * BW_FT * bi2vel * Cn4_interp(r_rad_sec, alpha_rad)
 
-    return m2
+def mzaero5(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
+    #Vertical aerodynamic moment contribution due to aileron position, angle of attack and side-slip angle
+    return qbar_psf * SW_SQFT * BW_FT * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Cn5_interp(alpha_rad, beta_rad)
 
-def mq(qbar_psf, ci2vel, q_rad_sec):
-    #Pitch moment due to pitch velocity
+def mzaero6(qbar_induced_psf, rudder_pos_rad):
+    #Vertical aerodynamic moment contribution due to rudder position
+    return qbar_induced_psf * SW_SQFT * BW_FT * rudder_pos_rad * -0.0645
 
-    m3 = qbar_psf * SW_SQFT * CBARW_FT * ci2vel * q_rad_sec * -12.4000
-
-    return m3
-
-def madot(qbarUW_psf, ci2vel, alphadot_rad_sec):
-    #Pitch moment due to rate of change of angle of attack
-
-    m4 = qbarUW_psf  * SW_SQFT * CBARW_FT * ci2vel * alphadot_rad_sec * -7.2700
-
-    return m4
-
-def mde(qbar_induced_psf, elev_pos_rad, alpha_deg):
-    #Delta pitch moment due to elevator position
-
-    m5 = qbar_induced_psf * SW_SQFT * CBARW_FT * elev_pos_rad * -1.2800 * Cm5_interp(elev_pos_rad, alpha_deg)
-
-    return m5
-
-def mdf(qbar_psf, flaps_pos_deg):
-    #Delta pitch moment due to flaps position
-
-    m6 = qbar_psf * SW_SQFT * CBARW_FT * Cm6_interp(flaps_pos_deg) * 0.7000
-
-    return m6
-
-''' YAW '''
-def nb(qbar_psf, beta_rad):
-    #Yaw moment due to side-slip angle
-
-    n1 = qbar_psf * SW_SQFT * BW_FT * Cn1_interp(beta_rad)
-
-    return n1
-
-def nspw(qbar_propwash_psf):
-    #Yaw moment due to spiraling propwash
-
-    n2 = qbar_propwash_psf * SW_SQFT * BW_FT * -0.0500 * SPIRAL_PROPWASH_COEFF
-
-    return n2
-
-def nr(qbar_psf, bi2vel, r_rad_sec):
-    #Yaw moment due to yaw velocity
-
-    n3 = qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * -0.0937
-
-    return n3
-
-def nrf(qbar_psf, bi2vel, r_rad_sec, alpha_rad):
-    #Yaw moment due to flat spin
-
-    n4 = qbar_psf * SW_SQFT * BW_FT * bi2vel * Cn4_interp(r_rad_sec, alpha_rad)
-
-    return n4
-
-def nda(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
-    #Delta yaw moment due to aileron position
-
-    n5 = qbar_psf * SW_SQFT * BW_FT * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Cn5_interp(alpha_rad, beta_rad)
-
-    return n5
-
-def ndr(qbar_induced_psf, rudder_pos_rad):
-    #Delta yaw moment due to rudder position
-
-    n6 = qbar_induced_psf * SW_SQFT * BW_FT * rudder_pos_rad * -0.0645
-
-    return n6
-
-''' PROPULSION '''
-def engine_thrust(advance_ratio, density, rpm_prop):
+''' PROPULSIVE FORCE '''
+def fxthrust(advance_ratio, density, rpm_prop):
     #Engine (160 HP) thrust
-    T = CT_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 2) * (PROP_DIAM_M ** 4)
-    return T
+    return CT_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 2) * (PROP_DIAM_M ** 4)
+
+''' GRAVITATIONAL FORCE '''
+def fgravity():
+    #Gravitational forces
+
+''' MISC ''' 
 
 def engine_power(advance_ratio, density, rpm_prop):
     #Engine (160 HP) power
-    P = CP_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 3) * (PROP_DIAM_M ** 5)
-    return P
+    return CP_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 3) * (PROP_DIAM_M ** 5)
 
 ''' MODEL '''
 STATE_LEN = 13 #[pn_dot, pe_dot, pd_dot, q0_dot, q1_dot, q2_dot, q3_dot, u_dot, v_dot, w_dot, p_dot, q_dot, r_dot]
