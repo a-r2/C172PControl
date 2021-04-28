@@ -29,6 +29,10 @@ def angles_deg_conversion(rxdata):
 
     return rxdata
 
+def attquat_to_euler(quat):
+    #Attitude quaternion to Euler angles
+    return np.array(quat.yaw_pitch_roll[::-1])
+
 def deg_to_rad(degrees):
     #Degrees to radians conversion (unconstrained)
     return np.radians(degrees)
@@ -39,17 +43,7 @@ def deg_to_rad_2pi(degrees):
 
 def euler_to_attquat(euler):
     #Euler angles to attitude quaternion
-
-    phi   = euler[0]
-    theta = euler[1]
-    psi   = euler[2]
-
-    q_Z = vehicle_to_vehicle1(psi)
-    q_Y = vehicle1_to_vehicle2(theta)
-    q_X = vehicle2_to_body(phi)
-    q   = q_Z * q_Y * q_X 
-
-    return q
+    return vehicle_to_body(euler[0], euler[1], euler[2]) 
 
 def ft_to_m(feet):
     #Feet to meters conversion
@@ -119,27 +113,6 @@ def psf_to_pa(poundspersquaredfoot):
     newtonspersquaredfoot = lbs_to_N(poundspersquaredfoot)
     pascals = newtonspersquaredfoot / (ft_to_m(1) ** 2)
     return pascals 
-
-def attquat_diff(quat, p, q, r):
-    #Differentiation of attitude quaternion
-
-    return quat.derivative([p, q, r])
-
-def attquat_to_euler(quat):
-    #Attitude quaternion to Euler angles
-
-    q0 = quat[0]
-    q1 = quat[1]
-    q2 = quat[2]
-    q3 = quat[3]
-
-    phi   = atan2(2 * (q0 * q1 + q2 * q3), q0 ** 2 + q3 ** 2 - q1 ** 2 - q2 ** 2)
-    theta = asin(2 * (q0 * q2 - q1 * q3))
-    psi   = atan2(2 * (q0 * q3 + q1 * q2), q0 ** 2 + q1 ** 2 - q2 ** 2 - q3 ** 2)
-
-    e = np.array([phi, theta, psi])
-
-    return e 
 
 def rpm_to_rps(rpm):
     #Revolutions per minute to revolutions per second conversion
@@ -249,7 +222,7 @@ def body_to_vehicle(phi, theta, psi):
 def body_to_vehicle2(phi):
     #Body frame to vehicle-2 frame rotation
 
-    q_r = Quaternion(axis=[1, 0, 0], radians=-phi)
+    q_r = Quaternion(axis=[-1, 0, 0], radians=-phi)
 
     return q_r
 
@@ -276,41 +249,6 @@ def stability_to_wind(beta):
 
     return q_r
 
-def vehicle_to_vehicle1(psi):
-    #Vehicle frame to vehicle-1 frame rotation
-
-    q_r = Quaternion(axis=[0, 0, 1], radians=psi)
-
-    return q_r
-
-def vehicle1_to_vehicle(psi):
-    #Vehicle-1 frame to vehicle frame rotation
-
-    q_r = Quaternion(axis=[0, 0, 1], radians=-psi)
-
-    return q_r
-
-def vehicle1_to_vehicle2(theta):
-    #Vehicle-1 frame to vehicle-2 frame rotation
-
-    q_r = Quaternion(axis=[0, 1, 0], radians=theta)
-
-    return q_r
-
-def vehicle2_to_vehicle1(theta):
-    #Vehicle-2 frame to vehicle-1 frame rotation
-
-    q_r = Quaternion(axis=[0, 1, 0], radians=-theta)
-
-    return q_r
-
-def vehicle2_to_body(phi):
-    #Vehicle-2 frame to body frame rotation
-
-    q_r = Quaternion(axis=[1, 0, 0], radians=phi)
-
-    return q_r
-
 def vehicle_to_body(phi, theta, psi):
     #Vehicle frame to body frame rotation
     
@@ -318,6 +256,41 @@ def vehicle_to_body(phi, theta, psi):
     q_r_Y = vehicle1_to_vehicle2(theta)
     q_r_X = vehicle2_to_body(phi)
     q_r   = q_r_X * q_r_Y * q_r_Z
+
+    return q_r
+
+def vehicle_to_vehicle1(psi):
+    #Vehicle frame to vehicle-1 frame rotation
+
+    q_r = Quaternion(axis=[0, 0, -1], radians=psi)
+
+    return q_r
+
+def vehicle1_to_vehicle(psi):
+    #Vehicle-1 frame to vehicle frame rotation
+
+    q_r = Quaternion(axis=[0, 0, -1], radians=-psi)
+
+    return q_r
+
+def vehicle1_to_vehicle2(theta):
+    #Vehicle-1 frame to vehicle-2 frame rotation
+
+    q_r = Quaternion(axis=[0, -1, 0], radians=theta)
+
+    return q_r
+
+def vehicle2_to_vehicle1(theta):
+    #Vehicle-2 frame to vehicle-1 frame rotation
+
+    q_r = Quaternion(axis=[0, -1, 0], radians=-theta)
+
+    return q_r
+
+def vehicle2_to_body(phi):
+    #Vehicle-2 frame to body frame rotation
+
+    q_r = Quaternion(axis=[-1, 0, 0], radians=phi)
 
     return q_r
 

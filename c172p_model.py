@@ -424,13 +424,13 @@ def fzaero3(qbar_psf, elev_pos_rad):
     #Vertical aerodynamic force contribution (-lift) due to elevators position
     return - qbar_psf * SW_SQFT * elev_pos_rad * 0.4300
 
-def fzaero4(qbarUW_psf, alphadot_rad_sec, ci2vel):
-    #Vertical aerodynamic force contribution (-lift) due to rate of change of angle of attack
-    return - qbarUW_psf * SW_SQFT * alphadot_rad_sec * ci2vel * 1.7000
-
-def fzaero5(qbar_psf, q_rad_sec, ci2vel):
+def fzaero4(qbar_psf, q_rad_sec, ci2vel):
     #Vertical aerodynamic force contribution (-lift) due to pitch velocity
     return - qbar_psf * SW_SQFT * q_rad_sec * ci2vel * 3.9000
+
+def fzaero5(qbarUW_psf, alphadot_rad_sec, ci2vel):
+    #Vertical aerodynamic force contribution (-lift) due to rate of change of angle of attack
+    return - qbarUW_psf * SW_SQFT * alphadot_rad_sec * ci2vel * 1.7000
 
 ''' LONGITUDINAL AERODYNAMIC MOMENT '''
 def mxaero1(qbar_psf, beta_rad, alpha_rad):
@@ -469,42 +469,43 @@ def myaero3(qbar_psf, ci2vel, q_rad_sec):
     #Transversal aerodynamic moment contribution due to transversal angular velocity
     return qbar_psf * SW_SQFT * CBARW_FT * ci2vel * q_rad_sec * -12.4000
 
-def maeroy4(qbarUW_psf, ci2vel, alphadot_rad_sec):
+def maeroy4(qbar_psf, flaps_pos_deg):
+    #Transversal aerodynamic moment contribution due to flaps position
+    return qbar_psf * SW_SQFT * CBARW_FT * Cm6_interp(flaps_pos_deg) * 0.7000
+
+def maeroy5(qbarUW_psf, ci2vel, alphadot_rad_sec):
     #Transversal aerodynamic moment contribution due to rate of change of angle of attack
     return qbarUW_psf  * SW_SQFT * CBARW_FT * ci2vel * alphadot_rad_sec * -7.2700
 
-def maeroy5(qbar_induced_psf, elev_pos_rad, alpha_deg):
+def maeroy6(qbar_induced_psf, elev_pos_rad, alpha_deg):
     #Transversal aerodynamic moment contribution due to elevator position and angle of attack
     return qbar_induced_psf * SW_SQFT * CBARW_FT * elev_pos_rad * -1.2800 * Cm5_interp(elev_pos_rad, alpha_deg)
 
-def maeroy6(qbar_psf, flaps_pos_deg):
-    #Transversal aerodynamic moment contribution due to flaps position
-    return qbar_psf * SW_SQFT * CBARW_FT * Cm6_interp(flaps_pos_deg) * 0.7000
 
 ''' VERTICAL AERODYNAMIC MOMENT '''
 def mzaero1(qbar_psf, beta_rad):
     #Vertical aerodynamic moment contribution due to side-slip angle
     return qbar_psf * SW_SQFT * BW_FT * Cn1_interp(beta_rad)
 
-def mzaero2(qbar_propwash_psf):
-    #Vertical aerodynamic moment contribution due to spiralling propwash
-    return qbar_propwash_psf * SW_SQFT * BW_FT * -0.0500 * SPIRAL_PROPWASH_COEFF
-
-def mzaero3(qbar_psf, bi2vel, r_rad_sec):
+def mzaero2(qbar_psf, bi2vel, r_rad_sec):
     #Vertical aerodynamic moment contribution due to vertical angular velocity 
     return qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * -0.0937
 
-def mzaero4(qbar_psf, bi2vel, r_rad_sec, alpha_rad):
+def mzaero3(qbar_psf, bi2vel, r_rad_sec, alpha_rad):
     #Vertical aerodynamic moment contribution due to vertical angular velocity and angle of attack
     return qbar_psf * SW_SQFT * BW_FT * bi2vel * Cn4_interp(r_rad_sec, alpha_rad)
 
-def mzaero5(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
+def mzaero4(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
     #Vertical aerodynamic moment contribution due to aileron position, angle of attack and side-slip angle
     return qbar_psf * SW_SQFT * BW_FT * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Cn5_interp(alpha_rad, beta_rad)
 
-def mzaero6(qbar_induced_psf, rudder_pos_rad):
+def mzaero5(qbar_induced_psf, rudder_pos_rad):
     #Vertical aerodynamic moment contribution due to rudder position
     return qbar_induced_psf * SW_SQFT * BW_FT * rudder_pos_rad * -0.0645
+
+def mzaero6(qbar_propwash_psf):
+    #Vertical aerodynamic moment contribution due to spiralling propwash
+    return qbar_propwash_psf * SW_SQFT * BW_FT * -0.0500 * SPIRAL_PROPWASH_COEFF
 
 ''' PROPULSIVE FORCE '''
 def fxthrust(advance_ratio, density, rpm_prop):
@@ -512,8 +513,10 @@ def fxthrust(advance_ratio, density, rpm_prop):
     return CT_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 2) * (PROP_DIAM_M ** 4)
 
 ''' GRAVITATIONAL FORCE '''
-def fgravity():
+def fgravity(quat, mass, gravity):
     #Gravitational forces
+    euler = attquat_to_euler(quat)
+    return vehicle_to_body(euler[0], euler[1], euler[2]).rotate(mass * gravity * np.array([0, 0, 1]))
 
 ''' MISC ''' 
 
