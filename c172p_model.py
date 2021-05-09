@@ -386,134 +386,134 @@ CP_interp = interpolate.interp1d(CP[:,0], CP[:,1], bounds_error=False, fill_valu
 PROP_DIAM_M = in_to_m(PROP_DIAM_IN)
 
 ''' LONGITUDINAL AERODYNAMIC FORCE (-DRAG) '''
-def fxaero1(qbar_psf):
-    #Longitudinal aerodynamic force contribution (-drag) offset
-    return - qbar_psf * SW_SQFT * 0.0270
+def CFx1():
+    #Longitudinal aerodynamic force coefficient offset
+    return 0.0270
 
-def fxaero2(qbar_psf, h_b_mac_ft, flaps_pos_deg):
-    #Longitudinal aerodynamic force contribution (-drag) due to ground effect and flaps position
-    return - qbar_psf * SW_SQFT * kCDge_interp(h_b_mac_ft) * CD2_interp(flaps_pos_deg)
+def CFx2(h_b_mac_ft, flaps_pos_deg):
+    #Longitudinal aerodynamic force coefficient due to ground effect and flaps position
+    return kCDge_interp(h_b_mac_ft) * CD2_interp(flaps_pos_deg)
 
-def fxaero3(qbar_psf, h_b_mac_ft, alpha_rad, flaps_pos_deg):
-    #Longitudinal aerodynamic force contribution (-drag) due to ground effect, angle of attack and flaps position
-    return - qbar_psf * SW_SQFT * kCDge_interp(h_b_mac_ft) * CD3_interp(alpha_rad, flaps_pos_deg)
+def CFx3(h_b_mac_ft, alpha_rad, flaps_pos_deg):
+    #Longitudinal aerodynamic force coefficient due to ground effect, angle of attack and flaps position
+    return kCDge_interp(h_b_mac_ft) * CD3_interp(alpha_rad, flaps_pos_deg)
 
-def fxaero4(qbar_psf, beta_rad):
-    #Longitudinal aerodynamic force contribution (-drag) due to side-slip angle
-    return - qbar_psf * SW_SQFT * abs(beta_rad) * 0.1500
+def CFx4(beta_rad):
+    #Longitudinal aerodynamic force coefficient due to side-slip angle
+    return abs(beta_rad) * 0.1500
 
 ''' TRANSVERSAL AERODYNAMIC FORCE '''
-def fyaero1(qbar_psf, beta_rad, flaps_pos_deg):
-    #Transversal aerodynamic force contribution due to side-slip angle and flaps position
-    return qbar_psf * SW_SQFT * CY1_interp(beta_rad, flaps_pos_deg)
+def CFy1(beta_rad, flaps_pos_deg):
+    #Transversal aerodynamic force coefficient due to side-slip angle and flaps position
+    return CY1_interp(beta_rad, flaps_pos_deg)
 
-def fyaero2(qbar_psf, rudder_pos_rad):
-    #Transversal aerodynamic force contribution due to rudder position
-    return qbar_psf * SW_SQFT * rudder_pos_rad * 0.1500
+def CFy2(rudder_pos_rad):
+    #Transversal aerodynamic force coefficient due to rudder position
+    return rudder_pos_rad * 0.1500
 
 ''' VERTICAL AERODYNAMIC FORCE (-LIFT) '''
-def fzaero1(qbar_psf, h_b_mac_ft, alpha_rad, stall_hyst_norm):
-    #Vertical aerodynamic force contribution (-lift) due to ground effect, angle of attack and stall state
-    return - qbar_psf * SW_SQFT * kCLge_interp(h_b_mac_ft) * CL1_interp(alpha_rad, stall_hyst_norm)
+def CFz1(h_b_mac_ft, alpha_rad, stall_hyst_norm):
+    #Vertical aerodynamic force coefficient due to ground effect, angle of attack and stall state
+    return kCLge_interp(h_b_mac_ft) * CL1_interp(alpha_rad, stall_hyst_norm)
 
-def fzaero2(qbar_psf, h_b_mac_ft, flaps_pos_deg):
-    #Vertical aerodynamic force contribution (-lift) due to ground effect and flaps position
-    return - qbar_psf * SW_SQFT * kCLge_interp(h_b_mac_ft) * CL2_interp(flaps_pos_deg)
+def CFz2(h_b_mac_ft, flaps_pos_deg):
+    #Vertical aerodynamic force coefficient due to ground effect and flaps position
+    return kCLge_interp(h_b_mac_ft) * CL2_interp(flaps_pos_deg)
 
-def fzaero3(qbar_psf, elev_pos_rad):
-    #Vertical aerodynamic force contribution (-lift) due to elevators position
-    return - qbar_psf * SW_SQFT * elev_pos_rad * 0.4300
+def CFz3(elev_pos_rad):
+    #Vertical aerodynamic force coefficient due to elevators position
+    return elev_pos_rad * 0.4300
 
-def fzaero4(qbar_psf, q_rad_sec, ci2vel):
-    #Vertical aerodynamic force contribution (-lift) due to pitch velocity
-    return - qbar_psf * SW_SQFT * q_rad_sec * ci2vel * 3.9000
+def CFz4(q_rad_sec, ci2vel):
+    #Vertical aerodynamic force coefficient due to pitch velocity
+    return q_rad_sec * ci2vel * 3.9000
 
-def fzaero5(qbarUW_psf, alphadot_rad_sec, ci2vel):
-    #Vertical aerodynamic force contribution (-lift) due to rate of change of angle of attack
-    return - qbarUW_psf * SW_SQFT * alphadot_rad_sec * ci2vel * 1.7000
+def CFz5(alphadot_rad_sec, ci2vel):
+    #Vertical aerodynamic force coefficient due to rate of change of angle of attack
+    return alphadot_rad_sec * ci2vel * 1.7000
 
 ''' LONGITUDINAL AERODYNAMIC MOMENT '''
-def mxaero1(qbar_psf, beta_rad, alpha_rad):
-    #Longitudinal aerodynamic moment contribution due to side-slip angle and angle of attack
-    return qbar_psf * SW_SQFT * BW_FT * beta_rad * -0.0920 * Cl1_interp(alpha_rad)
+def CMx1(beta_rad, alpha_rad):
+    #Longitudinal aerodynamic moment coefficient due to side-slip angle and angle of attack
+    return beta_rad * -0.0920 * Cl1_interp(alpha_rad)
 
-def mxaero2(qbar_psf, bi2vel, p_rad_sec):
-    #Longitudinal aerodynamic moment contribution due to longitudinal angular velocity
-    return qbar_psf * SW_SQFT * BW_FT * bi2vel * p_rad_sec * -0.4840
+def CMx2(bi2vel, p_rad_sec):
+    #Longitudinal aerodynamic moment coefficient due to longitudinal angular velocity
+    return bi2vel * p_rad_sec * -0.4840
 
-def mxaero3(qbar_psf, bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
-    #Longitudinal aerodynamic moment contribution due to vertical angular velocity, flaps position, angle of attack and stall state
+def CMx3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
+    #Longitudinal aerodynamic moment coefficient due to vertical angular velocity, flaps position, angle of attack and stall state
     if stall_hyst_norm:
-        return qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl32_interp(alpha_rad, r_rad_sec)
+        return bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl32_interp(alpha_rad, r_rad_sec)
     else:
-        return qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl33_interp(alpha_rad, r_rad_sec)
+        return bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl33_interp(alpha_rad, r_rad_sec)
 
-def mxaero4(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
-    #Longitudinal aerodynamic moment contribution due to ailerons position
-    return qbar_psf * SW_SQFT * BW_FT * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * 0.2290 * Cl4_interp(alpha_rad, stall_hyst_norm)
+def CMx4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
+    #Longitudinal aerodynamic moment coefficient due to ailerons position
+    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * 0.2290 * Cl4_interp(alpha_rad, stall_hyst_norm)
 
-def mxaero5(qbar_psf, rudder_pos_rad):
-    #Longitudinal aerodynamic moment due to rudder position
-    return qbar_psf * SW_SQFT * BW_FT * rudder_pos_rad * 0.0147
+def CMx5(rudder_pos_rad):
+    #Longitudinal aerodynamic moment coefficient due to rudder position
+    return rudder_pos_rad * 0.0147
 
 ''' TRANSVERSAL AERODYNAMIC MOMENT '''
-def myaero1(qbar_psf):
-    #Transversal aerodynamic moment contribution offset
-    return qbar_psf * SW_SQFT * CBARW_FT * Cm1_interp(qbar_psf)
+def CMy1():
+    #Transversal aerodynamic moment coefficient offset
+    return Cm1_interp(qbar_psf)
 
-def myaero2(qbar_psf, alpha_deg, alpha_rad):
-    #Transversal aerodynamic moment contribution due to angle of attack
-    return qbar_psf * SW_SQFT * CBARW_FT * math.sin(alpha_rad) * -1.8000 * Cm2_interp(alpha_deg)
+def CMy2(alpha_deg, alpha_rad):
+    #Transversal aerodynamic moment coefficient due to angle of attack
+    return math.sin(alpha_rad) * -1.8000 * Cm2_interp(alpha_deg)
 
-def myaero3(qbar_psf, ci2vel, q_rad_sec):
-    #Transversal aerodynamic moment contribution due to transversal angular velocity
-    return qbar_psf * SW_SQFT * CBARW_FT * ci2vel * q_rad_sec * -12.4000
+def CMy3(ci2vel, q_rad_sec):
+    #Transversal aerodynamic moment coefficient due to transversal angular velocity
+    return ci2vel * q_rad_sec * -12.4000
 
-def maeroy4(qbar_psf, flaps_pos_deg):
-    #Transversal aerodynamic moment contribution due to flaps position
-    return qbar_psf * SW_SQFT * CBARW_FT * Cm6_interp(flaps_pos_deg) * 0.7000
+def CMy4(flaps_pos_deg):
+    #Transversal aerodynamic moment coefficient due to flaps position
+    return Cm6_interp(flaps_pos_deg) * 0.7000
 
-def maeroy5(qbarUW_psf, ci2vel, alphadot_rad_sec):
-    #Transversal aerodynamic moment contribution due to rate of change of angle of attack
-    return qbarUW_psf  * SW_SQFT * CBARW_FT * ci2vel * alphadot_rad_sec * -7.2700
+def CMy5(ci2vel, alphadot_rad_sec):
+    #Transversal aerodynamic moment coefficient due to rate of change of angle of attack
+    return ci2vel * alphadot_rad_sec * -7.2700
 
-def maeroy6(qbar_induced_psf, elev_pos_rad, alpha_deg):
-    #Transversal aerodynamic moment contribution due to elevator position and angle of attack
-    return qbar_induced_psf * SW_SQFT * CBARW_FT * elev_pos_rad * -1.2800 * Cm5_interp(elev_pos_rad, alpha_deg)
+def CMy6(elev_pos_rad, alpha_deg):
+    #Transversal aerodynamic moment coefficient due to elevator position and angle of attack
+    return elev_pos_rad * -1.2800 * Cm5_interp(elev_pos_rad, alpha_deg)
 
 
 ''' VERTICAL AERODYNAMIC MOMENT '''
-def mzaero1(qbar_psf, beta_rad):
-    #Vertical aerodynamic moment contribution due to side-slip angle
-    return qbar_psf * SW_SQFT * BW_FT * Cn1_interp(beta_rad)
+def CMz1(beta_rad):
+    #Vertical aerodynamic moment coefficient due to side-slip angle
+    return Cn1_interp(beta_rad)
 
-def mzaero2(qbar_psf, bi2vel, r_rad_sec):
-    #Vertical aerodynamic moment contribution due to vertical angular velocity 
-    return qbar_psf * SW_SQFT * BW_FT * bi2vel * r_rad_sec * -0.0937
+def CMz2(bi2vel, r_rad_sec):
+    #Vertical aerodynamic moment coefficient due to vertical angular velocity 
+    return bi2vel * r_rad_sec * -0.0937
 
-def mzaero3(qbar_psf, bi2vel, r_rad_sec, alpha_rad):
-    #Vertical aerodynamic moment contribution due to vertical angular velocity and angle of attack
-    return qbar_psf * SW_SQFT * BW_FT * bi2vel * Cn4_interp(r_rad_sec, alpha_rad)
+def CMz3(bi2vel, r_rad_sec, alpha_rad):
+    #Vertical aerodynamic moment coefficient due to vertical angular velocity and angle of attack
+    return bi2vel * Cn4_interp(r_rad_sec, alpha_rad)
 
-def mzaero4(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
-    #Vertical aerodynamic moment contribution due to aileron position, angle of attack and side-slip angle
-    return qbar_psf * SW_SQFT * BW_FT * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Cn5_interp(alpha_rad, beta_rad)
+def CMz4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
+    #Vertical aerodynamic moment coefficient due to aileron position, angle of attack and side-slip angle
+    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Cn5_interp(alpha_rad, beta_rad)
 
-def mzaero5(qbar_induced_psf, rudder_pos_rad):
-    #Vertical aerodynamic moment contribution due to rudder position
-    return qbar_induced_psf * SW_SQFT * BW_FT * rudder_pos_rad * -0.0645
+def CMz5(rudder_pos_rad):
+    #Vertical aerodynamic moment coefficient due to rudder position
+    return rudder_pos_rad * -0.0645
 
-def mzaero6(qbar_propwash_psf):
-    #Vertical aerodynamic moment contribution due to spiralling propwash
-    return qbar_propwash_psf * SW_SQFT * BW_FT * -0.0500 * SPIRAL_PROPWASH_COEFF
+def CMz6():
+    #Vertical aerodynamic moment coefficient due to spiralling propwash
+    return -0.0500 * SPIRAL_PROPWASH_COEFF
 
 ''' PROPULSIVE FORCE '''
-def fxthrust(advance_ratio, density, rpm_prop):
+def engine_thrust(advance_ratio, density, rpm_prop):
     #Engine (160 HP) thrust
     return CT_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 2) * (PROP_DIAM_M ** 4)
 
 ''' GRAVITATIONAL FORCE '''
-def fgravity(quat, mass, gravity):
+def force_gravity(quat, mass, gravity):
     #Gravitational forces
     euler = attquat_to_euler(quat)
     return vehicle_to_body(euler[0], euler[1], euler[2]).rotate(mass * gravity * np.array([0, 0, 1]))
@@ -571,7 +571,7 @@ class Model():
 
             nlm2csv_in.send(self.csvnlm[:framescount,:]) #send calculated non-linear model to store in CSV
             self.csvnlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
-
+'''
     def linear(self, rx2lm_out, lm2act_in, lm2csv_in, eq2lm_out, event_start):
         #Analytic linear model
         event_start.wait() #wait for simulation start event
@@ -627,3 +627,4 @@ class Model():
 
             lm2csv_in.send(self.csvlm[:framescount,:]) #send calculated linear model to store in CSV
             self.csvlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
+'''

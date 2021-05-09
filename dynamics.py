@@ -4,7 +4,7 @@ import numpy as np
 from c172p_model import *
 from settings import *
 
-DYN_LEN = 7 #[D, S, L, T, l, m, n]
+DYN_LEN = 10 #[Fax, Fgx, Ft, Fay, Fgy, Faz, Fgz, Max, May, Maz]
 
 class Dynamics():
     def __init__(self, rx2dyn_out, dyn2csv_in, event_start):
@@ -43,58 +43,50 @@ class Dynamics():
                 advance_ratio         = rxdata[i,115]
                 rpm_prop              = rxdata[i,116]
 
-                fxaero1 = fxaero1(qbar_psf)
-                fxaero2 = fxaero2(qbar_psf, h_b_mac_ft, flaps_pos_deg)
-                fxaero3 = fxaero3(qbar_psf, h_b_mac_ft, alpha_rad, flaps_pos_deg)
-                fxaero4 = fxaero4(qbar_psf, beta_rad)
+                CFx1 = CFx1()
+                CFx2 = CFx2(h_b_mac_ft, flaps_pos_deg)
+                CFx3 = CFx3(h_b_mac_ft, alpha_rad, flaps_pos_deg)
+                CFx4 = CFx4(beta_rad)
 
-                fyaero1 = fyaero1(qbar_psf, beta_rad, flaps_pos_deg)
-                fyaero2 = fyaero2(qbar_psf, rudder_pos_rad)
+                CFy1 = CFy1(beta_rad, flaps_pos_deg)
+                CFy2 = CFy2(rudder_pos_rad)
 
-                fzaero1 = fzaero1(qbar_psf, h_b_mac_ft, alpha_rad, stall_hyst_norm)
-                fzaero2 = fzaero2(qbar_psf, h_b_mac_ft, flaps_pos_deg)
-                fzaero3 = fzaero3(qbar_psf, elev_pos_rad)
-                fzaero4 = fzaero4(qbarUW_psf, alphadot_rad_sec, ci2vel)
-                fzaero5 = fzaero5(qbar_psf, q_rad_sec, ci2vel)
+                CFz1 = CFz1(h_b_mac_ft, alpha_rad, stall_hyst_norm)
+                CFz2 = CFz2(h_b_mac_ft, flaps_pos_deg)
+                CFz3 = CFz3(elev_pos_rad)
+                CFz4 = CFz4(q_rad_sec, ci2vel)
+                CFz5 = CFz5(alphadot_rad_sec, ci2vel)
 
-                fxthrust = fxthrust(advance_ratio, density, rpm_prop)
+                CMx1 = CMx1(beta_rad, alpha_rad)
+                CMx2 = CMx2(bi2vel, p_rad_sec) 
+                CMx3 = CMx3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm)
+                CMx4 = CMx4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm)
+                CMx5 = CMx5(rudder_pos_rad)
 
-                mxaero1 = mxaero1(qbar_psf, beta_rad, alpha_rad)
-                mxaero2 = mxaero2(qbar_psf, bi2vel, p_rad_sec) 
-                mxaero3 = mxaero3(qbar_psf, bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm)
-                mxaero4 = mxaero4(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm)
-                mxaero5 = mxaero5(qbar_psf, rudder_pos_rad)
+                CMy1 = CMy1()
+                CMy2 = CMy2(alpha_deg, alpha_rad)
+                CMy3 = CMy3(ci2vel, q_rad_sec)
+                CMy4 = CMy4(flaps_pos_deg)
+                CMy5 = CMy5(ci2vel, alphadot_rad_sec)
+                CMy6 = CMy6(elev_pos_rad, alpha_deg)
 
-                myaero1 = myaero1(qbar_psf)
-                myaero2 = myaero2(qbar_psf, alpha_deg, alpha_rad)
-                myaero3 = myaero3(qbar_psf, ci2vel, q_rad_sec)
-                myaero4 = myaero4(qbarUW_psf, ci2vel, alphadot_rad_sec)
-                myaero5 = myaero5(qbar_induced_psf, elev_pos_rad, alpha_deg)
-                myaero6 = myaero6(qbar_psf, flaps_pos_deg)
+                CMz1 = CMz1(beta_rad)
+                CMz2 = CMz2(bi2vel, r_rad_sec)
+                CMz3 = CMz3(bi2vel, r_rad_sec, alpha_rad)
+                CMz4 = CMz4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad)
+                CMz5 = CMz5(rudder_pos_rad)
+                CMz6 = CMz6()
 
-                mzaero1 = mzaero1(qbar_psf, beta_rad)
-                mzaero2 = mzaero2(qbar_propwash_psf)
-                mzaero3 = mzaero3(qbar_psf, bi2vel, r_rad_sec)
-                mzaero4 = mzaero4(qbar_psf, bi2vel, r_rad_sec, alpha_rad)
-                mzaero5 = mzaero5(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad)
-                mzaero6 = mzaero6(qbar_induced_psf, rudder_pos_rad)
+                Fax = qbar_psf * SW_SQFT * (CFx1 + CFx2 + CFx3 + CFx4) 
+                Fay = qbar_psf * SW_SQFT * (CFy1 + CFy2)
+                Faz = SW_SQFT * (qbar_psf * (CFz1 + CFz2 + CFz3 + CFz4) + qbarUW_psf * CFz5)
+                Max = qbar_psf * SW_SQFT * BW_FT * (CMx1 + CMx2 + CMx3 + CMx4 + CMx5)
+                May = SW_SQFT * CBARW_FT * (qbar_psf * (CMy1 + CMy2 + CMy3 + CMy4) + qbarUW_psf * CMy5 + qbar_induced_psf * CMy6)
+                Maz = SW_SQFT * BW_FT * (qbar_psf * (CMz1 + CMz2 + CMz3 + CMz4) + qbar_induced_psf * CMz5 + qbar_propwash_psf * CMz6)
+                Fgx, Fgy, Fgz = force_gravity(quat, mass, gravity)
+                Ft = engine_thrust(advance_ratio, density, rpm_prop)
 
-                fxaero = fxaero1 + fxaero2 + fxaero3 + fxaero4 + fxthrust
-                fyaero = fyaero1 + fyaero2
-                fzaero = fzaero1 + fzaero2 + fzaero3 + fzaero4 + fzaero5 + fzaero6
-                mxaero = mxaero1 + mxaero2 + mxaero3 + mxaero4
-                myaero = myaero1 + myaero2 + myaero3 + myaero4 + myaero5 + myaero6
-                mzaero = mzaero1 + mzaero2 + mzaero3 + mzaero4 + mzaero5 + mzaero6
-
-                D = - fxaero
-                Y = fyaero
-                L = - fzaero
-                T = fxthrust
-                l = mxaero
-                m = myaero
-                n = mzaero
-            
-                self.csvdyn[i,:] = [time, D, S, L, T, l, m, n]
+                self.csvdyn[i,:] = [time, Fax, Fgx, Ft, Fay, Fgy, Faz, Fgz, Max, May, Maz]
 
             dyn2csv_in.send(self.csvdyn[:framescount,:]) #send calculated dynamics to store in CSV
             self.csvdyn = np.empty((MODEL_HZ, DYN_LEN + 1)) #empty array 
