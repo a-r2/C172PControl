@@ -457,7 +457,7 @@ def CMx5(rudder_pos_rad):
     return rudder_pos_rad * 0.0147
 
 ''' TRANSVERSAL AERODYNAMIC MOMENT '''
-def CMy1():
+def CMy1(qbar_psf):
     #Transversal aerodynamic moment coefficient offset
     return Cm1_interp(qbar_psf)
 
@@ -528,6 +528,13 @@ def engine_power(advance_ratio, density, rpm_prop):
 STATE_LEN = 13 #[pn_dot, pe_dot, pd_dot, q0_dot, q1_dot, q2_dot, q3_dot, u_dot, v_dot, w_dot, p_dot, q_dot, r_dot]
 INPUT_LEN = 5 #[delta_a, delta_e, delta_f, delta_r, delta_t]
 
+''' ASSUMPTIONS FOR THE ANALYTIC LINEAR MODEL'''
+def rps_alm(delta_t):
+    #Propeller RPS (Revolutions Per Second) law for the analytic linear model
+    return (N_MAX - N_MIN) * delta_t + N_MIN
+
+G0 = 9.80665 #gravitational acceleration
+
 class Model():
     def __init__(self, rx2nlm_out, rx2lm_out, nlm2act_in, lm2act_in, nlm2csv_in, lm2csv_in, eq2lm_out, event_start):
         self.csvnlm = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing non-linear model
@@ -571,7 +578,7 @@ class Model():
 
             nlm2csv_in.send(self.csvnlm[:framescount,:]) #send calculated non-linear model to store in CSV
             self.csvnlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
-'''
+
     def linear(self, rx2lm_out, lm2act_in, lm2csv_in, eq2lm_out, event_start):
         #Analytic linear model
         event_start.wait() #wait for simulation start event
@@ -580,22 +587,22 @@ class Model():
             eqdata      = eq2lm_out.recv() #receive equilibrium point
             framescount = rxdata.shape[0]
             for i in range(framescount):                
-                time  = rxdata[i,0]
-                phi   = rxdata[i,16]
-                theta = rxdata[i,18]
-                psi   = rxdata[i,20]
-                u     = rxdata[i,30]
-                v     = rxdata[i,31]
-                w     = rxdata[i,32]
-                p     = rxdata[i,42]
-                q     = rxdata[i,43]
-                r     = rxdata[i,44]
-                fx    = rxdata[i,59]
-                fy    = rxdata[i,64]
-                fz    = rxdata[i,69]
-                l     = rxdata[i,74]
-                m     = rxdata[i,79]
-                n     = rxdata[i,84]
+                time   = rxdata[i,0]
+                phi    = rxdata[i,16]
+                theta  = rxdata[i,18]
+                psi    = rxdata[i,20]
+                vx     = rxdata[i,30]
+                vy     = rxdata[i,31]
+                vz     = rxdata[i,32]
+                omegax = rxdata[i,42]
+                omegay = rxdata[i,43]
+                omegaz = rxdata[i,44]
+                Fx     = rxdata[i,59]
+                Fy     = rxdata[i,64]
+                Fz     = rxdata[i,69]
+                Mx     = rxdata[i,74]
+                My     = rxdata[i,79]
+                Mz     = rxdata[i,84]
 
                 pn_eq    = eqdata[i,0]
                 pe_eq    = eqdata[i,1]
@@ -603,25 +610,119 @@ class Model():
                 phi_eq   = eqdata[i,3]
                 theta_eq = eqdata[i,4]
                 psi_eq   = eqdata[i,5]
-                u_eq     = eqdata[i,6]
-                v_eq     = eqdata[i,7]
-                w_eq     = eqdata[i,8]
-                p_eq     = eqdata[i,9]
-                q_eq     = eqdata[i,10]
-                r_eq     = eqdata[i,11]
+                vx_eq     = eqdata[i,6]
+                vy_eq     = eqdata[i,7]
+                vz_eq     = eqdata[i,8]
+                omegax_eq = eqdata[i,9]
+                omegay_eq = eqdata[i,10]
+                omegaz_eq = eqdata[i,11]
                 (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
 
                 x_dot = np.zeros(STATE_LEN)
                 A     = np.zeros((STATE_LEN, STATE_LEN))
                 B     = np.zeros((STATE_LEN, INPUT_LEN))
                 (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
-                A[1,:] = [0, 0, 0, 2*(q0_eq*u_eq-q3_eq*v_eq+q2_eq*w_eq), 2*(q1_eq*u_eq+q2_eq*v_eq+q3_eq*w_eq), 2*(-q2_eq*u_eq+q1_eq*v_eq+q0_eq*w_eq), 2*(-q3_eq*u_eq-q0_eq*v_eq+q1_eq*w_eq), (q0_eq**2+q1_eq**2-q2_eq**2-q3_eq**2), 2*(q1_eq*q2_eq-q0_eq*q3_eq), 2*(q1_eq*q3_eq+q0_eq*q2_eq), 0, 0, 0]
-                A[2,:] = [0, 0, 0, 2*(q3_eq*u_eq+q0_eq*v_eq-q1_eq*w_eq), 2*(q2_eq*u_eq-q1_eq*v_eq-q0_eq*w_eq), 2*(q1_eq*u_eq+q2_eq*v_eq+q3_eq*w_eq), 2*(q0_eq*u_eq-q3_eq*v_eq+q2_eq*w_eq), 2*(q1_eq*q2_eq+q0_eq*q3_eq), (q0_eq**2+q2_eq**2-q1_eq**2-q3_eq**2), 2*(q2_eq*q3_eq-q0_eq*q1_eq), 0, 0, 0]
-                A[3,:] = [0, 0, 0, 2*(-q2_eq*u_eq+q1_eq*v_eq+q0_eq*w_eq), 2*(q3_eq*u_eq-q0_eq*v_eq-q1_eq*w_eq), 2*(-q0_eq*u_eq+q3_eq*v_eq-q2_eq*w_eq), 2*(q1_eq*u_eq+q2_eq*v_eq+q3_eq*w_eq), 2*(q1_eq*q3_eq-q0_eq*q2_eq), 2*(q2_eq*q3_eq+q0_eq*q1_eq), (q0_eq**2+q3_eq**2-q1_eq**2-q2_eq**2), 0, 0, 0]
-                A[4,:] = [0, 0, 0, 0, -0.5*p_eq, -0.5*q_eq, -0.5*r_eq, 0, 0, 0, -0.5*q1_eq, -0.5*q2_eq, -0.5*q3_eq]
-                A[5,:] = [0, 0, 0, 0.5*p_eq, 0, 0.5*r_eq, -0.5*q_eq, 0, 0, 0, 0.5*q0_eq, -0.5*q3_eq, 0.5*q2_eq]
-                A[6,:] = [0, 0, 0, 0.5*q_eq, -0.5*r_eq, 0, 0.5*p_eq, 0, 0, 0, 0.5*q3_eq, 0.5*q0_eq, -0.5*q1_eq]
-                A[7,:] = [0, 0, 0, 0.5*r_eq, 0.5*q_eq, -0.5*p_eq, 0, 0, 0, 0, -0.5*q2_eq, 0.5*q1_eq, 0.5*q0_eq]
+
+                # Partial derivatives of \dot{r_n}
+                pd_q0_drn = 2 * (q0_eq * vx_eq - q3_eq * vy_eq + q2_eq * vz_eq)
+                pd_q1_drn = 2 * (q1_eq * vx_eq + q2_eq * vy_eq + q3_eq * vz_eq)
+                pd_q2_drn = 2 * (- q2_eq * vx_eq + q1_eq * vy_eq + q0_eq * vz_eq)
+                pd_q3_drn = 2 * (- q3_eq * vx_eq - q0_eq * vy_eq + q1_eq * vz_eq)
+                pd_vx_drn = q0_eq^2 + q1_eq^2 - q2_eq^2 - q3_eq^2
+                pd_vy_drn = 2 * (q1_eq * q2_eq - q0_eq * q3_eq)
+                pd_vz_drn = 2 * (q0_eq * q2_eq + q1_eq * q3_eq)
+
+                # Partial derivatives of \dot{r_e}
+                pd_q0_dre = 2 * (q3_eq * vx_eq + q0_eq * vy_eq - q1_eq * vz_eq)
+                pd_q1_dre = 2 * (q2_eq * vx_eq - q1_eq * vy_eq - q0_eq * vz_eq)
+                pd_q2_dre = 2 * (q1_eq * vx_eq + q2_eq * vy_eq + q3_eq * vz_eq)
+                pd_q3_dre = 2 * (q0_eq * vx_eq - q3_eq * vy_eq + q2_eq * vz_eq)
+                pd_vx_dre = 2 * (q0_eq * q3_eq + q1_eq * q2_eq)
+                pd_vy_dre = q0_eq^2 + q2_eq^2 - q1_eq^2 - q3_eq^2
+                pd_vz_dre = 2 * (q2_eq * q3_eq - q0_eq * q1_eq)
+
+                # Partial derivatives of \dot{r_d}
+                pd_q0_drd = 2 * (- q2_eq * vx_eq + q1_eq * vy_eq + q0_eq * vz_eq)
+                pd_q1_drd = 2 * (q3_eq * vx_eq + q0_eq * vy_eq - q1_eq * vz_eq)
+                pd_q2_drd = 2 * (- q0_eq * vx_eq + q3_eq * vy_eq - q2_eq * vz_eq)
+                pd_q3_drd = 2 * (q1_eq * vx_eq + q2_eq * vy_eq + q3_eq * vz_eq)
+                pd_vx_drd = 2 * (q1_eq * q3_eq - q0_eq * q2_eq)
+                pd_vy_drd = 2 * (q0_eq * q1_eq + q2_eq * q3_eq)
+                pd_vz_drd = q0_eq^2 + q3_eq^2 - q1_eq^2 - q2_eq^2
+
+                # Partial derivatives of \dot{q_0}
+                pd_q1_dq0     = - 0.5 * omegax_eq
+                pd_q2_dq0     = - 0.5 * omegay_eq
+                pd_q3_dq0     = - 0.5 * omegaz_eq
+                pd_omegax_dq0 = - 0.5 * q1_eq
+                pd_omegay_dq0 = - 0.5 * q2_eq
+                pd_omegaz_dq0 = - 0.5 * q3_eq
+
+                # Partial derivatives of \dot{q_1}
+                pd_q0_dq1     = 0.5 * omegax_eq
+                pd_q2_dq1     = 0.5 * omegaz_eq
+                pd_q3_dq1     = - 0.5 * omegay_eq
+                pd_omegax_dq1 = 0.5 * q0_eq
+                pd_omegay_dq1 = - 0.5 * q3_eq
+                pd_omegaz_dq1 = 0.5 * q2_eq
+
+                # Partial derivatives of \dot{q_2}
+                pd_q0_dq2     = 0.5 * omegay_eq
+                pd_q1_dq2     = - 0.5 * omegaz_eq
+                pd_q3_dq2     = 0.5 * omegax_eq
+                pd_omegax_dq2 = 0.5 * q3_eq
+                pd_omegay_dq2 = 0.5 * q0_eq
+                pd_omegaz_dq2 = - 0.5 * q1_eq
+
+                # Partial derivatives of \dot{q_3}
+                pd_q0_dq3     = 0.5 * omegaz_eq
+                pd_q1_dq3     = 0.5 * omegay_eq
+                pd_q2_dq3     = - 0.5 * omegax_eq
+                pd_omegax_dq3 = - 0.5 * q2_eq
+                pd_omegay_dq3 = 0.5 * q1_eq
+                pd_omegaz_dq3 = 0.5 * q0_eq
+
+                # Partial derivatives of \dot{v_x}
+                pd_rd_dvx     = (1 / m) * (- pd_rd_q_eq * SW_SQFT * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + pd_rd_Ft_eq)
+                pd_q0_dvx     = - 2 * G0 * q2_eq
+                pd_q1_dvx     = 2 * G0 * q3_eq
+                pd_q2_dvx     = - 2 * G0 * q0_eq
+                pd_q3_dvx     = 2 * G0 * q1_eq
+                pd_vx_dvx     = (1 / m) * (- SW_SQFT * (pd_vx_q_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + q_eq * (pd_vx_CFx3_eq + pd_vx_CFx4_eq)) + pd_vx_Ft_eq)
+                pd_vy_dvx     = omegaz_eq - (SW_SQFT / m) * (pd_vy_q_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + q_eq * pd_vy_CFx4_eq)
+                pd_vz_dvx     = - omegay_eq - (SW_SQFT / m) * (pd_vz_q_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + q_eq * (pd_vz_CFx3_eq + pd_vz_CFx4_eq))
+                pd_omegay_dvx = - vz_eq
+                pd_omegaz_dvx = vy_eq
+                pd_deltaf_dvx = - ((q_eq * SW_SQFT) / m) * (pd_deltaf_CFx2_eq + pd_deltaf_CFx3_eq)
+                pd_deltat_dvx = pd_deltat_Ft_eq / m
+
+                # Partial derivatives of \dot{v_y}
+                pd_rd_dvy     = (1 / m) * (pd_rd_q_eq * SW_SQFT * (CFy1_eq + CFy2_eq))
+                pd_q0_dvy     = 2 * G0 * q1_eq
+                pd_q1_dvy     = 2 * G0 * q0_eq
+                pd_q2_dvy     = 2 * G0 * q3_eq
+                pd_q3_dvy     = 2 * G0 * q2_eq
+                pd_vx_dvy     = - omegaz_eq + (SW_SQFT / m) * (pd_vx_q_eq * (CFy1_eq + CFy2_eq) + q_eq * pd_vx_CFy1_eq)
+                pd_vy_dvy     = (SW_SQFT / m) * (pd_vy_q_eq * (CFy1_eq + CFy2_eq) + q_eq * pd_vy_CFy1_eq)
+                pd_vz_dvy     = omegax_eq + (SW_SQFT / m) * (pd_vz_q_eq * (CFy1_eq + CFy2_eq) + q_eq * pd_vz_CFy1_eq)
+                pd_omegax_dvy = vz_eq
+                pd_omegaz_dvy = - vx_eq
+                pd_deltaf_dvy = ((q_eq * SW_SQFT) / m) * pd_deltaf_CFy1_eq
+                pd_deltar_dvy = ((q_eq * SW_SQFT) / m) * pd_deltar_CFy2_eq
+
+                # Partial derivatives of \dot{v_z}
+                pd_rd_dvz     = - (SW_SQFT / m) * (pd_rd_q_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + pd_rd_qxz_eq * CFz5_eq)
+                pd_q0_dvz     = 2 * G0 * q0_eq
+                pd_q1_dvz     = - 2 * G0 * q1_eq
+                pd_q2_dvz     = - 2 * G0 * q2_eq
+                pd_q3_dvz     = 2 * G0 * q3_eq
+                pd_vx_dvz     = omegay_eq - (SW_SQFT / m) * (pd_vx_q_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + q_eq * (pd_vx_CFz1_eq + pd_vx_CFz4_eq) + pd_vx_qxz_eq * CFz5_eq + qxz_eq * pd_vx_CFz5_eq)
+                pd_vy_dvz     = - omegax_eq - (SW_SQFT / m) * (pd_vy_q_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + q_eq * pd_vy_CFz4_eq + qxz_eq * CFz5_eq)
+                pd_vz_dvz     = - (SW_SQFT / m) * (pd_vz_q_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + q_eq * (pd_vz_CFz1_eq + pd_vz_CFz4_eq) + pd_vz_qxz_eq * CFz5_eq + qxz_eq * pd_vz_CFz5_eq)
+                pd_omegax_dvz = - vy_eq
+                pd_omegay_dvz = vx_eq - ((q_eq * SW_SFQT) / m) * pd_omegay_CFz4
+                pd_deltaf_dvz = - ((q_eq * SW_SQFT) / m) * pd_deltaf_CFz2_eq
+                pd_deltae_dvz = - ((q_eq * SW_SQFT) / m) * pd_deltae_CFz3_eq
 
                 self.csvlm[i,:] = [time, x_dot]
 
