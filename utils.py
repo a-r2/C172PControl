@@ -315,7 +315,7 @@ BARO_ATM = np.array(
 def barometric_density(rd):
     #Barometric density as a function of negative altitude (rd)
     try:
-        layer_ind = np.where(BARO_ATM[:,0] <= rd)[0][-1]
+        layer_ind = np.where(BARO_ATM[:,0] <= (- rd))[0][-1]
     except:
         layer_ind = 0
 
@@ -327,12 +327,12 @@ def barometric_density(rd):
     if L_layer == 0:
         return rho_layer * exp((G0 * Me * (rd + h_layer)) / (Rg * T_layer))
     else:
-        return rho_layer * (T_layer / (T_layer - L_layer * (rd + h_layer))) ** (1 + (G0 * Me / (Rg * L_layer)))
+        return rho_layer * (T_layer / (T_layer - L_layer * (rd + h_layer))) ** (1 + ((G0 * Me) / (Rg * L_layer)))
 
 def barometric_density_pd_rd(rd):
     #Partial derivative of barometric density with respect to negative altitude (rd)
     try:
-        layer_ind = np.where(BARO_ATM[:,0] <= rd)[0][-1]
+        layer_ind = np.where(BARO_ATM[:,0] <= (- rd))[0][-1]
     except:
         layer_ind = 0
 
@@ -342,6 +342,6 @@ def barometric_density_pd_rd(rd):
     L_layer   = BARO_ATM[layer_ind,3] #temperature lapse rate
 
     if L_layer == 0:
-        return (rho_layer * G0 * Me / (Rg * T_layer)) * exp((G0 * Me * (rd + h_layer)) / (Rg * T_layer))
+        return ((rho_layer * G0 * Me) / (Rg * T_layer)) * exp((G0 * Me * (rd + h_layer)) / (Rg * T_layer))
     else:
-        return (rho_layer * T_layer * L_layer * (1 + (G0 * Me / (Rg * L_layer))) * (T_layer / (T_layer - L_layer * (rd + h_layer))) ** (G0 * Me / (Rg * L_layer))) / ((T_layer - L_layer * (rd + h_layer)) ** 2)
+        return (rho_layer * T_layer * L_layer * (1 + ((G0 * Me) / (Rg * L_layer))) * (T_layer / (T_layer - L_layer * (rd + h_layer))) ** ((G0 * Me) / (Rg * L_layer))) / ((T_layer - L_layer * (rd + h_layer)) ** 2)
