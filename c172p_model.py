@@ -6,7 +6,7 @@ from settings import *
 from scipy import interpolate
 from utils import *
 
-''' MODEL PARAMETERS '''
+''' FLIGHTGEAR MODEL PARAMETERS '''
 BW_IMP            = 35.8000 #wing span [ft]
 CW_IMP            = 4.9000 #wing chord [ft]
 N_MAX             = 45.0000 #maximum propeller revolutions per second [RPS]
@@ -16,10 +16,17 @@ STH_IMP           = 21.9000 #horizontal tail area [ft^2]
 STV_IMP           = 16.5000 #vertical tail area [ft^2]
 SW_IMP            = 174.0000 #wing area [ft^2]
 C_SPIRAL_PROPWASH = 0.2500 #coefficient due to the propeller induced velocity
-DELTA_M_MIN       = 0.100 #minimum delta_m to maintain the engine running
+DELTA_M_MIN       = 0.1000 #minimum delta_m to maintain the engine running [-]
 
 ''' MODEL PARAMETERS CONVERSION '''
+BW_SI      = ft_to_m(BW_IMP) #wing span [m]
+CW_SI      = ft_to_m(CW_IMP) #chord span [m]
+D_PROP_IMP = in_to_ft(D_PROP_IMP) #propeller diameter [ft]
 D_PROP_SI  = in_to_m(D_PROP_IMP) #propeller diameter [m]
+STH_SI     = ft_to_m(sqrt(STH_IMP)) ** 2 #horizontal tail area [m^2]
+STV_SI     = ft_to_m(sqrt(STV_IMP)) ** 2 #vertical tail area [m^2]
+SW_SI      = ft_to_m(sqrt(SW_IMP)) ** 2 #wing area [m^2]
+
 A_PROP_SI  = propeller_area(D_PROP_SI) #propeller area [m^2]
 A_PROP_IMP = propeller_area(m_to_ft(D_PROP_SI)) #propeller area [ft^2]
 
@@ -391,206 +398,207 @@ CP = np.array(
              )
 CP_interp = interpolate.interp1d(CP[:,0], CP[:,1], bounds_error=False, fill_value=(CP[0,1], CP[-1,1]))
 
-''' LONGITUDINAL AERODYNAMIC FORCE (-DRAG) '''
-def CFx1():
-    #Longitudinal aerodynamic force coefficient offset
+''' AERODYNAMIC DRAG FORCE COEFFICIENTS '''
+def CD1():
+    #Aerodynamic drag coefficient 1 
     return 0.0270
 
-def CFx2(h_b_mac_ft, flaps_pos_deg):
-    #Longitudinal aerodynamic force coefficient due to ground effect and flaps position
+def CD2(h_b_mac_ft, flaps_pos_deg):
+    #Aerodynamic drag coefficient 2
     return kCDge_interp(h_b_mac_ft) * CD2_interp(flaps_pos_deg)
 
-def CFx3(h_b_mac_ft, alpha_rad, flaps_pos_deg):
-    #Longitudinal aerodynamic force coefficient due to ground effect, angle of attack and flaps position
+def CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg):
+    #Aerodynamic drag coefficient 3
     return kCDge_interp(h_b_mac_ft) * CD3_interp(alpha_rad, flaps_pos_deg)
 
-def CFx4(beta_rad):
-    #Longitudinal aerodynamic force coefficient due to side-slip angle
+def CD4(beta_rad):
+    #Aerodynamic drag coefficient 4
     return abs(beta_rad) * 0.1500
 
-''' TRANSVERSAL AERODYNAMIC FORCE '''
-def CFy1(beta_rad, flaps_pos_deg):
-    #Transversal aerodynamic force coefficient due to side-slip angle and flaps position
+''' AERODYNAMIC CROSSWIND FORCE COEFFICIENTS '''
+def CC1(beta_rad, flaps_pos_deg):
+    #Aerodynamic crosswind coefficient 1
     return CY1_interp(beta_rad, flaps_pos_deg)
 
-def CFy2(rudder_pos_rad):
-    #Transversal aerodynamic force coefficient due to rudder position
+def CC2(rudder_pos_rad):
+    #Aerodynamic crosswind coefficient 2
     return rudder_pos_rad * 0.1500
 
-''' VERTICAL AERODYNAMIC FORCE (-LIFT) '''
-def CFz1(h_b_mac_ft, alpha_rad, stall_hyst_norm):
-    #Vertical aerodynamic force coefficient due to ground effect, angle of attack and stall state
+''' AERODYNAMIC LIFT FORCE COEFFICIENTS '''
+def CL1(h_b_mac_ft, alpha_rad, stall_hyst_norm):
+    #Aerodynamic lift coefficient 1
     return kCLge_interp(h_b_mac_ft) * CL1_interp(alpha_rad, stall_hyst_norm)
 
-def CFz2(h_b_mac_ft, flaps_pos_deg):
-    #Vertical aerodynamic force coefficient due to ground effect and flaps position
+def CL2(h_b_mac_ft, flaps_pos_deg):
+    #Aerodynamic lift coefficient 2
     return kCLge_interp(h_b_mac_ft) * CL2_interp(flaps_pos_deg)
 
-def CFz3(elev_pos_rad):
-    #Vertical aerodynamic force coefficient due to elevators position
+def CL3(elev_pos_rad):
+    #Aerodynamic lift coefficient 3
     return elev_pos_rad * 0.4300
 
-def CFz4(q_rad_sec, ci2vel):
-    #Vertical aerodynamic force coefficient due to pitch velocity
+def CL4(q_rad_sec, ci2vel):
+    #Aerodynamic lift coefficient 4
     return q_rad_sec * ci2vel * 3.9000
 
-def CFz5(alphadot_rad_sec, ci2vel):
-    #Vertical aerodynamic force coefficient due to rate of change of angle of attack
+def CL5(alphadot_rad_sec, ci2vel):
+    #Aerodynamic lift coefficient 5
     return alphadot_rad_sec * ci2vel * 1.7000
 
-''' LONGITUDINAL AERODYNAMIC MOMENT '''
-def CMx1(beta_rad, alpha_rad):
-    #Longitudinal aerodynamic moment coefficient due to side-slip angle and angle of attack
+''' AERODYNAMIC ROLL MOMENT COEFFICIENTS '''
+def Cl1(beta_rad, alpha_rad):
+    #Aerodynamic roll coefficient 1
     return beta_rad * -0.0920 * Cl1_interp(alpha_rad)
 
-def CMx2(bi2vel, p_rad_sec):
-    #Longitudinal aerodynamic moment coefficient due to longitudinal angular velocity
+def Cl2(bi2vel, p_rad_sec):
+    #Aerodynamic roll coefficient 2
     return bi2vel * p_rad_sec * -0.4840
 
-def CMx3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
-    #Longitudinal aerodynamic moment coefficient due to vertical angular velocity, flaps position, angle of attack and stall state
+def Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
+    #Aerodynamic roll coefficient 3
     if stall_hyst_norm:
-        M = bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl32_interp(alpha_rad, r_rad_sec)
+        return bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl32_interp(alpha_rad, r_rad_sec)
     else:
-        M = bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl33_interp(alpha_rad, r_rad_sec)
+        return bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl33_interp(alpha_rad, r_rad_sec)
 
-    return M
-
-def CMx4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
-    #Longitudinal aerodynamic moment coefficient due to ailerons position
+def Cl4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
+    #Aerodynamic roll coefficient 4
     return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * 0.2290 * Cl4_interp(alpha_rad, stall_hyst_norm)
 
-def CMx5(rudder_pos_rad):
-    #Longitudinal aerodynamic moment coefficient due to rudder position
+def Cl5(rudder_pos_rad):
+    #Aerodynamic roll coefficient 5
     return rudder_pos_rad * 0.0147
 
-''' TRANSVERSAL AERODYNAMIC MOMENT '''
-def CMy1(qbar_psf):
-    #Transversal aerodynamic moment coefficient offset
+''' AERODYNAMIC PITCH MOMENT COEFFICIENTS '''
+def Cm1(qbar_psf):
+    #Aerodynamic pitch coefficient 1
     return Cm1_interp(qbar_psf)
 
-def CMy2(alpha_deg, alpha_rad):
-    #Transversal aerodynamic moment coefficient due to angle of attack
+def Cm2(alpha_deg, alpha_rad):
+    #Aerodynamic pitch coefficient 2
     return sin(alpha_rad) * -1.8000 * Cm2_interp(alpha_deg)
 
-def CMy3(ci2vel, q_rad_sec):
-    #Transversal aerodynamic moment coefficient due to transversal angular velocity
+def Cm3(ci2vel, q_rad_sec):
+    #Aerodynamic pitch coefficient 3
     return ci2vel * q_rad_sec * -12.4000
 
-def CMy4(flaps_pos_deg):
-    #Transversal aerodynamic moment coefficient due to flaps position
+def Cm4(flaps_pos_deg):
+    #Aerodynamic pitch coefficient 4
     return Cm6_interp(flaps_pos_deg) * 0.7000
 
-def CMy5(ci2vel, alphadot_rad_sec):
-    #Transversal aerodynamic moment coefficient due to rate of change of angle of attack
+def Cm5(ci2vel, alphadot_rad_sec):
+    #Aerodynamic pitch coefficient 5
     return ci2vel * alphadot_rad_sec * -7.2700
 
-def CMy6(elev_pos_rad, alpha_deg):
-    #Transversal aerodynamic moment coefficient due to elevator position and angle of attack
+def Cm6(elev_pos_rad, alpha_deg):
+    #Aerodynamic pitch coefficient 6
     return elev_pos_rad * -1.2800 * Cm5_interp(elev_pos_rad, alpha_deg)
 
-
-''' VERTICAL AERODYNAMIC MOMENT '''
-def CMz1(beta_rad):
-    #Vertical aerodynamic moment coefficient due to side-slip angle
+''' AERODYNAMIC YAW MOMENT COEFFICIENTS '''
+def Cn1(beta_rad):
+    #Aerodynamic yaw coefficient 1
     return Cn1_interp(beta_rad)
 
-def CMz2(bi2vel, r_rad_sec):
-    #Vertical aerodynamic moment coefficient due to vertical angular velocity 
+def Cn2(bi2vel, r_rad_sec):
+    #Aerodynamic yaw coefficient 2
     return bi2vel * r_rad_sec * -0.0937
 
-def CMz3(bi2vel, r_rad_sec, alpha_rad):
-    #Vertical aerodynamic moment coefficient due to vertical angular velocity and angle of attack
+def Cn3(bi2vel, r_rad_sec, alpha_rad):
+    #Aerodynamic yaw coefficient 3
     return bi2vel * Cn4_interp(r_rad_sec, alpha_rad)
 
-def CMz4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
-    #Vertical aerodynamic moment coefficient due to aileron position, angle of attack and side-slip angle
+def Cn4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
+    #Aerodynamic yaw coefficient 4
     return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Cn5_interp(alpha_rad, beta_rad)
 
-def CMz5(rudder_pos_rad):
-    #Vertical aerodynamic moment coefficient due to rudder position
+def Cn5(rudder_pos_rad):
+    #Aerodynamic yaw coefficient 5
     return rudder_pos_rad * -0.0645
 
-def CMz6():
-    #Vertical aerodynamic moment coefficient due to spiralling propwash
+def Cn6():
+    #Aerodynamic yaw coefficient 6
     return -0.0500 * C_SPIRAL_PROPWASH
 
 ''' PROPULSIVE FORCE '''
-def engine_thrust(advance_ratio, density, rpm_prop):
+def thrust_eng(advance_ratio, density, rpm_prop):
     #Engine (160 HP) thrust
     return CT_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 2) * (PROP_DIAM_M ** 4)
 
 ''' GRAVITATIONAL FORCE '''
-def force_gravity(quat, mass, gravity):
-    #Gravitational forces
+def gravity_body(quat, mass, gravity):
+    #Gravitational force in body frame
     euler = attquat_to_euler(quat)
     return vehicle_to_body(euler[0], euler[1], euler[2]).rotate(mass * gravity * np.array([0, 0, 1]))
 
-''' MISC ''' 
-def engine_power(advance_ratio, density, rpm_prop):
+''' PROPULSION POWER ''' 
+def power_eng(advance_ratio, density, rpm_prop):
     #Engine (160 HP) power
     return CP_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 3) * (PROP_DIAM_M ** 5)
 
 ''' CONTROL MODEL PARAMETERS '''
-STATE_LEN = 13 #[rn, re, rd, q0, q1, q2, q3, vx, vy, vz, omegax, omegay, omegaz]
+STATE_LEN = 13 #[pn, pe, pd, q0, q1, q2, q3, u, v, w, p, q, r]
 INPUT_LEN = 5 #[deltaa, deltae, deltaf, deltar, deltat]
 
 ''' ASSUMPTIONS FOR THE ANALYTIC LINEAR CONTROL MODEL'''
-G0_FTS2 = 32.17405 #gravitational acceleration [ft/s^2]
+G0_IMP = 32.17405 #gravitational acceleration [ft/s^2]
 
 ''' MISC FUNCTIONS FOR THE ANALYTIC CONTROL MODELS'''
-def alpha_acm(vx, vz):
+def alpha_acm(u, w):
     #Angle of attack (alpha) as defined in the analytic control models
-    return atan2(vz, vx)
+    return atan2(w, u)
 
-def beta_acm(vy, Vaxz):
+def beta_acm(v, Vauw):
     #Side-slip angle (beta) as defined in the analytic control models
-    return atan2(vy, Vaxz)
+    return atan2(v, Vauw)
 
-def advance_ratio(vx, n):
-    #Advance ratio (J)
+def J_acm(u, n):
+    #Advance ratio (J) as defined in the analytic control models
     if n == 0:
         return 0
     else:
-        return vx / (n * PROP_DIAM_M)
+        return u / (n * PROP_DIAM_M)
 
-def aerodynamic_velocity_acm(vx, vy, vz):
+def Va_acm(u, v, w):
     #Aerodynamic velocity (Va) as defined in the analytic control models
-    return sqrt((vx ** 2) + (vy ** 2) + (vz ** 2))
+    return sqrt((u ** 2) + (v ** 2) + (w ** 2))
 
-def aerodynamic_velocity_xz_acm(vx, vz):
-    #Aerodynamic velocity XZ (Vaxz) as defined in the analytic control models
-    return sqrt((vx ** 2) + (vz ** 2))
+def Vauw_acm(u, w):
+    #Aerodynamic velocity from components u and w (Vauw) as defined in the analytic control models
+    return sqrt((u ** 2) + (w ** 2))
 
-def aerodynamic_velocity_ind_acm(vx, rho, Ft):
+def Vind2_acm(u, rho, T):
+    #Squared propulsion induced velocity (Vind^2) as defined in the analytic control models
+    return u * abs(u) + ((2 * T) / (rho * PROP_AREA_SI))
+
+def Vind_acm(u, rho, T):
     #Propulsion induced velocity (Vind) as defined in the analytic control models
-    Vind2 = vx * abs(vx) + ((2 * Ft) / (rho * PROP_AREA_SI))
+    Vind2 = Vind2_acm(u, rho, T)
     if Vind2 >= 0:
         return sqrt(Vind2)
     else:
         return - sqrt(- Vind2)
 
-def aerodynamic_velocity_prop_acm(vx, Vind):
+def Vprop_acm(u, Vind):
     #Propeller induced velocity (Vprop) as defined in the analytic control models
-    return Vind - vx
+    return Vind - u
 
-def dynamic_pressure_acm(rho, Va):
+def qbar_acm(rho, Va):
     #Dynamic pressure (q) as defined in the analytic control models
     return 0.5 * rho * (Va ** 2)
 
-def dynamic_pressure_xz_acm(rho, Vaxz):
-    #Dynamic pressure XZ (qxz) as defined in the analytic control models
-    return 0.5 * rho * (Vaxz ** 2)
+def qbaruw_acm(rho, Vauw):
+    #Dynamic pressure from components u and w (quw) as defined in the analytic control models
+    return 0.5 * rho * (Vauw ** 2)
 
-def dynamic_pressure_ind_acm(rho, Vind):
+def qbarind_acm(rho, Vind):
     #Propulsion induced dynamic pressure (qind) as defined in the analytic control models
     return 0.5 * rho * (Vind ** 2)
 
-def dynamic_pressure_prop_acm(rho, Vprop):
+def qbarprop_acm(rho, Vprop):
     #Propeller induced dynamic pressure (qprop) as defined in the analytic control models
     return 0.5 * rho * (Vprop ** 2)
 
-def rps_acm(deltat, deltam):
+def n_acm(deltat, deltam):
     #Propeller RPS (Revolutions Per Second) law as defined in the analytic control models
     if deltam >= DELTA_M_MIN
         return (N_MAX - N_MIN) * deltat + N_MIN
@@ -598,127 +606,127 @@ def rps_acm(deltat, deltam):
         return 0
 
 ''' MISC PARTIAL DERIVATIVES '''
-def pd_deltat_n():
+def parder_deltat_n():
     #Partial derivative of n with respect to deltat
     return N_MAX - N_MIN
 
-def pd_rd_rho(rd):
-    #Partial derivative of rho with respect to rd
-    return barometric_density_pd_rd(rd)
+def parder_pd_rho(pd):
+    #Partial derivative of rho with respect to pd
+    return parder_pd_barometric_density(pd)
 
-def pd_rd_Vind(vx, rho, Ft, pd_rd_rho):
-    #Partial derivative of Vind with respect to rd
-    Vind2      = vx * abs(vx) + ((2 * Ft) / (rho * PROP_AREA_SI))
+def parder_pd_Vind(u, rho, T, parder_pd_rho):
+    #Partial derivative of Vind with respect to pd
+    Vind2      = Vind2_acm(u, rho, T)
     Vind2_sign = (np.sign(Vind2) >= 0)
-    return - Vind2_sign * pd_rd_rho * ((Ft * (rho * PROP_AREA_SI * vx * abs(vx) + 2 * Ft)) / ((rho ** 3) * (PROP_AREA_SI ** 2) * (Vind ** 3)))
+    return - Vind2_sign * parder_pd_rho * ((T * (rho * PROP_AREA_SI * u * abs(u) + 2 * T)) / ((rho ** 3) * (PROP_AREA_SI ** 2) * (Vind ** 3)))
 
-def pd_vx_Vind(vx, rho, Ft):
-    #Partial derivative of Vind with respect to vx
-    Vind2      = vx * abs(vx) + ((2 * Ft) / (rho * PROP_AREA_SI))
+def parder_u_Vind(u, rho, T):
+    #Partial derivative of Vind with respect to u
+    Vind2      = Vind2_acm(u, rho, T)
     Vind2_sign = (np.sign(Vind2) >= 0)
-    return Vind2_sign * (vx ** 2) * (rho * PROP_AREA_SI * vx * abs(vx) + 2 * Ft) / (rho * PROP_AREA_SI * abs(vx) * (Vind ** 3))
+    return Vind2_sign * (u ** 2) * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / (rho * PROP_AREA_SI * abs(u) * (Vind ** 3))
 
-def pd_deltat_Vind(vx, rho, Ft, pd_deltat_Ft):
+def parder_deltat_Vind(u, rho, T, parder_deltat_Ft):
     #Partial derivative of Vind with respect to deltat
-    Vind2      = vx * abs(vx) + ((2 * Ft) / (rho * PROP_AREA_SI))
+    Vind2      = Vind2_acm(u, rho, T)
     Vind2_sign = (np.sign(Vind2) >= 0)
-    return Vind2_sign * pd_deltat_Ft * (rho * PROP_AREA_SI * vx * abs(vx) + 2 * Ft) / ((rho ** 2) * (PROP_AREA_SI ** 2) * (Vind ** 3))
+    return Vind2_sign * parder_deltat_Ft * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / ((rho ** 2) * (PROP_AREA_SI ** 2) * (Vind ** 3))
 
-def pd_rd_Vprop(pd_rd_Vind):
-    #Partial derivative of Vprop with respect to rd
-    return pd_rd_Vind
+def parder_pd_Vprop(parder_pd_Vind):
+    #Partial derivative of Vprop with respect to pd
+    return parder_pd_Vind
 
-def pd_vx_Vprop(pd_vx_Vind):
-    #Partial derivative of Vprop with respect to vx
-    return pd_vx_Vind - 1
+def parder_u_Vprop(parder_u_Vind):
+    #Partial derivative of Vprop with respect to u
+    return parder_u_Vind - 1
 
-def pd_deltat_Vprop(pd_deltat_Vind):
+def parder_deltat_Vprop(parder_deltat_Vind):
     #Partial derivative of Vprop with respect to deltat
-    return pd_deltat_Vind
+    return parder_deltat_Vind
 
-def pd_vx_alpha(vz, Vaxz):
-    #Partial derivative of alpha with respect to vx
-    return - vz / (Vaxz ** 2)
+def parder_u_alpha(w, Vauw):
+    #Partial derivative of alpha with respect to u
+    return - w / (Vauw ** 2)
 
-def pd_vz_alpha(vz, Vaxz):
-    #Partial derivative of alpha with respect to vz
-    return vx / (Vaxz ** 2)
+def parder_w_alpha(w, Vauw):
+    #Partial derivative of alpha with respect to w
+    return u / (Vauw ** 2)
 
-def pd_vx_beta(vx, vy, Va, Vaxz):
-    #Partial derivative of beta with respect to vx
-    return - (vx * vy) / (Vaxz * (Va ** 2))
+def parder_u_beta(u, v, Va, Vauw):
+    #Partial derivative of beta with respect to u
+    return - (u * v) / (Vauw * (Va ** 2))
 
-def pd_vy_beta(Va, Vaxz):
-    #Partial derivative of beta with respect to vy
-    return Vaxz / (Va ** 2)
+def parder_v_beta(Va, Vauw):
+    #Partial derivative of beta with respect to v
+    return Vauw / (Va ** 2)
 
-def pd_vz_beta(vy, vz, Va, Vaxz):
-    #Partial derivative of beta with respect to vz
-    return - (vy * vz) / (Vaxz * (Va ** 2))
+def parder_w_beta(v, w, Va, Vauw):
+    #Partial derivative of beta with respect to w
+    return - (v * w) / (Vauw * (Va ** 2))
 
-def pd_rd_q(Va, pd_rd_rho):
-    #Partial derivative of q with respect to rd
-    return 0.5 * pd_rd_rho * (Va ** 2)
+def parder_pd_q(Va, parder_pd_rho):
+    #Partial derivative of q with respect to pd
+    return 0.5 * parder_pd_rho * (Va ** 2)
 
-def pd_vx_q(vx, rho):
-    #Partial derivative of q with respect to vx
-    return rho * vx
+def parder_u_q(u, rho):
+    #Partial derivative of q with respect to u
+    return rho * u
 
-def pd_vy_q(vy, rho):
-    #Partial derivative of q with respect to vy
-    return rho * vy
+def parder_v_q(v, rho):
+    #Partial derivative of q with respect to v
+    return rho * v
 
-def pd_vz_q(vz, rho):
-    #Partial derivative of q with respect to vz
-    return rho * vz
+def parder_w_q(w, rho):
+    #Partial derivative of q with respect to w
+    return rho * w
 
-def pd_rd_qxz(Vaxz, pd_rd_rho):
-    #Partial derivative of qxz with respect to rd
-    return 0.5 * pd_rd_rho * (Vaxz ** 2)
+def parder_pd_quw(Vauw, parder_pd_rho):
+    #Partial derivative of quw with respect to pd
+    return 0.5 * parder_pd_rho * (Vauw ** 2)
 
-def pd_vx_qxz(pd_vx_q):
-    #Partial derivative of qxz with respect to vx
-    return pd_vx_q
+def parder_u_quw(parder_u_q):
+    #Partial derivative of quw with respect to u
+    return parder_u_q
 
-def pd_vz_qxz(pd_vz_q):
-    #Partial derivative of qxz with respect to vz
-    return pd_vz_q
+def parder_w_quw(parder_w_q):
+    #Partial derivative of quw with respect to w
+    return parder_w_q
 
-def pd_rd_qind(rho, Vind, pd_rd_rho, pd_rd_Vind):
-    #Partial derivative of qind with respect to rd
-    return 0.5 * Vind * (pd_rd_rho * Vind + 2 * rho * pd_rd_Vind)
+def parder_pd_qind(rho, Vind, parder_pd_rho, parder_pd_Vind):
+    #Partial derivative of qind with respect to pd
+    return 0.5 * Vind * (parder_pd_rho * Vind + 2 * rho * parder_pd_Vind)
 
-def pd_vx_qind(rho, Vind, pd_vx_Vind):
-    #Partial derivative of qind with respect to vx
-    return rho * Vind * pd_vx_Vind
+def parder_u_qind(rho, Vind, parder_u_Vind):
+    #Partial derivative of qind with respect to u
+    return rho * Vind * parder_u_Vind
 
-def pd_deltat_qind(rho, Vind, pd_deltat_Vind):
+def parder_deltat_qind(rho, Vind, parder_deltat_Vind):
     #Partial derivative of qind with respect to deltat
-    return rho * Vind * pd_deltat_Vind
+    return rho * Vind * parder_deltat_Vind
 
-def pd_rd_qprop(rho, Vprop, pd_rd_rho, pd_rd_Vind):
-    #Partial derivative of qprop with respect to rd
-    return 0.5 * Vprop * (pd_rd_rho * Vprop + 2 * rho * pd_rd_Vprop)
+def parder_pd_qprop(rho, Vprop, parder_pd_rho, parder_pd_Vind):
+    #Partial derivative of qprop with respect to pd
+    return 0.5 * Vprop * (parder_pd_rho * Vprop + 2 * rho * parder_pd_Vprop)
 
-def pd_vx_qprop(rho, Vprop, pd_vx_Vprop):
-    #Partial derivative of qprop with respect to vx
-    return rho * Vprop * pd_vx_Vprop
+def parder_u_qprop(rho, Vprop, parder_u_Vprop):
+    #Partial derivative of qprop with respect to u
+    return rho * Vprop * parder_u_Vprop
 
-def pd_deltat_qprop(rho, Vprop, pd_deltat_Vprop):
+def parder_deltat_qprop(rho, Vprop, parder_deltat_Vprop):
     #Partial derivative of qprop with respect to deltat
-    return rho * Vprop * pd_deltat_Vprop
+    return rho * Vprop * parder_deltat_Vprop
 
-def pd_rd_Ft(J, n, pd_rd_rho):
-    #Partial derivative of Ft with respect to rd
-    return CT_interp(J) * (n ** 2) * (PROP_DIAM_M ** 4) * pd_rd_rho
+def parder_pd_T(J, n, parder_pd_rho):
+    #Partial derivative of T with respect to pd
+    return CT_interp(J) * (n ** 2) * (PROP_DIAM_M ** 4) * parder_pd_rho
 
-def pd_vx_Ft(rho, J, n, pd_J_CT):
-    #Partial derivative of Ft with respect to vx
-    return rho * n * (PROP_DIAM_M ** 3) * pd_J_CT_interp(J)
+def parder_u_T(rho, J, n, parder_J_CT):
+    #Partial derivative of T with respect to u
+    return rho * n * (PROP_DIAM_M ** 3) * parder_J_CT_interp(J)
 
-def pd_deltat_Ft(rho, J, n, pd_J_CT, pd_deltat_n):
-    #Partial derivative of Ft with respect to deltat
-    return rho * (PROP_DIAM_M ** 3) * (2 * CT_interp(J) * n * PROP_DIAM_M - vx * pd_J_CT_interp(J)) * pd_deltat_n
+def parder_deltat_T(rho, J, n, parder_J_CT, parder_deltat_n):
+    #Partial derivative of T with respect to deltat
+    return rho * (PROP_DIAM_M ** 3) * (2 * CT_interp(J) * n * PROP_DIAM_M - u * parder_J_CT_interp(J)) * parder_deltat_n
 
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
@@ -730,35 +738,51 @@ class ControlModel():
         self.proc1.start()
         self.proc2.start()
     def non_linear(self, rx2nlm_out, nlm2act_in, nlm2csv_in, event_start):
-        #Analytic non-linear model
+        #Analytic non-linear control model
         event_start.wait() #wait for simulation start event
         while True:
             rxdata      = rx2nlm_out.recv() #receive RX telemetry
             framescount = rxdata.shape[0]
             for i in range(framescount):                
-                time   = rxdata[i,0]
-                phi    = rxdata[i,16]
-                theta  = rxdata[i,18]
-                psi    = rxdata[i,20]
-                vx     = rxdata[i,30]
-                vy     = rxdata[i,31]
-                vz     = rxdata[i,32]
-                omegax = rxdata[i,42]
-                omegay = rxdata[i,43]
-                omegaz = rxdata[i,44]
-                Fx     = rxdata[i,59]
-                Fy     = rxdata[i,64]
-                Fz     = rxdata[i,69]
-                Mx     = rxdata[i,74]
-                My     = rxdata[i,79]
-                Mz     = rxdata[i,84]
+                time  = rxdata[i,0]
+                phi   = rxdata[i,16]
+                theta = rxdata[i,18]
+                psi   = rxdata[i,20]
+                u     = rxdata[i,30]
+                v     = rxdata[i,31]
+                w     = rxdata[i,32]
+                p     = rxdata[i,42]
+                q     = rxdata[i,43]
+                r     = rxdata[i,44]
+                fx    = rxdata[i,59]
+                fy    = rxdata[i,64]
+                fz    = rxdata[i,69]
+                l     = rxdata[i,74]
+                m     = rxdata[i,79]
+                n     = rxdata[i,84]
             
+                #Equilibrium point
+                pn_eq     = eqdata[i,0]
+                pe_eq     = eqdata[i,1]
+                parder_eq = eqdata[i,2]
+                phi_eq    = eqdata[i,3]
+                theta_eq  = eqdata[i,4]
+                psi_eq    = eqdata[i,5]
+                u_eq      = eqdata[i,6]
+                v_eq      = eqdata[i,7]
+                w_eq      = eqdata[i,8]
+                p_eq      = eqdata[i,9]
+                q_eq      = eqdata[i,10]
+                r_eq      = eqdata[i,11]
+                (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
+
                 dx = np.zeros(STATE_LEN)
                 (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
-                dx[0:3] = body_to_vehicle(phi, theta, psi) * np.array([vx, vy, vz])
-                dx[3:6] = np.array([omegaz*vy-omegay*vz, omegax*vz-omegaz*vx, omegay*vx-omegax*vy]) + np.array([Fx, Fy, Fz]) / m
-                dx[6:10] = 0.5 * np.array([[0, -omegax, -omegay, -omegaz], [omegax, 0, omegaz, -omegay], [omegay, -omegaz, 0, omegax], [omegaz, omegay, -omegax, 0]]) * np.array([q0, q1, q2, q3])
-                dx[10:13] = np.array([Gamma1*omegax*omegay-Gamma2*omegay*omegaz, Gamma5*omegax*omegaz-Gamma6*(omegax**2-omegaz**2), Gamma7*omegax*omegay-Gamma1*omegay*omegaz]) + np.array([Gamma3*Mx+Gamma4*Mz, My/Iyy, Gamma4*Mx+Gamma8*Mz])
+
+                dx[0:3] = body_to_vehicle(phi, theta, psi) * np.array([u, v, w])
+                dx[3:6] = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) + np.array([fx, fy, fz]) / mass
+                dx[6:10] = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) * np.array([q0, q1, q2, q3])
+                dx[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) * np.array([l, m, n])
 
                 self.csvnlm[i,:] = [time, dx]
 
@@ -766,189 +790,190 @@ class ControlModel():
             self.csvnlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
 
     def linear(self, rx2lm_out, lm2act_in, lm2csv_in, eq2lm_out, event_start):
-        #Analytic linear model
+        #Analytic linear control model
         event_start.wait() #wait for simulation start event
         while True:
             rxdata      = rx2lm_out.recv() #receive RX telemetry
             eqdata      = eq2lm_out.recv() #receive equilibrium point
             framescount = rxdata.shape[0]
             for i in range(framescount):                
-                time   = rxdata[i,0]
-                phi    = rxdata[i,16]
-                theta  = rxdata[i,18]
-                psi    = rxdata[i,20]
-                vx     = rxdata[i,30]
-                vy     = rxdata[i,31]
-                vz     = rxdata[i,32]
-                omegax = rxdata[i,42]
-                omegay = rxdata[i,43]
-                omegaz = rxdata[i,44]
-                Fx     = rxdata[i,59]
-                Fy     = rxdata[i,64]
-                Fz     = rxdata[i,69]
-                Mx     = rxdata[i,74]
-                My     = rxdata[i,79]
-                Mz     = rxdata[i,84]
+                time  = rxdata[i,0]
+                phi   = rxdata[i,16]
+                theta = rxdata[i,18]
+                psi   = rxdata[i,20]
+                u     = rxdata[i,30]
+                v     = rxdata[i,31]
+                w     = rxdata[i,32]
+                p     = rxdata[i,42]
+                q     = rxdata[i,43]
+                r     = rxdata[i,44]
+                fx    = rxdata[i,59]
+                fy    = rxdata[i,64]
+                fz    = rxdata[i,69]
+                l     = rxdata[i,74]
+                m     = rxdata[i,79]
+                n     = rxdata[i,84]
 
-                rn_eq    = eqdata[i,0]
-                re_eq    = eqdata[i,1]
-                rd_eq    = eqdata[i,2]
-                phi_eq   = eqdata[i,3]
-                theta_eq = eqdata[i,4]
-                psi_eq   = eqdata[i,5]
-                vx_eq     = eqdata[i,6]
-                vy_eq     = eqdata[i,7]
-                vz_eq     = eqdata[i,8]
-                omegax_eq = eqdata[i,9]
-                omegay_eq = eqdata[i,10]
-                omegaz_eq = eqdata[i,11]
+                #Equilibrium point
+                pn_eq     = eqdata[i,0]
+                pe_eq     = eqdata[i,1]
+                parder_eq = eqdata[i,2]
+                phi_eq    = eqdata[i,3]
+                theta_eq  = eqdata[i,4]
+                psi_eq    = eqdata[i,5]
+                u_eq      = eqdata[i,6]
+                v_eq      = eqdata[i,7]
+                w_eq      = eqdata[i,8]
+                p_eq      = eqdata[i,9]
+                q_eq      = eqdata[i,10]
+                r_eq      = eqdata[i,11]
                 (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
 
                 dx = np.zeros(STATE_LEN)
-                A     = np.zeros((STATE_LEN, STATE_LEN))
-                B     = np.zeros((STATE_LEN, INPUT_LEN))
+                A  = np.zeros((STATE_LEN, STATE_LEN))
+                B  = np.zeros((STATE_LEN, INPUT_LEN))
                 (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
 
-                # Misc partial derivatives
-                pd_deltat_n_eq = pd_deltat_n()
-                pd_rd_rho_eq   = pd_rd_rho(rd_eq)
-                pd_rd_Vind_eq  = 
+                #Misc partial derivatives evaluated in the equilibrium point
+                parder_pd_rho_eq  = parder_pd_rho(parder_eq)
+                parder_pd_qbar_eq = parder_pd_qbar(Va_eq, parder_pd_rho_eq)
+                parder_pd_Ft_eq   = parder_pd_T(J_eq, n_eq, parder_pd_rho_eq)
 
-                # Partial derivatives of \dot{r_n}
-                pd_q0_drn = 2 * (q0_eq * vx_eq - q3_eq * vy_eq + q2_eq * vz_eq)
-                pd_q1_drn = 2 * (q1_eq * vx_eq + q2_eq * vy_eq + q3_eq * vz_eq)
-                pd_q2_drn = 2 * (- q2_eq * vx_eq + q1_eq * vy_eq + q0_eq * vz_eq)
-                pd_q3_drn = 2 * (- q3_eq * vx_eq - q0_eq * vy_eq + q1_eq * vz_eq)
-                pd_vx_drn = q0_eq^2 + q1_eq^2 - q2_eq^2 - q3_eq^2
-                pd_vy_drn = 2 * (q1_eq * q2_eq - q0_eq * q3_eq)
-                pd_vz_drn = 2 * (q0_eq * q2_eq + q1_eq * q3_eq)
+                #Partial derivatives of \dot{p_n} evaluated in the equilibrium point
+                parder_q0_dotpn_eq = 2 * (q0_eq * u_eq - q3_eq * v_eq + q2_eq * w_eq)
+                parder_q1_dotpn_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
+                parder_q2_dotpn_eq = 2 * (- q2_eq * u_eq + q1_eq * v_eq + q0_eq * w_eq)
+                parder_q3_dotpn_eq = 2 * (- q3_eq * u_eq - q0_eq * v_eq + q1_eq * w_eq)
+                parder_u_dotpn_eq  = q0_eq^2 + q1_eq^2 - q2_eq^2 - q3_eq^2
+                parder_v_dotpn_eq  = 2 * (q1_eq * q2_eq - q0_eq * q3_eq)
+                parder_w_dotpn_eq  = 2 * (q0_eq * q2_eq + q1_eq * q3_eq)
 
-                # Partial derivatives of \dot{r_e}
-                pd_q0_dre = 2 * (q3_eq * vx_eq + q0_eq * vy_eq - q1_eq * vz_eq)
-                pd_q1_dre = 2 * (q2_eq * vx_eq - q1_eq * vy_eq - q0_eq * vz_eq)
-                pd_q2_dre = 2 * (q1_eq * vx_eq + q2_eq * vy_eq + q3_eq * vz_eq)
-                pd_q3_dre = 2 * (q0_eq * vx_eq - q3_eq * vy_eq + q2_eq * vz_eq)
-                pd_vx_dre = 2 * (q0_eq * q3_eq + q1_eq * q2_eq)
-                pd_vy_dre = q0_eq^2 + q2_eq^2 - q1_eq^2 - q3_eq^2
-                pd_vz_dre = 2 * (q2_eq * q3_eq - q0_eq * q1_eq)
+                #Partial derivatives of \dot{p_e} evaluated in the equilibrium point
+                parder_q0_dotpe_eq = 2 * (q3_eq * u_eq + q0_eq * v_eq - q1_eq * w_eq)
+                parder_q1_dotpe_eq = 2 * (q2_eq * u_eq - q1_eq * v_eq - q0_eq * w_eq)
+                parder_q2_dotpe_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
+                parder_q3_dotpe_eq = 2 * (q0_eq * u_eq - q3_eq * v_eq + q2_eq * w_eq)
+                parder_u_dotpe_eq  = 2 * (q0_eq * q3_eq + q1_eq * q2_eq)
+                parder_v_dotpe_eq  = q0_eq^2 + q2_eq^2 - q1_eq^2 - q3_eq^2
+                parder_w_dotpe_eq  = 2 * (q2_eq * q3_eq - q0_eq * q1_eq)
 
-                # Partial derivatives of \dot{r_d}
-                pd_q0_drd = 2 * (- q2_eq * vx_eq + q1_eq * vy_eq + q0_eq * vz_eq)
-                pd_q1_drd = 2 * (q3_eq * vx_eq + q0_eq * vy_eq - q1_eq * vz_eq)
-                pd_q2_drd = 2 * (- q0_eq * vx_eq + q3_eq * vy_eq - q2_eq * vz_eq)
-                pd_q3_drd = 2 * (q1_eq * vx_eq + q2_eq * vy_eq + q3_eq * vz_eq)
-                pd_vx_drd = 2 * (q1_eq * q3_eq - q0_eq * q2_eq)
-                pd_vy_drd = 2 * (q0_eq * q1_eq + q2_eq * q3_eq)
-                pd_vz_drd = q0_eq^2 + q3_eq^2 - q1_eq^2 - q2_eq^2
+                #Partial derivatives of \dot{p_d} evaluated in the equilibrium point
+                parder_q0_dotpd_eq = 2 * (- q2_eq * u_eq + q1_eq * v_eq + q0_eq * w_eq)
+                parder_q1_dotpd_eq = 2 * (q3_eq * u_eq + q0_eq * v_eq - q1_eq * w_eq)
+                parder_q2_dotpd_eq = 2 * (- q0_eq * u_eq + q3_eq * v_eq - q2_eq * w_eq)
+                parder_q3_dotpd_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
+                parder_u_dotpd_eq  = 2 * (q1_eq * q3_eq - q0_eq * q2_eq)
+                parder_v_dotpd_eq  = 2 * (q0_eq * q1_eq + q2_eq * q3_eq)
+                parder_w_dotpd_eq  = q0_eq^2 + q3_eq^2 - q1_eq^2 - q2_eq^2
 
-                # Partial derivatives of \dot{q_0}
-                pd_q1_dq0     = - 0.5 * omegax_eq
-                pd_q2_dq0     = - 0.5 * omegay_eq
-                pd_q3_dq0     = - 0.5 * omegaz_eq
-                pd_omegax_dq0 = - 0.5 * q1_eq
-                pd_omegay_dq0 = - 0.5 * q2_eq
-                pd_omegaz_dq0 = - 0.5 * q3_eq
+                #Partial derivatives of \dot{q_0} evaluated in the equilibrium point
+                parder_q1_dotq0_eq = - 0.5 * p_eq
+                parder_q2_dotq0_eq = - 0.5 * q_eq
+                parder_q3_dotq0_eq = - 0.5 * r_eq
+                parder_p_dotq0_eq  = - 0.5 * q1_eq
+                parder_q_dotq0_eq  = - 0.5 * q2_eq
+                parder_r_dotq0_eq  = - 0.5 * q3_eq
 
-                # Partial derivatives of \dot{q_1}
-                pd_q0_dq1     = 0.5 * omegax_eq
-                pd_q2_dq1     = 0.5 * omegaz_eq
-                pd_q3_dq1     = - 0.5 * omegay_eq
-                pd_omegax_dq1 = 0.5 * q0_eq
-                pd_omegay_dq1 = - 0.5 * q3_eq
-                pd_omegaz_dq1 = 0.5 * q2_eq
+                #Partial derivatives of \dot{q_1} evaluated in the equilibrium point
+                parder_q0_dotq1_eq = 0.5 * p_eq
+                parder_q2_dotq1_eq = 0.5 * r_eq
+                parder_q3_dotq1_eq = - 0.5 * q_eq
+                parder_p_dotq1_eq  = 0.5 * q0_eq
+                parder_q_dotq1_eq  = - 0.5 * q3_eq
+                parder_r_dotq1_eq  = 0.5 * q2_eq
 
-                # Partial derivatives of \dot{q_2}
-                pd_q0_dq2     = 0.5 * omegay_eq
-                pd_q1_dq2     = - 0.5 * omegaz_eq
-                pd_q3_dq2     = 0.5 * omegax_eq
-                pd_omegax_dq2 = 0.5 * q3_eq
-                pd_omegay_dq2 = 0.5 * q0_eq
-                pd_omegaz_dq2 = - 0.5 * q1_eq
+                #Partial derivatives of \dot{q_2} evaluated in the equilibrium point
+                parder_q0_dotq2_eq = 0.5 * q_eq
+                parder_q1_dotq2_eq = - 0.5 * r_eq
+                parder_q3_dotq2_eq = 0.5 * p_eq
+                parder_p_dotq2_eq  = 0.5 * q3_eq
+                parder_q_dotq2_eq  = 0.5 * q0_eq
+                parder_r_dotq2_eq  = - 0.5 * q1_eq
 
-                # Partial derivatives of \dot{q_3}
-                pd_q0_dq3     = 0.5 * omegaz_eq
-                pd_q1_dq3     = 0.5 * omegay_eq
-                pd_q2_dq3     = - 0.5 * omegax_eq
-                pd_omegax_dq3 = - 0.5 * q2_eq
-                pd_omegay_dq3 = 0.5 * q1_eq
-                pd_omegaz_dq3 = 0.5 * q0_eq
+                #Partial derivatives of \dot{q_3} evaluated in the equilibrium point
+                parder_q0_dotq3_eq = 0.5 * r_eq
+                parder_q1_dotq3_eq = 0.5 * q_eq
+                parder_q2_dotq3_eq = - 0.5 * p_eq
+                parder_p_dotq3_eq  = - 0.5 * q2_eq
+                parder_q_dotq3_eq  = 0.5 * q1_eq
+                parder_r_dotq3_eq  = 0.5 * q0_eq
 
-                # Partial derivatives of \dot{v_x}
-                pd_rd_dvx     = (1 / m) * (- pd_rd_q_eq * SW_IMP * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + pd_rd_Ft_eq)
-                pd_q0_dvx     = - 2 * G0_FTS2 * q2_eq
-                pd_q1_dvx     = 2 * G0_FTS2 * q3_eq
-                pd_q2_dvx     = - 2 * G0_FTS2 * q0_eq
-                pd_q3_dvx     = 2 * G0_FTS2 * q1_eq
-                pd_vx_dvx     = (1 / m) * (- SW_IMP * (pd_vx_q_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + q_eq * (pd_vx_CFx3_eq + pd_vx_CFx4_eq)) + pd_vx_Ft_eq)
-                pd_vy_dvx     = omegaz_eq - (SW_IMP / m) * (pd_vy_q_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + q_eq * pd_vy_CFx4_eq)
-                pd_vz_dvx     = - omegay_eq - (SW_IMP / m) * (pd_vz_q_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + q_eq * (pd_vz_CFx3_eq + pd_vz_CFx4_eq))
-                pd_omegay_dvx = - vz_eq
-                pd_omegaz_dvx = vy_eq
-                pd_deltaf_dvx = - ((q_eq * SW_IMP) / m) * (pd_deltaf_CFx2_eq + pd_deltaf_CFx3_eq)
-                pd_deltat_dvx = pd_deltat_Ft_eq / m
+                #Partial derivatives of \dot{u} evaluated in the equilibrium point
+                parder_pd_dotu_eq     = (1 / mass) * (- parder_pd_qbar_eq * SW_SI * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + parder_pd_Ft_eq)
+                parder_q0_dotu_eq     = - 2 * G0_SI * q2_eq
+                parder_q1_dotu_eq     = 2 * G0_SI * q3_eq
+                parder_q2_dotu_eq     = - 2 * G0_SI * q0_eq
+                parder_q3_dotu_eq     = 2 * G0_SI * q1_eq
+                parder_u_dotu_eq      = (1 / mass) * (- SW_SI * (parder_u_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * (parder_u_CFx3_eq + parder_u_CFx4_eq)) + parder_u_Ft_eq)
+                parder_v_dotu_eq      = r_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * parder_v_CFx4_eq)
+                parder_w_dotu_eq      = - q_eq - (SW_SI / mass) * (parder_w_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * (parder_w_CFx3_eq + parder_w_CFx4_eq))
+                parder_q_dotu_eq      = - w_eq
+                parder_r_dotu_eq      = v_eq
+                parder_deltaf_dotu_eq = - ((qbar_eq * SW_SI) / mass) * (parder_deltaf_CFx2_eq + parder_deltaf_CFx3_eq)
+                parder_deltat_dotu_eq = parder_deltat_Ft_eq / mass
 
-                # Partial derivatives of \dot{v_y}
-                pd_rd_dvy     = (1 / m) * (pd_rd_q_eq * SW_IMP * (CFy1_eq + CFy2_eq))
-                pd_q0_dvy     = 2 * G0_FTS2 * q1_eq
-                pd_q1_dvy     = 2 * G0_FTS2 * q0_eq
-                pd_q2_dvy     = 2 * G0_FTS2 * q3_eq
-                pd_q3_dvy     = 2 * G0_FTS2 * q2_eq
-                pd_vx_dvy     = - omegaz_eq + (SW_IMP / m) * (pd_vx_q_eq * (CFy1_eq + CFy2_eq) + q_eq * pd_vx_CFy1_eq)
-                pd_vy_dvy     = (SW_IMP / m) * (pd_vy_q_eq * (CFy1_eq + CFy2_eq) + q_eq * pd_vy_CFy1_eq)
-                pd_vz_dvy     = omegax_eq + (SW_IMP / m) * (pd_vz_q_eq * (CFy1_eq + CFy2_eq) + q_eq * pd_vz_CFy1_eq)
-                pd_omegax_dvy = vz_eq
-                pd_omegaz_dvy = - vx_eq
-                pd_deltaf_dvy = ((q_eq * SW_IMP) / m) * pd_deltaf_CFy1_eq
-                pd_deltar_dvy = ((q_eq * SW_IMP) / m) * pd_deltar_CFy2_eq
+                #Partial derivatives of \dot{v} evaluated in the equilibrium point
+                parder_pd_dotv_eq     = (1 / mass) * (parder_pd_qbar_eq * SW_SI * (CFy1_eq + CFy2_eq))
+                parder_q0_dotv_eq     = 2 * G0_SI * q1_eq
+                parder_q1_dotv_eq     = 2 * G0_SI * q0_eq
+                parder_q2_dotv_eq     = 2 * G0_SI * q3_eq
+                parder_q3_dotv_eq     = 2 * G0_SI * q2_eq
+                parder_u_dotv_eq      = - r_eq + (SW_SI / mass) * (parder_u_qbar_eq * (CFy1_eq + CFy2_eq) + qbar_eq * parder_u_CFy1_eq)
+                parder_v_dotv         = (SW_SI / mass) * (parder_v_qbar_eq * (CFy1_eq + CFy2_eq) + qbar_eq * parder_v_CFy1_eq)
+                parder_w_dotv_eq      = p_eq + (SW_SI / mass) * (parder_w_qbar_eq * (CFy1_eq + CFy2_eq) + qbar_eq * parder_w_CFy1_eq)
+                parder_p_dotv_eq      = w_eq
+                parder_r_dotv_eq      = - u_eq
+                parder_deltaf_dotv_eq = ((qbar_eq * SW_SI) / mass) * parder_deltaf_CFy1_eq
+                parder_deltar_dotv_eq = ((qbar_eq * SW_SI) / mass) * parder_deltar_CFy2_eq
 
-                # Partial derivatives of \dot{v_z}
-                pd_rd_dvz     = - (SW_IMP / m) * (pd_rd_q_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + pd_rd_qxz_eq * CFz5_eq)
-                pd_q0_dvz     = 2 * G0_FTS2 * q0_eq
-                pd_q1_dvz     = - 2 * G0_FTS2 * q1_eq
-                pd_q2_dvz     = - 2 * G0_FTS2 * q2_eq
-                pd_q3_dvz     = 2 * G0_FTS2 * q3_eq
-                pd_vx_dvz     = omegay_eq - (SW_IMP / m) * (pd_vx_q_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + q_eq * (pd_vx_CFz1_eq + pd_vx_CFz4_eq) + pd_vx_qxz_eq * CFz5_eq + qxz_eq * pd_vx_CFz5_eq)
-                pd_vy_dvz     = - omegax_eq - (SW_IMP / m) * (pd_vy_q_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + q_eq * pd_vy_CFz4_eq + qxz_eq * CFz5_eq)
-                pd_vz_dvz     = - (SW_IMP / m) * (pd_vz_q_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + q_eq * (pd_vz_CFz1_eq + pd_vz_CFz4_eq) + pd_vz_qxz_eq * CFz5_eq + qxz_eq * pd_vz_CFz5_eq)
-                pd_omegax_dvz = - vy_eq
-                pd_omegay_dvz = vx_eq - ((q_eq * SW_SFQT) / m) * pd_omegay_CFz4
-                pd_deltaf_dvz = - ((q_eq * SW_IMP) / m) * pd_deltaf_CFz2_eq
-                pd_deltae_dvz = - ((q_eq * SW_IMP) / m) * pd_deltae_CFz3_eq
+                #Partial derivatives of \dot{w} evaluated in the equilibrium point
+                parder_pd_dotw_eq     = - (SW_SI / mass) * (parder_pd_qbar_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + parder_pd_quw_eq * CFz5_eq)
+                parder_q0_dotw_eq     = 2 * G0_SI * q0_eq
+                parder_q1_dotw_eq     = - 2 * G0_SI * q1_eq
+                parder_q2_dotw_eq     = - 2 * G0_SI * q2_eq
+                parder_q3_dotw_eq     = 2 * G0_SI * q3_eq
+                parder_u_dotw_eq      = q_eq - (SW_SI / mass) * (parder_u_qbar_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + qbar_eq * (parder_u_CFz1_eq + parder_u_CFz4_eq) + parder_u_quw_eq * CFz5_eq + quw_eq * parder_u_CFz5_eq)
+                parder_v_dotw_eq      = - p_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + qbar_eq * parder_v_CFz4_eq + quw_eq * CFz5_eq)
+                parder_w_dotw_eq      = - (SW_SI / mass) * (parder_w_qbar_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + qbar_eq * (parder_w_CFz1_eq + parder_w_CFz4_eq) + parder_w_quw_eq * CFz5_eq + quw_eq * parder_w_CFz5_eq)
+                parder_p_dotw_eq      = - v_eq
+                parder_q_dotw_eq      = u_eq - ((qbar_eq * SW_SFQT) / mass) * parder_q_CFz4
+                parder_deltaf_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltaf_CFz2_eq
+                parder_deltae_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltae_CFz3_eq
 
-                # Partial derivatives of \dot{omega_x}
-                pd_rd_domegax     = SW_IMP * BW_IMP * (pd_rd_q_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma4 * (pd_rd_qind_eq * CMz5_eq + pd_rd_qprop_eq * CMz6_eq))
-                pd_vx_domegax     = SW_IMP * BW_IMP * (pd_vx_q_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + q_eq * (Gamma3 * (pd_vx_CMx1_eq + pd_vx_CMx2_eq + pd_vx_CMx3_eq + pd_vx_CMx4_eq) + Gamma4 * (pd_vx_CMz1_eq + pd_vx_CMz2_eq + pd_vx_CMz3_eq + pd_vx_CMz4_eq)) + Gamma4 * (pd_vx_qind_eq * CMz5_eq + pd_vx_qprop_eq * CMz6_eq))
-                pd_vy_domegax     = SW_IMP * BW_IMP * (pd_vy_q_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + q_eq * (Gamma3 * (pd_vy_CMx1_eq + pd_vy_CMx2_eq + pd_vy_CMx3_eq) + Gamma4 * (pd_vy_CMz1_eq + pd_vy_CMz2_eq + pd_vy_CMz3_eq + pd_vy_CMz4_eq)))
-                pd_vz_domegax     = SW_IMP * BW_IMP * (pd_vz_q_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + q_eq * (Gamma3 * (pd_vz_CMx1_eq + pd_vz_CMx2_eq + pd_vz_CMx3_eq + pd_vz_CMx4_eq) + Gamma4 * (pd_vz_CMz1_eq + pd_vz_CMz2_eq + pd_vz_CMz3_eq + pd_vz_CMz4_eq)))
-                pd_omegax_domegax = Gamma1 * omegay_eq + SW_IMP * BW_IMP * q_eq * Gamma3 * pd_omegax_CMx2_eq
-                pd_omegay_domegax = Gamma1 * omegax_eq - Gamma2 * omegaz_eq
-                pd_omegaz_domegax = - Gamma2 * omegay_eq + SW_IMP * BW_IMP * q_eq * (Gamma3 * pd_omegaz_CMx3_eq + Gamma4 * (pd_omegax_CMz2_eq + pd_omegax_CMz3_eq))
-                pd_deltaa_domegax = SW_IMP * BW_IMP * q_eq * (Gamma3 * pd_deltaa_CMx4_eq + Gamma4 * pd_deltaa_CMz4_eq)
-                pd_deltaf_domegax = SW_IMP * BW_IMP * q_eq * Gamma3 * pd_deltaf_CMx3_eq
-                pd_deltar_domegax = SW_IMP * BW_IMP * (Gamma3 * q_eq * pd_deltar_CMx5_eq + Gamma4 * qind_eq * pd_deltar_CMz5_eq)
+                #Partial derivatives of \dot{p} evaluated in the equilibrium point
+                parder_pd_dotp_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma4 * (parder_pd_qind_eq * CMz5_eq + parder_pd_qprop_eq * CMz6_eq))
+                parder_u_dotp_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_u_CMx1_eq + parder_u_CMx2_eq + parder_u_CMx3_eq + parder_u_CMx4_eq) + Gamma4 * (parder_u_CMz1_eq + parder_u_CMz2_eq + parder_u_CMz3_eq + parder_u_CMz4_eq)) + Gamma4 * (parder_u_qind_eq * CMz5_eq + parder_u_qprop_eq * CMz6_eq))
+                parder_v_dotp_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_v_CMx1_eq + parder_v_CMx2_eq + parder_v_CMx3_eq) + Gamma4 * (parder_v_CMz1_eq + parder_v_CMz2_eq + parder_v_CMz3_eq + parder_v_CMz4_eq)))
+                parder_w_dotp_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_w_CMx1_eq + parder_w_CMx2_eq + parder_w_CMx3_eq + parder_w_CMx4_eq) + Gamma4 * (parder_w_CMz1_eq + parder_w_CMz2_eq + parder_w_CMz3_eq + parder_w_CMz4_eq)))
+                parder_p_dotp_eq      = Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma3 * parder_p_CMx2_eq
+                parder_q_dotp_eq      = Gamma1 * p_eq - Gamma2 * r_eq
+                parder_r_dotp_eq      = - Gamma2 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_r_CMx3_eq + Gamma4 * (parder_p_CMz2_eq + parder_p_CMz3_eq))
+                parder_deltaa_dotp_eq = SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_deltaa_CMx4_eq + Gamma4 * parder_deltaa_CMz4_eq)
+                parder_deltaf_dotp_eq = SW_SI * BW_SI * qbar_eq * Gamma3 * parder_deltaf_CMx3_eq
+                parder_deltar_dotp_eq = SW_SI * BW_SI * (Gamma3 * qbar_eq * parder_deltar_CMx5_eq + Gamma4 * qind_eq * parder_deltar_CMz5_eq)
 
-                # Partial derivatives of \dot{omega_y}
-                pd_rd_domegay     = ((SW_IMP * CW_IMP) / Iyy) * (pd_rd_q_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + q_eq * pd_rd_CMy1_eq + pd_rd_qxz_eq * CMy5_eq + pd_rd_qind_eq * CMy6_eq)
-                pd_vx_domegay     = ((SW_IMP * CW_IMP) / Iyy) * (pd_vx_q_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + q_eq * (pd_vx_CMy2_eq + pd_vx_CMy3_eq) + pd_vx_qxz_eq * CMy5_eq + qxz_eq * pd_vx_CMy5_eq + pd_vx_qind_eq * CMy6_eq + qind_eq * pd_vx_CMy6_eq)
-                pd_vy_domegay     = ((SW_IMP * CW_IMP) / Iyy) * (pd_vy_q_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + q_eq * pd_vy_CMy3_eq + qxz_eq * pd_vy_CMy5_eq)
-                pd_vz_domegay     = ((SW_IMP * CW_IMP) / Iyy) * (pd_vz_q_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + q_eq * (pd_vz_CMy2_eq + pd_vz_CMy3_eq) + pd_vz_qxz_eq * CMy5_eq + qxz_eq * pd_vz_CMy5_eq + qind_eq * pd_vz_CMy6_eq)
-                pd_omegax_domegay = Gamma5 * omegaz_eq - 2 * Gamma6 * omegax_eq
-                pd_omegay_domegay = ((SW_IMP * CW_IMP * q_eq) / Iyy) * pd_omegay_CMy3_eq
-                pd_omegaz_domegay = Gamma5 * omegax_eq + 2 * Gamma6 * omegaz_eq
-                pd_deltaf_domegay = ((SW_IMP * CW_IMP * q_eq) / Iyy) * pd_deltaf_CMy4_eq
-                pd_deltae_domegay = ((SW_IMP * CW_IMP * q_ind) / Iyy) * pd_deltae_CMy6_eq
+                #Partial derivatives of \dot{q} evaluated in the equilibrium point
+                parder_pd_dotq_eq     = ((SW_SI * CW_SI) / Iyy) * (parder_pd_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * parder_pd_CMy1_eq + parder_pd_quw_eq * CMy5_eq + parder_pd_qind_eq * CMy6_eq)
+                parder_u_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * (parder_u_CMy2_eq + parder_u_CMy3_eq) + parder_u_quw_eq * CMy5_eq + quw_eq * parder_u_CMy5_eq + parder_u_qind_eq * CMy6_eq + qind_eq * parder_u_CMy6_eq)
+                parder_v_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_v_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * parder_v_CMy3_eq + quw_eq * parder_v_CMy5_eq)
+                parder_w_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * (parder_w_CMy2_eq + parder_w_CMy3_eq) + parder_w_quw_eq * CMy5_eq + quw_eq * parder_w_CMy5_eq + qind_eq * parder_w_CMy6_eq)
+                parder_p_dotq_eq      = Gamma5 * r_eq - 2 * Gamma6 * p_eq
+                parder_q_dotq_eq      = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_q_CMy3_eq
+                parder_r_dotq_eq      = Gamma5 * p_eq + 2 * Gamma6 * r_eq
+                parder_deltaf_dotq_eq = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_deltaf_CMy4_eq
+                parder_deltae_dotq_eq = ((SW_SI * CW_SI * q_ind) / Iyy) * parder_deltae_CMy6_eq
 
-                # Partial derivatives of \dot{omega_z}
-                pd_rd_domegaz     = SW_IMP * BW_IMP * (pd_rd_q_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma8 * (pd_rd_qind_eq * CMz5_eq + pd_rd_qprop_eq * CMz6_eq))
-                pd_vx_domegaz     = SW_IMP * BW_IMP * (pd_vx_q_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + q_eq * (Gamma4 * (pd_vx_CMx1_eq + pd_vx_CMx2_eq + pd_vx_CMx3_eq + pd_vx_CMx4_eq) + Gamma8 * (pd_vx_CMz1_eq + pd_vx_CMz2_eq + pd_vx_CMz3_eq + pd_vx_CMz4_eq)) + Gamma8 * (pd_vx_qind_eq * CMz5_eq + pd_vx_qprop_eq * CMz6_eq))
-                pd_vy_domegaz     = SW_IMP * BW_IMP * (pd_vy_q_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + q_eq * (Gamma4 * (pd_vy_CMx1_eq + pd_vy_CMx2_eq + pd_vy_CMx3_eq) + Gamma8 * (pd_vy_CMz1_eq + pd_vy_CMz2_eq + pd_vy_CMz3_eq + pd_vy_CMz4_eq)))
-                pd_vz_domegaz     = SW_IMP * BW_IMP * (pd_vz_q_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + q_eq * (Gamma4 * (pd_vz_CMx1_eq + pd_vz_CMx2_eq + pd_vz_CMx3_eq + pd_vz_CMx4_eq) + Gamma8 * (pd_vz_CMz1_eq + pd_vz_CMz2_eq + pd_vz_CMz3_eq + pd_vz_CMz4_eq)))
-                pd_omegax_domegaz = Gamma7 * omegay_eq + SW_IMP * BW_IMP * q_eq * Gamma4 * pd_omegax_CMx2_eq
-                pd_omegay_domegaz = Gamma7 * omegax_eq - Gamma1 * omegaz_eq
-                pd_omegaz_domegaz = - Gamma1 * omegay_eq + SW_IMP * BW_IMP * q_eq * (Gamma4 * pd_omegaz_CMx3_eq + Gamma8 * (pd_omegaz_CMz2_eq + pd_omegaz_CMz3_eq))
-                pd_deltaa_domegaz = SW_IMP * BW_IMP * q_eq * (Gamma4 * pd_deltaa_CMx4_eq + Gamma8 * pd_deltaa_CMz4_eq)
-                pd_deltaf_domegaz = SW_IMP * BW_IMP * q_eq * Gamma4 * pd_deltaf_CMx3_eq
-                pd_deltar_domegax = SW_IMP * BW_IMP * (Gamma4 * q_eq * pd_deltar_CMx5_eq + Gamma8 * qind_eq * pd_deltar_CMz5_eq)
+                #Partial derivatives of \dot{r} evaluated in the equilibrium point
+                parder_pd_dotr_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma8 * (parder_pd_qind_eq * CMz5_eq + parder_pd_qprop_eq * CMz6_eq))
+                parder_u_dotr_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_u_CMx1_eq + parder_u_CMx2_eq + parder_u_CMx3_eq + parder_u_CMx4_eq) + Gamma8 * (parder_u_CMz1_eq + parder_u_CMz2_eq + parder_u_CMz3_eq + parder_u_CMz4_eq)) + Gamma8 * (parder_u_qind_eq * CMz5_eq + parder_u_qprop_eq * CMz6_eq))
+                parder_v_dotr_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_v_CMx1_eq + parder_v_CMx2_eq + parder_v_CMx3_eq) + Gamma8 * (parder_v_CMz1_eq + parder_v_CMz2_eq + parder_v_CMz3_eq + parder_v_CMz4_eq)))
+                parder_w_dotr_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_w_CMx1_eq + parder_w_CMx2_eq + parder_w_CMx3_eq + parder_w_CMx4_eq) + Gamma8 * (parder_w_CMz1_eq + parder_w_CMz2_eq + parder_w_CMz3_eq + parder_w_CMz4_eq)))
+                parder_p_dotr_eq      = Gamma7 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma4 * parder_p_CMx2_eq
+                parder_q_dotr_eq      = Gamma7 * p_eq - Gamma1 * r_eq
+                parder_r_dotr_eq      = - Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_r_CMx3_eq + Gamma8 * (parder_r_CMz2_eq + parder_r_CMz3_eq))
+                parder_deltaa_dotr_eq = SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_deltaa_CMx4_eq + Gamma8 * parder_deltaa_CMz4_eq)
+                parder_deltaf_dotr_eq = SW_SI * BW_SI * qbar_eq * Gamma4 * parder_deltaf_CMx3_eq
+                parder_deltar_dotr_eq = SW_SI * BW_SI * (Gamma4 * qbar_eq * parder_deltar_CMx5_eq + Gamma8 * qind_eq * parder_deltar_CMz5_eq)
 
                 self.csvlm[i,:] = [time, dx]
 

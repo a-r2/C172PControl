@@ -292,9 +292,9 @@ def averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad):
 
 ''' BAROMETRIC ATMOSPHERE '''
 #https://en.wikipedia.org/wiki/Barometric_formula
-Rg = 8.3144598 #Universal gas constant [N·m/(mol·K)]
-G0 = 9.80665 #Gravitational acceleration [m/s^2]
-Me = 0.0289644 #Molar mass of Earth's air [kg/mol]
+Rg_SI = 8.3144598 #Universal gas constant [N·m/(mol·K)]
+G0_SI = 9.80665 #Gravitational acceleration [m/s^2]
+Me_SI = 0.0289644 #Molar mass of Earth's air [kg/mol]
 #Barometric atmosphere table for calculating barometric density
 #Column 0: height above sea level (altitude) [m]
 #Colum 1: mass density [kg/m^3]
@@ -312,10 +312,10 @@ BARO_ATM = np.array(
                         ]
                    )
 
-def barometric_density(rd):
-    #Barometric density as a function of negative altitude (rd)
+def barometric_density(pd):
+    #Barometric density as a function of pd
     try:
-        layer_ind = np.where(BARO_ATM[:,0] <= (- rd))[0][-1]
+        layer_ind = np.where(BARO_ATM[:,0] <= (- pd))[0][-1]
     except:
         layer_ind = 0
 
@@ -325,14 +325,14 @@ def barometric_density(rd):
     L_layer   = BARO_ATM[layer_ind,3] #temperature lapse rate
 
     if L_layer == 0:
-        return rho_layer * exp((G0 * Me * (rd + h_layer)) / (Rg * T_layer))
+        return rho_layer * exp((G0_SI * Me_SI * (pd + h_layer)) / (Rg_SI * T_layer))
     else:
-        return rho_layer * (T_layer / (T_layer - L_layer * (rd + h_layer))) ** (1 + ((G0 * Me) / (Rg * L_layer)))
+        return rho_layer * (T_layer / (T_layer - L_layer * (pd + h_layer))) ** (1 + ((G0_SI * Me_SI) / (Rg_SI * L_layer)))
 
-def barometric_density_pd_rd(rd):
-    #Partial derivative of barometric density with respect to negative altitude (rd)
+def parder_pd_barometric_density(pd):
+    #Partial derivative of barometric density with respect to pd 
     try:
-        layer_ind = np.where(BARO_ATM[:,0] <= (- rd))[0][-1]
+        layer_ind = np.where(BARO_ATM[:,0] <= (- pd))[0][-1]
     except:
         layer_ind = 0
 
@@ -342,6 +342,6 @@ def barometric_density_pd_rd(rd):
     L_layer   = BARO_ATM[layer_ind,3] #temperature lapse rate
 
     if L_layer == 0:
-        return ((rho_layer * G0 * Me) / (Rg * T_layer)) * exp((G0 * Me * (rd + h_layer)) / (Rg * T_layer))
+        return ((rho_layer * G0_SI * Me_SI) / (Rg_SI * T_layer)) * exp((G0_SI * Me_SI * (pd + h_layer)) / (Rg_SI * T_layer))
     else:
-        return (rho_layer * T_layer * L_layer * (1 + ((G0 * Me) / (Rg * L_layer))) * (T_layer / (T_layer - L_layer * (rd + h_layer))) ** ((G0 * Me) / (Rg * L_layer))) / ((T_layer - L_layer * (rd + h_layer)) ** 2)
+        return (rho_layer * T_layer * L_layer * (1 + ((G0_SI * Me_SI) / (Rg_SI * L_layer))) * (T_layer / (T_layer - L_layer * (pd + h_layer))) ** ((G0_SI * Me_SI) / (Rg_SI * L_layer))) / ((T_layer - L_layer * (pd + h_layer)) ** 2)
