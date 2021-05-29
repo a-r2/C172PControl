@@ -30,6 +30,34 @@ SW_SI      = ft_to_m(sqrt(SW_IMP)) ** 2 #wing area [m^2]
 A_PROP_SI  = propeller_area(D_PROP_SI) #propeller area [m^2]
 A_PROP_IMP = propeller_area(m_to_ft(D_PROP_SI)) #propeller area [ft^2]
 
+''' MOMENTS OF INERTIA '''
+def mominert_gamma(Ixx, Ixz, Izz):
+    return Ixx * Izz - (Ixz ** 2)
+
+def mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma):
+    return (Ixz * (Ixx - Iyy + Izz)) / Gamma
+
+def mominert_gamma2(Ixz, Iyy, Izz, Gamma):
+    return (Izz * (Izz - Iyy) + (Ixz ** 2)) / Gamma
+
+def mominert_gamma3(Izz, Gamma):
+    return Izz / Gamma
+
+def mominert_gamma4(Ixz, Gamma):
+    return Ixz / Gamma
+
+def mominert_gamma5(Ixx, Iyy, Izz):
+    return (Izz - Ixx) / Iyy
+
+def mominert_gamma6(Ixz, Iyy):
+    return Ixz / Iyy
+
+def mominert_gamma7(Ixx, Iyy, Ixz, Gamma):
+    return (Ixx * (Ixx - Iyy) + (Ixz ** 2)) / Gamma
+
+def mominert_gamma8(Ixx, Gamma):
+    return Ixx / Gamma
+
 ''' DYNAMIC COEFFICIENTS TABLES '''
 #Drag coefficient due to ground effect
 #Column 0: h_b_mac_ft
@@ -63,6 +91,10 @@ CD2 = np.array(
                 ]
               )
 CD2_interp = interpolate.interp1d(CD2[:,0], CD2[:,1], bounds_error=False, fill_value=(CD2[0,1], CD2[-1,1]))
+
+parder_deltaf_CD2        = np.diff(CD2[:,1]) / np.diff(CD2[:,0])
+parder_deltaf_CD2        = np.column_stack((CD2[:,0], np.block([parder_deltaf_CD2, parder_deltaf_CD2[-1]])))
+parder_deltaf_CD2_interp = interpolate.interp1d(parder_deltaf_CD2[:,0], parder_deltaf_CD2[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
 
 #Drag coefficient due to angle of attack and flaps position
 #Column 0: alpha_rad | Row 0: flaps_pos_deg
@@ -180,6 +212,10 @@ CL2 = np.array(
               )
 CL2_interp = interpolate.interp1d(CL2[:,0], CL2[:,1], bounds_error=False, fill_value=(CL2[0,1], CL2[-1,1]))
 
+parder_deltaf_CL2        = np.diff(CL2[:,1]) / np.diff(CL2[:,0])
+parder_deltaf_CL2        = np.column_stack((CL2[:,0], np.block([parder_deltaf_CL2, parder_deltaf_CL2[-1]])))
+parder_deltaf_CL2_interp = interpolate.interp1d(parder_deltaf_CL2[:,0], parder_deltaf_CL2[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+
 #Roll moment coefficient due to alpha wing
 #Column 0: alpha_rad
 Cl1 = np.array(
@@ -190,6 +226,10 @@ Cl1 = np.array(
               )
 Cl1_interp = interpolate.interp1d(Cl1[:,0], Cl1[:,1], bounds_error=False, fill_value=(Cl1[0,1], Cl1[-1,1]))
 
+parder_alpha_Cl1        = np.diff(Cl1[:,1]) / np.diff(Cl1[:,0])
+parder_alpha_Cl1        = np.column_stack((Cl1[:,0], np.block([parder_alpha_Cl1, parder_alpha_Cl1[-1]])))
+parder_alpha_Cl1_interp = interpolate.interp1d(parder_alpha_Cl1[:,0], parder_alpha_Cl1[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+
 #Roll moment coefficient due to flaps position
 #Column 0: flaps_pos_deg
 Cl31 = np.array(
@@ -199,6 +239,10 @@ Cl31 = np.array(
                 ]
               )
 Cl31_interp = interpolate.interp1d(Cl31[:,0], Cl31[:,1], bounds_error=False, fill_value=(Cl31[0,1], Cl31[-1,1]))
+
+parder_deltaf_Cl31        = np.diff(Cl31[:,1]) / np.diff(Cl31[:,0])
+parder_deltaf_Cl31        = np.column_stack((Cl31[:,0], np.block([parder_deltaf_Cl31, parder_deltaf_Cl31[-1]])))
+parder_deltaf_Cl31_interp = interpolate.interp1d(parder_deltaf_Cl31[:,0], parder_deltaf_Cl31[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
 
 #Roll moment coefficient due to flaps position (stall)
 #Column 0: alpha_rad | Row 0: r_rad_sec
@@ -248,6 +292,10 @@ Cm1 = np.array(
               )
 Cm1_interp = interpolate.interp1d(Cm1[:,0], Cm1[:,1], bounds_error=False, fill_value=(Cm1[0,1], Cm1[-1,1]))
 
+parder_qbar_Cm1        = np.diff(Cm1[:,1]) / np.diff(Cm1[:,0])
+parder_qbar_Cm1        = np.column_stack((Cm1[:,0], np.block([parder_qbar_Cm1, parder_qbar_Cm1[-1]])))
+parder_qbar_Cm1_interp = interpolate.interp1d(parder_qbar_Cm1[:,0], parder_qbar_Cm1[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+
 #Pitch moment coefficient due to alpha_deg
 #Column 0: alpha_deg 
 Cm2 = np.array(
@@ -263,6 +311,10 @@ Cm2 = np.array(
               )
 Cm2_interp = interpolate.interp1d(Cm2[:,0], Cm2[:,1], bounds_error=False, fill_value=(Cm2[0,1], Cm2[-1,1]))
     
+parder_alpha_Cm2        = np.diff(Cm2[:,1]) / np.diff(Cm2[:,0])
+parder_alpha_Cm2        = np.column_stack((Cm2[:,0], np.block([parder_alpha_Cm2, parder_alpha_Cm2[-1]])))
+parder_alpha_Cm2_interp = interpolate.interp1d(parder_alpha_Cm2[:,0], parder_alpha_Cm2[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+
 #Pitch moment coefficient due to elev_pos_rad and alpha_deg
 #Column 0: elev_pos_rad | Row 0: alpha_deg
 Cm5 = np.array(
@@ -287,7 +339,11 @@ Cm6 = np.array(
                 ]
               )
 Cm6_interp = interpolate.interp1d(Cm6[:,0], Cm6[:,1], bounds_error=False, fill_value=(Cm6[0,1], Cm6[-1,1]))
-    
+
+parder_deltaf_Cm6        = np.diff(Cm6[:,1]) / np.diff(Cm6[:,0])
+parder_deltaf_Cm6        = np.column_stack((Cm6[:,0], np.block([parder_deltaf_Cm6, parder_deltaf_Cm6[-1]])))
+parder_deltaf_Cm6_interp = interpolate.interp1d(parder_deltaf_Cm6[:,0], parder_deltaf_Cm6[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+
 #Yaw moment coefficient due to beta_rad 
 #Column 0: beta_rad 
 Cn1 = np.array(
@@ -298,6 +354,10 @@ Cn1 = np.array(
                 ]
               )
 Cn1_interp = interpolate.interp1d(Cn1[:,0], Cn1[:,1], bounds_error=False, fill_value=(Cn1[0,1], Cn1[-1,1]))
+
+parder_beta_Cn1        = np.diff(Cn1[:,1]) / np.diff(Cn1[:,0])
+parder_beta_Cn1        = np.column_stack((Cn1[:,0], np.block([parder_beta_Cn1, parder_beta_Cn1[-1]])))
+parder_beta_Cn1_interp = interpolate.interp1d(parder_beta_Cn1[:,0], parder_beta_Cn1[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
 
 #Yaw moment coefficient due to r_rad_sec
 #Column 0: r_rad_sec | Row 0: alpha_rad 
@@ -364,6 +424,10 @@ CT = np.array(
              )
 CT_interp = interpolate.interp1d(CT[:,0], CT[:,1], bounds_error=False, fill_value=(CT[0,1], CT[-1,1]))
 
+parder_J_CT        = np.diff(CT[:,1]) / np.diff(CT[:,0])
+parder_J_CT        = np.column_stack((CT[:,0], np.block([parder_J_CT, parder_J_CT[-1]])))
+parder_J_CT_interp = interpolate.interp1d(parder_J_CT[:,0], parder_J_CT[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+
 #Multiplier of power coefficient due to advance_ratio
 #Column 0: advance_ratio
 CP = np.array(
@@ -399,123 +463,123 @@ CP = np.array(
 CP_interp = interpolate.interp1d(CP[:,0], CP[:,1], bounds_error=False, fill_value=(CP[0,1], CP[-1,1]))
 
 ''' AERODYNAMIC DRAG FORCE COEFFICIENTS '''
-def CD1():
+def aerocoeff_CD1():
     #Aerodynamic drag coefficient 1 
     return 0.0270
 
-def CD2(h_b_mac_ft, flaps_pos_deg):
+def aerocoeff_CD2(h_b_mac_ft, flaps_pos_deg):
     #Aerodynamic drag coefficient 2
     return kCDge_interp(h_b_mac_ft) * CD2_interp(flaps_pos_deg)
 
-def CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg):
+def aerocoeff_CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg):
     #Aerodynamic drag coefficient 3
     return kCDge_interp(h_b_mac_ft) * CD3_interp(alpha_rad, flaps_pos_deg)
 
-def CD4(beta_rad):
+def aerocoeff_CD4(beta_rad):
     #Aerodynamic drag coefficient 4
     return abs(beta_rad) * 0.1500
 
 ''' AERODYNAMIC CROSSWIND FORCE COEFFICIENTS '''
-def CC1(beta_rad, flaps_pos_deg):
+def aerocoeff_CC1(beta_rad, flaps_pos_deg):
     #Aerodynamic crosswind coefficient 1
     return CY1_interp(beta_rad, flaps_pos_deg)
 
-def CC2(rudder_pos_rad):
+def aerocoeff_CC2(rudder_pos_rad):
     #Aerodynamic crosswind coefficient 2
     return rudder_pos_rad * 0.1500
 
 ''' AERODYNAMIC LIFT FORCE COEFFICIENTS '''
-def CL1(h_b_mac_ft, alpha_rad, stall_hyst_norm):
+def aerocoeff_CL1(h_b_mac_ft, alpha_rad, stall_hyst_norm):
     #Aerodynamic lift coefficient 1
     return kCLge_interp(h_b_mac_ft) * CL1_interp(alpha_rad, stall_hyst_norm)
 
-def CL2(h_b_mac_ft, flaps_pos_deg):
+def aerocoeff_CL2(h_b_mac_ft, flaps_pos_deg):
     #Aerodynamic lift coefficient 2
     return kCLge_interp(h_b_mac_ft) * CL2_interp(flaps_pos_deg)
 
-def CL3(elev_pos_rad):
+def aerocoeff_CL3(elev_pos_rad):
     #Aerodynamic lift coefficient 3
     return elev_pos_rad * 0.4300
 
-def CL4(q_rad_sec, ci2vel):
+def aerocoeff_CL4(q_rad_sec, ci2vel):
     #Aerodynamic lift coefficient 4
     return q_rad_sec * ci2vel * 3.9000
 
-def CL5(alphadot_rad_sec, ci2vel):
+def aerocoeff_CL5(alphadot_rad_sec, ci2vel):
     #Aerodynamic lift coefficient 5
     return alphadot_rad_sec * ci2vel * 1.7000
 
 ''' AERODYNAMIC ROLL MOMENT COEFFICIENTS '''
-def Cl1(beta_rad, alpha_rad):
+def aerocoeff_Cl1(beta_rad, alpha_rad):
     #Aerodynamic roll coefficient 1
     return beta_rad * -0.0920 * Cl1_interp(alpha_rad)
 
-def Cl2(bi2vel, p_rad_sec):
+def aerocoeff_Cl2(bi2vel, p_rad_sec):
     #Aerodynamic roll coefficient 2
     return bi2vel * p_rad_sec * -0.4840
 
-def Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
+def aerocoeff_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
     #Aerodynamic roll coefficient 3
     if stall_hyst_norm:
         return bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl32_interp(alpha_rad, r_rad_sec)
     else:
         return bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl33_interp(alpha_rad, r_rad_sec)
 
-def Cl4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
+def aerocoeff_Cl4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
     #Aerodynamic roll coefficient 4
     return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * 0.2290 * Cl4_interp(alpha_rad, stall_hyst_norm)
 
-def Cl5(rudder_pos_rad):
+def aerocoeff_Cl5(rudder_pos_rad):
     #Aerodynamic roll coefficient 5
     return rudder_pos_rad * 0.0147
 
 ''' AERODYNAMIC PITCH MOMENT COEFFICIENTS '''
-def Cm1(qbar_psf):
+def aerocoeff_Cm1(qbar_psf):
     #Aerodynamic pitch coefficient 1
     return Cm1_interp(qbar_psf)
 
-def Cm2(alpha_deg, alpha_rad):
+def aerocoeff_Cm2(alpha_deg, alpha_rad):
     #Aerodynamic pitch coefficient 2
     return sin(alpha_rad) * -1.8000 * Cm2_interp(alpha_deg)
 
-def Cm3(ci2vel, q_rad_sec):
+def aerocoeff_Cm3(ci2vel, q_rad_sec):
     #Aerodynamic pitch coefficient 3
     return ci2vel * q_rad_sec * -12.4000
 
-def Cm4(flaps_pos_deg):
+def aerocoeff_Cm4(flaps_pos_deg):
     #Aerodynamic pitch coefficient 4
     return Cm6_interp(flaps_pos_deg) * 0.7000
 
-def Cm5(ci2vel, alphadot_rad_sec):
+def aerocoeff_Cm5(ci2vel, alphadot_rad_sec):
     #Aerodynamic pitch coefficient 5
     return ci2vel * alphadot_rad_sec * -7.2700
 
-def Cm6(elev_pos_rad, alpha_deg):
+def aerocoeff_Cm6(elev_pos_rad, alpha_deg):
     #Aerodynamic pitch coefficient 6
     return elev_pos_rad * -1.2800 * Cm5_interp(elev_pos_rad, alpha_deg)
 
 ''' AERODYNAMIC YAW MOMENT COEFFICIENTS '''
-def Cn1(beta_rad):
+def aerocoeff_Cn1(beta_rad):
     #Aerodynamic yaw coefficient 1
     return Cn1_interp(beta_rad)
 
-def Cn2(bi2vel, r_rad_sec):
+def aerocoeff_Cn2(bi2vel, r_rad_sec):
     #Aerodynamic yaw coefficient 2
     return bi2vel * r_rad_sec * -0.0937
 
-def Cn3(bi2vel, r_rad_sec, alpha_rad):
+def aerocoeff_Cn3(bi2vel, r_rad_sec, alpha_rad):
     #Aerodynamic yaw coefficient 3
     return bi2vel * Cn4_interp(r_rad_sec, alpha_rad)
 
-def Cn4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
+def aerocoeff_Cn4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
     #Aerodynamic yaw coefficient 4
     return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Cn5_interp(alpha_rad, beta_rad)
 
-def Cn5(rudder_pos_rad):
+def aerocoeff_Cn5(rudder_pos_rad):
     #Aerodynamic yaw coefficient 5
     return rudder_pos_rad * -0.0645
 
-def Cn6():
+def aerocoeff_Cn6():
     #Aerodynamic yaw coefficient 6
     return -0.0500 * C_SPIRAL_PROPWASH
 
@@ -570,9 +634,8 @@ def Vind2_acm(u, rho, T):
     #Squared propulsion induced velocity (Vind^2) as defined in the analytic control models
     return u * abs(u) + ((2 * T) / (rho * PROP_AREA_SI))
 
-def Vind_acm(u, rho, T):
+def Vind_acm(u, rho, T, Vind2):
     #Propulsion induced velocity (Vind) as defined in the analytic control models
-    Vind2 = Vind2_acm(u, rho, T)
     if Vind2 >= 0:
         return sqrt(Vind2)
     else:
@@ -600,7 +663,7 @@ def qbarprop_acm(rho, Vprop):
 
 def n_acm(deltat, deltam):
     #Propeller RPS (Revolutions Per Second) law as defined in the analytic control models
-    if deltam >= DELTA_M_MIN
+    if deltam >= DELTA_M_MIN:
         return (N_MAX - N_MIN) * deltat + N_MIN
     else:
         return 0
@@ -614,21 +677,18 @@ def parder_pd_rho(pd):
     #Partial derivative of rho with respect to pd
     return parder_pd_barometric_density(pd)
 
-def parder_pd_Vind(u, rho, T, parder_pd_rho):
+def parder_pd_Vind(u, rho, T, Vind2, parder_pd_rho):
     #Partial derivative of Vind with respect to pd
-    Vind2      = Vind2_acm(u, rho, T)
     Vind2_sign = (np.sign(Vind2) >= 0)
     return - Vind2_sign * parder_pd_rho * ((T * (rho * PROP_AREA_SI * u * abs(u) + 2 * T)) / ((rho ** 3) * (PROP_AREA_SI ** 2) * (Vind ** 3)))
 
-def parder_u_Vind(u, rho, T):
+def parder_u_Vind(u, rho, T, Vind2):
     #Partial derivative of Vind with respect to u
-    Vind2      = Vind2_acm(u, rho, T)
     Vind2_sign = (np.sign(Vind2) >= 0)
     return Vind2_sign * (u ** 2) * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / (rho * PROP_AREA_SI * abs(u) * (Vind ** 3))
 
-def parder_deltat_Vind(u, rho, T, parder_deltat_Ft):
+def parder_deltat_Vind(u, rho, T, Vind2, parder_deltat_Ft):
     #Partial derivative of Vind with respect to deltat
-    Vind2      = Vind2_acm(u, rho, T)
     Vind2_sign = (np.sign(Vind2) >= 0)
     return Vind2_sign * parder_deltat_Ft * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / ((rho ** 2) * (PROP_AREA_SI ** 2) * (Vind ** 3))
 
@@ -979,4 +1039,3 @@ class ControlModel():
 
             lm2csv_in.send(self.csvlm[:framescount,:]) #send calculated linear model to store in CSV
             self.csvlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
-'''
