@@ -92,9 +92,15 @@ CD2 = np.array(
               )
 CD2_interp = interpolate.interp1d(CD2[:,0], CD2[:,1], bounds_error=False, fill_value=(CD2[0,1], CD2[-1,1]))
 
-parder_deltaf_CD2        = np.diff(CD2[:,1]) / np.diff(CD2[:,0])
-parder_deltaf_CD2        = np.column_stack((CD2[:,0], np.block([parder_deltaf_CD2, parder_deltaf_CD2[-1]])))
-parder_deltaf_CD2_interp = interpolate.interp1d(parder_deltaf_CD2[:,0], parder_deltaf_CD2[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_deltaf_CD2         = np.zeros((CD2.shape[0] + 1, 2))
+parder_deltaf_CD2[0,0]    = CD2[0,0]
+parder_deltaf_CD2[-1,0]   = CD2[-1,0]
+parder_deltaf_CD2[0,1]    = CD2[0,1]
+parder_deltaf_CD2[0,-1]   = CD2[0,-1]
+parder_deltaf_CD2[1:-1,0] = CD2[:-1,0] + 0.5 * np.diff(CD2[:,0])
+parder_deltaf_CD2[0,1:-1] = CD2[0,:-1] + 0.5 * np.diff(CD2[0,:])
+parder_deltaf_CD2[1:-1,1] = np.diff(CD2[:,1]) / np.diff(CD2[:,0])
+parder_deltaf_CD2_interp  = interpolate.interp1d(parder_deltaf_CD2[:,0], parder_deltaf_CD2[:,1], bounds_error=False, fill_value=0)
 
 #Drag coefficient due to angle of attack and flaps position
 #Column 0: alpha_rad | Row 0: flaps_pos_deg
@@ -131,8 +137,21 @@ CD3 = np.array(
                 [1.5710 , 1.6000, 2.0800, 2.3680, 2.5120]
                 ]
               )
-CD3_trans = CD3.transpose()
+CD3_trans  = CD3.transpose()
 CD3_interp = interpolate.interp2d(CD3_trans[0,1:], CD3_trans[1:,0], CD3_trans[1:,1:])
+
+parder_alpha_CD3         = np.zeros((CD3.shape[0] + 1, CD3.shape[1] + 1))
+parder_alpha_CD3[0,0]    = np.NaN
+parder_alpha_CD3[1,0]    = CD3[1,0]
+parder_alpha_CD3[-1,0]   = CD3[-1,0]
+parder_alpha_CD3[0,1]    = CD3[0,1]
+parder_alpha_CD3[0,-1]   = CD3[0,-1]
+parder_alpha_CD3[2:-1,0] = CD3[1:-1,0] + 0.5 * np.diff(CD3[1:,0])
+parder_alpha_CD3[0,2:-1] = CD3[0,1:-1] + 0.5 * np.diff(CD3[0,1:])
+for j in range(CD3.shape[1] - 1):
+    parder_alpha_CD3[2:-1,j+1] = np.diff(CD3[1:,j+1]) / np.diff(CD3[1:,0])
+parder_alpha_CD3_trans  = parder_alpha_CD3.transpose()
+parder_alpha_CD3_interp = interpolate.interp2d(parder_alpha_CD3_trans[0,1:], parder_alpha_CD3_trans[1:,0], parder_alpha_CD3_trans[1:,1:], bounds_error=False, fill_value=0)
 
 #Side force coefficient due to side-slip angle and flaps position
 #Column 0: beta_rad | Row 0: flaps_pos_deg
@@ -144,7 +163,7 @@ CY1 = np.array(
                 [0.3490, -0.1370, -0.1060]
                 ]
               )
-CY1_trans = CY1.transpose()
+CY1_trans  = CY1.transpose()
 CY1_interp = interpolate.interp2d(CY1_trans[0,1:], CY1_trans[1:,0], CY1_trans[1:,1:])
 
 #Lift coefficient due to ground effect
@@ -197,7 +216,7 @@ CL1 = np.array(
                 [1.5700, 0.0100, 0.0100]
                 ]
               )
-CL1_trans = CL1.transpose()
+CL1_trans  = CL1.transpose()
 CL1_interp = interpolate.interp2d(CL1_trans[0,1:], CL1_trans[1:,0], CL1_trans[1:,1:])
 
 #Lift coefficient due to flaps position
@@ -212,9 +231,15 @@ CL2 = np.array(
               )
 CL2_interp = interpolate.interp1d(CL2[:,0], CL2[:,1], bounds_error=False, fill_value=(CL2[0,1], CL2[-1,1]))
 
-parder_deltaf_CL2        = np.diff(CL2[:,1]) / np.diff(CL2[:,0])
-parder_deltaf_CL2        = np.column_stack((CL2[:,0], np.block([parder_deltaf_CL2, parder_deltaf_CL2[-1]])))
-parder_deltaf_CL2_interp = interpolate.interp1d(parder_deltaf_CL2[:,0], parder_deltaf_CL2[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_deltaf_CL2         = np.zeros((CL2.shape[0] + 1, 2))
+parder_deltaf_CL2[0,0]    = CL2[0,0]
+parder_deltaf_CL2[-1,0]   = CL2[-1,0]
+parder_deltaf_CL2[0,1]    = CL2[0,1]
+parder_deltaf_CL2[0,-1]   = CL2[0,-1]
+parder_deltaf_CL2[1:-1,0] = CL2[:-1,0] + 0.5 * np.diff(CL2[:,0])
+parder_deltaf_CL2[0,1:-1] = CL2[0,:-1] + 0.5 * np.diff(CL2[0,:])
+parder_deltaf_CL2[1:-1,1] = np.diff(CL2[:,1]) / np.diff(CL2[:,0])
+parder_deltaf_CL2_interp  = interpolate.interp1d(parder_deltaf_CL2[:,0], parder_deltaf_CL2[:,1], bounds_error=False, fill_value=0)
 
 #Roll moment coefficient due to alpha wing
 #Column 0: alpha_rad
@@ -226,9 +251,15 @@ Cl1 = np.array(
               )
 Cl1_interp = interpolate.interp1d(Cl1[:,0], Cl1[:,1], bounds_error=False, fill_value=(Cl1[0,1], Cl1[-1,1]))
 
-parder_alpha_Cl1        = np.diff(Cl1[:,1]) / np.diff(Cl1[:,0])
-parder_alpha_Cl1        = np.column_stack((Cl1[:,0], np.block([parder_alpha_Cl1, parder_alpha_Cl1[-1]])))
-parder_alpha_Cl1_interp = interpolate.interp1d(parder_alpha_Cl1[:,0], parder_alpha_Cl1[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_alpha_Cl1         = np.zeros((Cl1.shape[0] + 1, 2))
+parder_alpha_Cl1[0,0]    = Cl1[0,0]
+parder_alpha_Cl1[-1,0]   = Cl1[-1,0]
+parder_alpha_Cl1[0,1]    = Cl1[0,1]
+parder_alpha_Cl1[0,-1]   = Cl1[0,-1]
+parder_alpha_Cl1[1:-1,0] = Cl1[:-1,0] + 0.5 * np.diff(Cl1[:,0])
+parder_alpha_Cl1[0,1:-1] = Cl1[0,:-1] + 0.5 * np.diff(Cl1[0,:])
+parder_alpha_Cl1[1:-1,1] = np.diff(Cl1[:,1]) / np.diff(Cl1[:,0])
+parder_alpha_Cl1_interp  = interpolate.interp1d(parder_alpha_Cl1[:,0], parder_alpha_Cl1[:,1], bounds_error=False, fill_value=0)
 
 #Roll moment coefficient due to flaps position
 #Column 0: flaps_pos_deg
@@ -240,9 +271,15 @@ Cl31 = np.array(
               )
 Cl31_interp = interpolate.interp1d(Cl31[:,0], Cl31[:,1], bounds_error=False, fill_value=(Cl31[0,1], Cl31[-1,1]))
 
-parder_deltaf_Cl31        = np.diff(Cl31[:,1]) / np.diff(Cl31[:,0])
-parder_deltaf_Cl31        = np.column_stack((Cl31[:,0], np.block([parder_deltaf_Cl31, parder_deltaf_Cl31[-1]])))
-parder_deltaf_Cl31_interp = interpolate.interp1d(parder_deltaf_Cl31[:,0], parder_deltaf_Cl31[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_deltaf_Cl31         = np.zeros((Cm1.shape[0] + 1, 2))
+parder_deltaf_Cl31[0,0]    = Cl31[0,0]
+parder_deltaf_Cl31[-1,0]   = Cl31[-1,0]
+parder_deltaf_Cl31[0,1]    = Cl31[0,1]
+parder_deltaf_Cl31[0,-1]   = Cl31[0,-1]
+parder_deltaf_Cl31[1:-1,0] = Cl31[:-1,0] + 0.5 * np.diff(Cl31[:,0])
+parder_deltaf_Cl31[0,1:-1] = Cl31[0,:-1] + 0.5 * np.diff(Cl31[0,:])
+parder_deltaf_Cl31[1:-1,1] = np.diff(Cl31[:,1]) / np.diff(Cl31[:,0])
+parder_deltaf_Cl31_interp  = interpolate.interp1d(parder_deltaf_Cl31[:,0], parder_deltaf_Cl31[:,1], bounds_error=False, fill_value=0)
 
 #Roll moment coefficient due to flaps position (stall)
 #Column 0: alpha_rad | Row 0: r_rad_sec
@@ -253,7 +290,7 @@ Cl32 = np.array(
                 [0.5000, 5.0000, 5.0000, 1.0000, 5.0000, 5.0000]
                 ]
               )
-Cl32_trans = Cl32.transpose()
+Cl32_trans  = Cl32.transpose()
 Cl32_interp = interpolate.interp2d(Cl32_trans[0,1:], Cl32_trans[1:,0], Cl32_trans[1:,1:])
 
 #Roll moment coefficient due to flaps position
@@ -266,7 +303,7 @@ Cl33 = np.array(
                 [0.5000, 5.0000, 5.0000, 1.0000, 5.0000, 5.0000]
                 ]
               )
-Cl33_trans = Cl33.transpose()
+Cl33_trans  = Cl33.transpose()
 Cl33_interp = interpolate.interp2d(Cl33_trans[0,1:], Cl33_trans[1:,0], Cl33_trans[1:,1:])
 
 #Roll moment coefficient due to flaps position
@@ -279,7 +316,7 @@ Cl4 = np.array(
                 [0.6110, -0.1000, -0.1000]
                 ]
               )
-Cl4_trans = Cl4.transpose()
+Cl4_trans  = Cl4.transpose()
 Cl4_interp = interpolate.interp2d(Cl4_trans[0,1:], Cl4_trans[1:,0], Cl4_trans[1:,1:])
 
 #Pitch moment coefficient due to qbar_psf
@@ -292,9 +329,15 @@ Cm1 = np.array(
               )
 Cm1_interp = interpolate.interp1d(Cm1[:,0], Cm1[:,1], bounds_error=False, fill_value=(Cm1[0,1], Cm1[-1,1]))
 
-parder_qbar_Cm1        = np.diff(Cm1[:,1]) / np.diff(Cm1[:,0])
-parder_qbar_Cm1        = np.column_stack((Cm1[:,0], np.block([parder_qbar_Cm1, parder_qbar_Cm1[-1]])))
-parder_qbar_Cm1_interp = interpolate.interp1d(parder_qbar_Cm1[:,0], parder_qbar_Cm1[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_qbar_Cm1         = np.zeros((Cm1.shape[0] + 1, 2))
+parder_qbar_Cm1[0,0]    = Cm1[0,0]
+parder_qbar_Cm1[-1,0]   = Cm1[-1,0]
+parder_qbar_Cm1[0,1]    = Cm1[0,1]
+parder_qbar_Cm1[0,-1]   = Cm1[0,-1]
+parder_qbar_Cm1[1:-1,0] = Cm1[:-1,0] + 0.5 * np.diff(Cm1[:,0])
+parder_qbar_Cm1[0,1:-1] = Cm1[0,:-1] + 0.5 * np.diff(Cm1[0,:])
+parder_qbar_Cm1[1:-1,1] = np.diff(Cm1[:,1]) / np.diff(Cm1[:,0])
+parder_qbar_Cm1_interp  = interpolate.interp1d(parder_qbar_Cm1[:,0], parder_qbar_Cm1[:,1], bounds_error=False, fill_value=0)
 
 #Pitch moment coefficient due to alpha_deg
 #Column 0: alpha_deg 
@@ -311,9 +354,15 @@ Cm2 = np.array(
               )
 Cm2_interp = interpolate.interp1d(Cm2[:,0], Cm2[:,1], bounds_error=False, fill_value=(Cm2[0,1], Cm2[-1,1]))
     
-parder_alpha_Cm2        = np.diff(Cm2[:,1]) / np.diff(Cm2[:,0])
-parder_alpha_Cm2        = np.column_stack((Cm2[:,0], np.block([parder_alpha_Cm2, parder_alpha_Cm2[-1]])))
-parder_alpha_Cm2_interp = interpolate.interp1d(parder_alpha_Cm2[:,0], parder_alpha_Cm2[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_alpha_Cm2         = np.zeros((Cm2.shape[0] + 1, 2))
+parder_alpha_Cm2[0,0]    = Cm2[0,0]
+parder_alpha_Cm2[-1,0]   = Cm2[-1,0]
+parder_alpha_Cm2[0,1]    = Cm2[0,1]
+parder_alpha_Cm2[0,-1]   = Cm2[0,-1]
+parder_alpha_Cm2[1:-1,0] = Cm2[:-1,0] + 0.5 * np.diff(Cm2[:,0])
+parder_alpha_Cm2[0,1:-1] = Cm2[0,:-1] + 0.5 * np.diff(Cm2[0,:])
+parder_alpha_Cm2[1:-1,1] = np.diff(Cm2[:,1]) / np.diff(Cm2[:,0])
+parder_alpha_Cm2_interp  = interpolate.interp1d(parder_alpha_Cm2[:,0], parder_alpha_Cm2[:,1], bounds_error=False, fill_value=0)
 
 #Pitch moment coefficient due to elev_pos_rad and alpha_deg
 #Column 0: elev_pos_rad | Row 0: alpha_deg
@@ -325,7 +374,7 @@ Cm5 = np.array(
                 [0.4000, 1.0000, 0.9000, 0.8000, 0.7000, 0.6000, 0.5000, 0.4000]
                 ]
               )
-Cm5_trans = Cm5.transpose()
+Cm5_trans  = Cm5.transpose()
 Cm5_interp = interpolate.interp2d(Cm5_trans[0,1:], Cm5_trans[1:,0], Cm5_trans[1:,1:])
 
 #Pitch moment coefficient due to flaps_pos_deg
@@ -340,9 +389,15 @@ Cm6 = np.array(
               )
 Cm6_interp = interpolate.interp1d(Cm6[:,0], Cm6[:,1], bounds_error=False, fill_value=(Cm6[0,1], Cm6[-1,1]))
 
-parder_deltaf_Cm6        = np.diff(Cm6[:,1]) / np.diff(Cm6[:,0])
-parder_deltaf_Cm6        = np.column_stack((Cm6[:,0], np.block([parder_deltaf_Cm6, parder_deltaf_Cm6[-1]])))
-parder_deltaf_Cm6_interp = interpolate.interp1d(parder_deltaf_Cm6[:,0], parder_deltaf_Cm6[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_deltaf_Cm6         = np.zeros((Cm6.shape[0] + 1, 2))
+parder_deltaf_Cm6[0,0]    = Cm6[0,0]
+parder_deltaf_Cm6[-1,0]   = Cm6[-1,0]
+parder_deltaf_Cm6[0,1]    = Cm6[0,1]
+parder_deltaf_Cm6[0,-1]   = Cm6[0,-1]
+parder_deltaf_Cm6[1:-1,0] = Cm6[:-1,0] + 0.5 * np.diff(Cm6[:,0])
+parder_deltaf_Cm6[0,1:-1] = Cm6[0,:-1] + 0.5 * np.diff(Cm6[0,:])
+parder_deltaf_Cm6[1:-1,1] = np.diff(Cm6[:,1]) / np.diff(Cm6[:,0])
+parder_deltaf_Cm6_interp  = interpolate.interp1d(parder_deltaf_Cm6[:,0], parder_deltaf_Cm6[:,1], bounds_error=False, fill_value=0)
 
 #Yaw moment coefficient due to beta_rad 
 #Column 0: beta_rad 
@@ -355,9 +410,15 @@ Cn1 = np.array(
               )
 Cn1_interp = interpolate.interp1d(Cn1[:,0], Cn1[:,1], bounds_error=False, fill_value=(Cn1[0,1], Cn1[-1,1]))
 
-parder_beta_Cn1        = np.diff(Cn1[:,1]) / np.diff(Cn1[:,0])
-parder_beta_Cn1        = np.column_stack((Cn1[:,0], np.block([parder_beta_Cn1, parder_beta_Cn1[-1]])))
-parder_beta_Cn1_interp = interpolate.interp1d(parder_beta_Cn1[:,0], parder_beta_Cn1[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_beta_Cn1         = np.zeros((Cn1.shape[0] + 1, 2))
+parder_beta_Cn1[0,0]    = Cn1[0,0]
+parder_beta_Cn1[-1,0]   = Cn1[-1,0]
+parder_beta_Cn1[0,1]    = Cn1[0,1]
+parder_beta_Cn1[0,-1]   = Cn1[0,-1]
+parder_beta_Cn1[1:-1,0] = Cn1[:-1,0] + 0.5 * np.diff(Cn1[:,0])
+parder_beta_Cn1[0,1:-1] = Cn1[0,:-1] + 0.5 * np.diff(Cn1[0,:])
+parder_beta_Cn1[1:-1,1] = np.diff(Cn1[:,1]) / np.diff(Cn1[:,0])
+parder_beta_Cn1_interp  = interpolate.interp1d(parder_beta_Cn1[:,0], parder_beta_Cn1[:,1], bounds_error=False, fill_value=0)
 
 #Yaw moment coefficient due to r_rad_sec
 #Column 0: r_rad_sec | Row 0: alpha_rad 
@@ -375,7 +436,7 @@ Cn4 = np.array(
                 [15.0000, 0.0000, 0.0000]
                 ]
               )
-Cn4_trans = Cn4.transpose()
+Cn4_trans  = Cn4.transpose()
 Cn4_interp = interpolate.interp2d(Cn4_trans[0,1:], Cn4_trans[1:,0], Cn4_trans[1:,1:])
 
 #Yaw moment coefficient due to alpha_rad and beta_rad
@@ -388,7 +449,7 @@ Cn5 = np.array(
                 [0.0940, -0.0250, -0.0504, -0.0250]
                 ]
               )
-Cn5_trans = Cn5.transpose()
+Cn5_trans  = Cn5.transpose()
 Cn5_interp = interpolate.interp2d(Cn5_trans[0,1:], Cn5_trans[1:,0], Cn5_trans[1:,1:])
 
 #Multiplier of thrust coefficient due to advance_ratio
@@ -424,9 +485,15 @@ CT = np.array(
              )
 CT_interp = interpolate.interp1d(CT[:,0], CT[:,1], bounds_error=False, fill_value=(CT[0,1], CT[-1,1]))
 
-parder_J_CT        = np.diff(CT[:,1]) / np.diff(CT[:,0])
-parder_J_CT        = np.column_stack((CT[:,0], np.block([parder_J_CT, parder_J_CT[-1]])))
-parder_J_CT_interp = interpolate.interp1d(parder_J_CT[:,0], parder_J_CT[:,1], kind='previous', bounds_error=False, fill_value=(0, 0))
+parder_J_CT         = np.zeros((CT.shape[0] + 1, 2))
+parder_J_CT[0,0]    = CT[0,0]
+parder_J_CT[-1,0]   = CT[-1,0]
+parder_J_CT[0,1]    = CT[0,1]
+parder_J_CT[0,-1]   = CT[0,-1]
+parder_J_CT[1:-1,0] = CT[:-1,0] + 0.5 * np.diff(CT[:,0])
+parder_J_CT[0,1:-1] = CT[0,:-1] + 0.5 * np.diff(CT[0,:])
+parder_J_CT[1:-1,1] = np.diff(CT[:,1]) / np.diff(CT[:,0])
+parder_J_CT_interp  = interpolate.interp1d(parder_J_CT[:,0], parder_J_CT[:,1], bounds_error=False, fill_value=0)
 
 #Multiplier of power coefficient due to advance_ratio
 #Column 0: advance_ratio
