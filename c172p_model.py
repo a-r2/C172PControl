@@ -683,11 +683,11 @@ def qbaruw_acm(rho, Vauw):
     return 0.5 * rho * (Vauw ** 2)
 
 def qbarind_acm(rho, Vind):
-    #Propulsion induced dynamic pressure (qind) as defined in the analytic control models
+    #Propulsion induced dynamic pressure (qbarind) as defined in the analytic control models
     return 0.5 * rho * (Vind ** 2)
 
 def qbarprop_acm(rho, Vprop):
-    #Propeller induced dynamic pressure (qprop) as defined in the analytic control models
+    #Propeller induced dynamic pressure (qbarprop) as defined in the analytic control models
     return 0.5 * rho * (Vprop ** 2)
 
 def n_acm(deltat, deltam):
@@ -716,10 +716,10 @@ def parder_u_Vind(u, rho, T, Vind2):
     Vind2_sign = (np.sign(Vind2) >= 0)
     return Vind2_sign * (u ** 2) * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / (rho * PROP_AREA_SI * abs(u) * (Vind ** 3))
 
-def parder_deltat_Vind(u, rho, T, Vind2, parder_deltat_Ft):
+def parder_deltat_Vind(u, rho, T, Vind2, parder_deltat_T):
     #Partial derivative of Vind with respect to deltat
     Vind2_sign = (np.sign(Vind2) >= 0)
-    return Vind2_sign * parder_deltat_Ft * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / ((rho ** 2) * (PROP_AREA_SI ** 2) * (Vind ** 3))
+    return Vind2_sign * parder_deltat_T * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / ((rho ** 2) * (PROP_AREA_SI ** 2) * (Vind ** 3))
 
 def parder_pd_Vprop(parder_pd_Vind):
     #Partial derivative of Vprop with respect to pd
@@ -769,40 +769,40 @@ def parder_w_q(w, rho):
     #Partial derivative of q with respect to w
     return rho * w
 
-def parder_pd_quw(Vauw, parder_pd_rho):
-    #Partial derivative of quw with respect to pd
+def parder_pd_qbaruw(Vauw, parder_pd_rho):
+    #Partial derivative of qbaruw with respect to pd
     return 0.5 * parder_pd_rho * (Vauw ** 2)
 
-def parder_u_quw(parder_u_q):
-    #Partial derivative of quw with respect to u
-    return parder_u_q
+def parder_u_qbaruw(parder_u_qbar):
+    #Partial derivative of qbaruw with respect to u
+    return parder_u_qbar
 
-def parder_w_quw(parder_w_q):
-    #Partial derivative of quw with respect to w
-    return parder_w_q
+def parder_w_qbaruw(parder_w_qbar):
+    #Partial derivative of qbaruw with respect to w
+    return parder_w_qbar
 
-def parder_pd_qind(rho, Vind, parder_pd_rho, parder_pd_Vind):
-    #Partial derivative of qind with respect to pd
+def parder_pd_qbarind(rho, Vind, parder_pd_rho, parder_pd_Vind):
+    #Partial derivative of qbarind with respect to pd
     return 0.5 * Vind * (parder_pd_rho * Vind + 2 * rho * parder_pd_Vind)
 
-def parder_u_qind(rho, Vind, parder_u_Vind):
-    #Partial derivative of qind with respect to u
+def parder_u_qbarind(rho, Vind, parder_u_Vind):
+    #Partial derivative of qbarind with respect to u
     return rho * Vind * parder_u_Vind
 
-def parder_deltat_qind(rho, Vind, parder_deltat_Vind):
-    #Partial derivative of qind with respect to deltat
+def parder_deltat_qbarind(rho, Vind, parder_deltat_Vind):
+    #Partial derivative of qbarind with respect to deltat
     return rho * Vind * parder_deltat_Vind
 
-def parder_pd_qprop(rho, Vprop, parder_pd_rho, parder_pd_Vind):
-    #Partial derivative of qprop with respect to pd
+def parder_pd_qbarprop(rho, Vprop, parder_pd_rho, parder_pd_Vind):
+    #Partial derivative of qbarprop with respect to pd
     return 0.5 * Vprop * (parder_pd_rho * Vprop + 2 * rho * parder_pd_Vprop)
 
-def parder_u_qprop(rho, Vprop, parder_u_Vprop):
-    #Partial derivative of qprop with respect to u
+def parder_u_qbarprop(rho, Vprop, parder_u_Vprop):
+    #Partial derivative of qbarprop with respect to u
     return rho * Vprop * parder_u_Vprop
 
-def parder_deltat_qprop(rho, Vprop, parder_deltat_Vprop):
-    #Partial derivative of qprop with respect to deltat
+def parder_deltat_qbarprop(rho, Vprop, parder_deltat_Vprop):
+    #Partial derivative of qbarprop with respect to deltat
     return rho * Vprop * parder_deltat_Vprop
 
 def parder_pd_T(J, n, parder_pd_rho):
@@ -849,20 +849,39 @@ class ControlModel():
                 l     = rxdata[i,74]
                 m     = rxdata[i,79]
                 n     = rxdata[i,84]
+                Ixx   = rxdata[i,117]
+                Ixy   = rxdata[i,118]
+                Ixz   = rxdata[i,119]
+                Iyy   = rxdata[i,120]
+                Iyz   = rxdata[i,121]
+                Izz   = rxdata[i,122]
+                mass  = rxdata[i,123]
+                g     = rxdata[i,124]
             
+                #Moments of inertia
+                Gamma  = mominert_gamma(Ixx, Ixz, Izz)
+                Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
+                Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
+                Gamma3 = mominert_gamma3(Izz, Gamma)
+                Gamma4 = mominert_gamma4(Ixz, Gamma)
+                Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
+                Gamma6 = mominert_gamma6(Ixz, Iyy)
+                Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
+                Gamma8 = mominert_gamma8(Ixx, Gamma)
+
                 #Equilibrium point
-                pn_eq     = eqdata[i,0]
-                pe_eq     = eqdata[i,1]
-                parder_eq = eqdata[i,2]
-                phi_eq    = eqdata[i,3]
-                theta_eq  = eqdata[i,4]
-                psi_eq    = eqdata[i,5]
-                u_eq      = eqdata[i,6]
-                v_eq      = eqdata[i,7]
-                w_eq      = eqdata[i,8]
-                p_eq      = eqdata[i,9]
-                q_eq      = eqdata[i,10]
-                r_eq      = eqdata[i,11]
+                pn_eq    = eqdata[i,0]
+                pe_eq    = eqdata[i,1]
+                pd_eq    = eqdata[i,2]
+                phi_eq   = eqdata[i,3]
+                theta_eq = eqdata[i,4]
+                psi_eq   = eqdata[i,5]
+                u_eq     = eqdata[i,6]
+                v_eq     = eqdata[i,7]
+                w_eq     = eqdata[i,8]
+                p_eq     = eqdata[i,9]
+                q_eq     = eqdata[i,10]
+                r_eq     = eqdata[i,11]
                 (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
 
                 dx = np.zeros(STATE_LEN)
@@ -902,31 +921,95 @@ class ControlModel():
                 l     = rxdata[i,74]
                 m     = rxdata[i,79]
                 n     = rxdata[i,84]
+                Ixx   = rxdata[i,117]
+                Ixy   = rxdata[i,118]
+                Ixz   = rxdata[i,119]
+                Iyy   = rxdata[i,120]
+                Iyz   = rxdata[i,121]
+                Izz   = rxdata[i,122]
+                mass  = rxdata[i,123]
+
+                #Moments of inertia
+                Gamma  = mominert_gamma(Ixx, Ixz, Izz)
+                Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
+                Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
+                Gamma3 = mominert_gamma3(Izz, Gamma)
+                Gamma4 = mominert_gamma4(Ixz, Gamma)
+                Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
+                Gamma6 = mominert_gamma6(Ixz, Iyy)
+                Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
+                Gamma8 = mominert_gamma8(Ixx, Gamma)
 
                 #Equilibrium point
-                pn_eq     = eqdata[i,0]
-                pe_eq     = eqdata[i,1]
-                parder_eq = eqdata[i,2]
-                phi_eq    = eqdata[i,3]
-                theta_eq  = eqdata[i,4]
-                psi_eq    = eqdata[i,5]
-                u_eq      = eqdata[i,6]
-                v_eq      = eqdata[i,7]
-                w_eq      = eqdata[i,8]
-                p_eq      = eqdata[i,9]
-                q_eq      = eqdata[i,10]
-                r_eq      = eqdata[i,11]
+                pn_eq    = eqdata[i,0]
+                pe_eq    = eqdata[i,1]
+                pd_eq    = eqdata[i,2]
+                phi_eq   = eqdata[i,3]
+                theta_eq = eqdata[i,4]
+                psi_eq   = eqdata[i,5]
+                u_eq     = eqdata[i,6]
+                v_eq     = eqdata[i,7]
+                w_eq     = eqdata[i,8]
+                p_eq     = eqdata[i,9]
+                q_eq     = eqdata[i,10]
+                r_eq     = eqdata[i,11]
                 (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
 
+                #Initialize state space
                 dx = np.zeros(STATE_LEN)
                 A  = np.zeros((STATE_LEN, STATE_LEN))
                 B  = np.zeros((STATE_LEN, INPUT_LEN))
                 (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
 
+                #Misc equilibrium point
+                rho_eq      = barometric_density(pd_eq)
+                alpha_eq    = alpha_acm(u_eq, w_eq)
+                beta_eq     = beta_acm(v_eq, Vauw_eq)
+                n_eq        = n_acm(deltat_eq, deltam_eq)
+                J_eq        = J_acm(u_eq, n_eq)
+                T_eq        = power_eng(J_eq, rho_eq, n_eq)
+                Va_eq       = Va_acm(u_eq, v_eq, w_eq)
+                Vauw_eq     = Vauw_acm(u_eq, w_eq)
+                Vind2_eq    = Vind2_acm(u_eq, rho_eq, T_eq)
+                Vind_eq     = Vind_acm(u_eq, rho_eq, T_eq, Vind2_eq)
+                Vprop_eq    = Vprop_acm(u_eq, Vind_eq)
+                qbar_eq     = qbar_acm(rho_eq, Va_eq)
+                qbaruw_eq   = qbaruw_acm(rho_eq, Vauw_eq)
+                qbarind_eq  = qbarind_acm(rho_eq, Vind_eq)
+                qbarprop_eq = qbarprop_acm(rho_eq, Vprop_eq)
+
                 #Misc partial derivatives evaluated in the equilibrium point
-                parder_pd_rho_eq  = parder_pd_rho(parder_eq)
-                parder_pd_qbar_eq = parder_pd_qbar(Va_eq, parder_pd_rho_eq)
-                parder_pd_Ft_eq   = parder_pd_T(J_eq, n_eq, parder_pd_rho_eq)
+                parder_deltat_n_eq        = parder_deltat_n()
+                parder_pd_rho_eq          = parder_pd_rho(pd_eq)
+                parder_pd_qbar_eq         = parder_pd_qbar(Va_eq, parder_pd_rho_eq)
+                parder_pd_Vind_eq         = parder_pd_Vind(u_eq, rho_eq, T_eq, Vind2_eq, parder_pd_rho_eq)
+                parder_u_Vind_eq          = parder_u_Vind(u_eq, rho_eq, T_eq, Vind2_eq)
+                parder_deltat_Vind_eq     = parder_deltat_Vind(u_eq, rho_eq, T_eq, Vind2_eq, parder_deltat_T_eq)
+                parder_pd_Vprop_eq        = parder_pd_Vprop(parder_pd_Vind_eq)
+                parder_u_Vprop_eq         = parder_u_Vprop(parder_u_Vind_eq)
+                parder_deltat_Vprop_eq    = parder_deltat_Vprop(parder_deltat_Vind_eq)
+                parder_u_alpha_eq         = parder_u_alpha(w_eq, Vauw_eq)
+                parder_w_alpha_eq         = parder_w_alpha(w_eq, Vauw_eq)
+                parder_u_beta_eq          = parder_u_beta(u_eq, v_eq, Va_eq, Vauw_eq)
+                parder_v_beta_eq          = parder_v_beta(Va_eq, Vauw_eq)
+                parder_w_beta_eq          = parder_w_beta(v_eq, w_eq, Va_eq, Vauw_eq)
+                parder_pd_q_eq            = parder_pd_q(Va_eq, parder_pd_rho_eq)
+                parder_u_q_eq             = parder_u_q(u_eq, rho_eq)
+                parder_v_q_eq             = parder_v_q(v_eq, rho_eq)
+                parder_w_q_eq             = parder_w_q(w_eq, rho_eq)
+                parder_pd_qbaruw_eq       = parder_pd_qbaruw(Vauw_eq, parder_pd_rho_eq)
+                parder_u_qbaruw_eq        = parder_u_qbaruw(parder_u_qbar_eq)
+                parder_w_qbaruw_eq        = parder_w_qbaruw(parder_w_qbar_eq)
+                parder_pd_qbarind_eq      = parder_pd_qbarind(rho_eq, Vind_eq, parder_pd_rho_eq, parder_pd_Vind_eq)
+                parder_u_qbarind_eq       = parder_u_qbarind(rho_eq, Vind_eq, parder_u_Vind_eq)
+                parder_deltat_qbarind_eq  = parder_deltat_qbarind(rho_eq, Vind_eq, parder_deltat_Vind_eq)
+                parder_pd_qbarprop_eq     = parder_pd_qbarprop(rho_eq, Vprop_eq, parder_pd_rho_eq, parder_pd_Vind_eq)
+                parder_u_qbarprop_eq      = parder_u_qbarprop(rho_eq, Vprop_eq, parder_u_Vprop_eq)
+                parder_deltat_qbarprop_eq = parder_deltat_qbarprop(rho_eq, Vprop_eq, parder_deltat_Vprop_eq)
+                parder_pd_T_eq            = parder_pd_T(J_eq, n_eq, parder_pd_rho_eq)
+                parder_u_T_eq             = parder_u_T(rho_eq, J_eq, n_eq, parder_J_CT_eq)
+                parder_deltat_T_eq        = parder_deltat_T(rho_eq, J_eq, n_eq, parder_J_CT_eq, parder_deltat_n_eq)
+                parder_pd_T_eq            = parder_pd_T(J_eq, n_eq, parder_pd_rho_eq)
 
                 #Partial derivatives of \dot{p_n} evaluated in the equilibrium point
                 parder_q0_dotpn_eq = 2 * (q0_eq * u_eq - q3_eq * v_eq + q2_eq * w_eq)
@@ -988,18 +1071,18 @@ class ControlModel():
                 parder_r_dotq3_eq  = 0.5 * q0_eq
 
                 #Partial derivatives of \dot{u} evaluated in the equilibrium point
-                parder_pd_dotu_eq     = (1 / mass) * (- parder_pd_qbar_eq * SW_SI * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + parder_pd_Ft_eq)
+                parder_pd_dotu_eq     = (1 / mass) * (- parder_pd_qbar_eq * SW_SI * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + parder_pd_T_eq)
                 parder_q0_dotu_eq     = - 2 * G0_SI * q2_eq
                 parder_q1_dotu_eq     = 2 * G0_SI * q3_eq
                 parder_q2_dotu_eq     = - 2 * G0_SI * q0_eq
                 parder_q3_dotu_eq     = 2 * G0_SI * q1_eq
-                parder_u_dotu_eq      = (1 / mass) * (- SW_SI * (parder_u_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * (parder_u_CFx3_eq + parder_u_CFx4_eq)) + parder_u_Ft_eq)
+                parder_u_dotu_eq      = (1 / mass) * (- SW_SI * (parder_u_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * (parder_u_CFx3_eq + parder_u_CFx4_eq)) + parder_u_T_eq)
                 parder_v_dotu_eq      = r_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * parder_v_CFx4_eq)
                 parder_w_dotu_eq      = - q_eq - (SW_SI / mass) * (parder_w_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * (parder_w_CFx3_eq + parder_w_CFx4_eq))
                 parder_q_dotu_eq      = - w_eq
                 parder_r_dotu_eq      = v_eq
                 parder_deltaf_dotu_eq = - ((qbar_eq * SW_SI) / mass) * (parder_deltaf_CFx2_eq + parder_deltaf_CFx3_eq)
-                parder_deltat_dotu_eq = parder_deltat_Ft_eq / mass
+                parder_deltat_dotu_eq = parder_deltat_T_eq / mass
 
                 #Partial derivatives of \dot{v} evaluated in the equilibrium point
                 parder_pd_dotv_eq     = (1 / mass) * (parder_pd_qbar_eq * SW_SI * (CFy1_eq + CFy2_eq))
@@ -1030,8 +1113,8 @@ class ControlModel():
                 parder_deltae_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltae_CFz3_eq
 
                 #Partial derivatives of \dot{p} evaluated in the equilibrium point
-                parder_pd_dotp_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma4 * (parder_pd_qind_eq * CMz5_eq + parder_pd_qprop_eq * CMz6_eq))
-                parder_u_dotp_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_u_CMx1_eq + parder_u_CMx2_eq + parder_u_CMx3_eq + parder_u_CMx4_eq) + Gamma4 * (parder_u_CMz1_eq + parder_u_CMz2_eq + parder_u_CMz3_eq + parder_u_CMz4_eq)) + Gamma4 * (parder_u_qind_eq * CMz5_eq + parder_u_qprop_eq * CMz6_eq))
+                parder_pd_dotp_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma4 * (parder_pd_qbarind_eq * CMz5_eq + parder_pd_qbarprop_eq * CMz6_eq))
+                parder_u_dotp_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_u_CMx1_eq + parder_u_CMx2_eq + parder_u_CMx3_eq + parder_u_CMx4_eq) + Gamma4 * (parder_u_CMz1_eq + parder_u_CMz2_eq + parder_u_CMz3_eq + parder_u_CMz4_eq)) + Gamma4 * (parder_u_qbarind_eq * CMz5_eq + parder_u_qbarprop_eq * CMz6_eq))
                 parder_v_dotp_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_v_CMx1_eq + parder_v_CMx2_eq + parder_v_CMx3_eq) + Gamma4 * (parder_v_CMz1_eq + parder_v_CMz2_eq + parder_v_CMz3_eq + parder_v_CMz4_eq)))
                 parder_w_dotp_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_w_CMx1_eq + parder_w_CMx2_eq + parder_w_CMx3_eq + parder_w_CMx4_eq) + Gamma4 * (parder_w_CMz1_eq + parder_w_CMz2_eq + parder_w_CMz3_eq + parder_w_CMz4_eq)))
                 parder_p_dotp_eq      = Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma3 * parder_p_CMx2_eq
@@ -1039,13 +1122,13 @@ class ControlModel():
                 parder_r_dotp_eq      = - Gamma2 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_r_CMx3_eq + Gamma4 * (parder_p_CMz2_eq + parder_p_CMz3_eq))
                 parder_deltaa_dotp_eq = SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_deltaa_CMx4_eq + Gamma4 * parder_deltaa_CMz4_eq)
                 parder_deltaf_dotp_eq = SW_SI * BW_SI * qbar_eq * Gamma3 * parder_deltaf_CMx3_eq
-                parder_deltar_dotp_eq = SW_SI * BW_SI * (Gamma3 * qbar_eq * parder_deltar_CMx5_eq + Gamma4 * qind_eq * parder_deltar_CMz5_eq)
+                parder_deltar_dotp_eq = SW_SI * BW_SI * (Gamma3 * qbar_eq * parder_deltar_CMx5_eq + Gamma4 * qbarind_eq * parder_deltar_CMz5_eq)
 
                 #Partial derivatives of \dot{q} evaluated in the equilibrium point
-                parder_pd_dotq_eq     = ((SW_SI * CW_SI) / Iyy) * (parder_pd_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * parder_pd_CMy1_eq + parder_pd_quw_eq * CMy5_eq + parder_pd_qind_eq * CMy6_eq)
-                parder_u_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * (parder_u_CMy2_eq + parder_u_CMy3_eq) + parder_u_quw_eq * CMy5_eq + quw_eq * parder_u_CMy5_eq + parder_u_qind_eq * CMy6_eq + qind_eq * parder_u_CMy6_eq)
+                parder_pd_dotq_eq     = ((SW_SI * CW_SI) / Iyy) * (parder_pd_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * parder_pd_CMy1_eq + parder_pd_quw_eq * CMy5_eq + parder_pd_qbarind_eq * CMy6_eq)
+                parder_u_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * (parder_u_CMy2_eq + parder_u_CMy3_eq) + parder_u_quw_eq * CMy5_eq + quw_eq * parder_u_CMy5_eq + parder_u_qbarind_eq * CMy6_eq + qbarind_eq * parder_u_CMy6_eq)
                 parder_v_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_v_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * parder_v_CMy3_eq + quw_eq * parder_v_CMy5_eq)
-                parder_w_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * (parder_w_CMy2_eq + parder_w_CMy3_eq) + parder_w_quw_eq * CMy5_eq + quw_eq * parder_w_CMy5_eq + qind_eq * parder_w_CMy6_eq)
+                parder_w_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * (parder_w_CMy2_eq + parder_w_CMy3_eq) + parder_w_quw_eq * CMy5_eq + quw_eq * parder_w_CMy5_eq + qbarind_eq * parder_w_CMy6_eq)
                 parder_p_dotq_eq      = Gamma5 * r_eq - 2 * Gamma6 * p_eq
                 parder_q_dotq_eq      = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_q_CMy3_eq
                 parder_r_dotq_eq      = Gamma5 * p_eq + 2 * Gamma6 * r_eq
@@ -1053,8 +1136,8 @@ class ControlModel():
                 parder_deltae_dotq_eq = ((SW_SI * CW_SI * q_ind) / Iyy) * parder_deltae_CMy6_eq
 
                 #Partial derivatives of \dot{r} evaluated in the equilibrium point
-                parder_pd_dotr_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma8 * (parder_pd_qind_eq * CMz5_eq + parder_pd_qprop_eq * CMz6_eq))
-                parder_u_dotr_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_u_CMx1_eq + parder_u_CMx2_eq + parder_u_CMx3_eq + parder_u_CMx4_eq) + Gamma8 * (parder_u_CMz1_eq + parder_u_CMz2_eq + parder_u_CMz3_eq + parder_u_CMz4_eq)) + Gamma8 * (parder_u_qind_eq * CMz5_eq + parder_u_qprop_eq * CMz6_eq))
+                parder_pd_dotr_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma8 * (parder_pd_qbarind_eq * CMz5_eq + parder_pd_qbarprop_eq * CMz6_eq))
+                parder_u_dotr_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_u_CMx1_eq + parder_u_CMx2_eq + parder_u_CMx3_eq + parder_u_CMx4_eq) + Gamma8 * (parder_u_CMz1_eq + parder_u_CMz2_eq + parder_u_CMz3_eq + parder_u_CMz4_eq)) + Gamma8 * (parder_u_qbarind_eq * CMz5_eq + parder_u_qbarprop_eq * CMz6_eq))
                 parder_v_dotr_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_v_CMx1_eq + parder_v_CMx2_eq + parder_v_CMx3_eq) + Gamma8 * (parder_v_CMz1_eq + parder_v_CMz2_eq + parder_v_CMz3_eq + parder_v_CMz4_eq)))
                 parder_w_dotr_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_w_CMx1_eq + parder_w_CMx2_eq + parder_w_CMx3_eq + parder_w_CMx4_eq) + Gamma8 * (parder_w_CMz1_eq + parder_w_CMz2_eq + parder_w_CMz3_eq + parder_w_CMz4_eq)))
                 parder_p_dotr_eq      = Gamma7 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma4 * parder_p_CMx2_eq
@@ -1062,7 +1145,7 @@ class ControlModel():
                 parder_r_dotr_eq      = - Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_r_CMx3_eq + Gamma8 * (parder_r_CMz2_eq + parder_r_CMz3_eq))
                 parder_deltaa_dotr_eq = SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_deltaa_CMx4_eq + Gamma8 * parder_deltaa_CMz4_eq)
                 parder_deltaf_dotr_eq = SW_SI * BW_SI * qbar_eq * Gamma4 * parder_deltaf_CMx3_eq
-                parder_deltar_dotr_eq = SW_SI * BW_SI * (Gamma4 * qbar_eq * parder_deltar_CMx5_eq + Gamma8 * qind_eq * parder_deltar_CMz5_eq)
+                parder_deltar_dotr_eq = SW_SI * BW_SI * (Gamma4 * qbar_eq * parder_deltar_CMx5_eq + Gamma8 * qbarind_eq * parder_deltar_CMz5_eq)
 
                 self.csvlm[i,:] = [time, dx]
 

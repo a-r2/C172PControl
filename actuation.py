@@ -9,12 +9,12 @@ from settings import *
 
 class Actuation():
     def __init__(self, act_type, rx2act_out, act2csv_in, act2tx_in, event_start):
-        self.t = TELEM_WAIT
-        self.dt = 1/ACT_HZ
-        self.simact = np.zeros(TELEM_TX_LEN) #array for storing actuation
-        self.csvact = np.zeros(TELEM_TX_LEN + 1) #array for storing csv actuation
+        self.t         = TELEM_WAIT
+        self.dt        = 1/ACT_HZ
+        self.simact    = np.zeros(TELEM_TX_LEN) #array for storing actuation
+        self.csvact    = np.zeros(TELEM_TX_LEN + 1) #array for storing csv actuation
         self.simactstr = np.zeros(TELEM_TX_LEN) #array for storing actuation as string
-        self.actstr = str()
+        self.actstr    = str()
         if act_type == 1: #random control
             self.proc = mp.Process(target=self.random_control, args=(rx2act_out, act2csv_in, act2tx_in, event_start), daemon=True) #process for calculating actuation 
         self.proc.start()

@@ -9,7 +9,7 @@ DYN_LEN = 10 #[Fax, Fgx, Ft, Fay, Fgy, Faz, Fgz, Max, May, Maz]
 class Dynamics():
     def __init__(self, rx2dyn_out, dyn2csv_in, event_start):
         self.csvdyn = np.zeros((MODEL_HZ, DYN_LEN + 1)) #array for storing dynamics
-        self.proc = mp.Process(target=self.forces_moments_body, args=(rx2dyn_out, dyn2csv_in, event_start), daemon=True) #process for calculating dynamics
+        self.proc   = mp.Process(target=self.forces_moments_body, args=(rx2dyn_out, dyn2csv_in, event_start), daemon=True) #process for calculating dynamics
         self.proc.start()
     def forces_moments_body(self, rx2dyn_out, dyn2csv_in, event_start):
         #Aerodynamic and propulsive forces and moments applied to the aircraft in body frame
