@@ -147,7 +147,15 @@ TELEM_WAIT = 10 #wait in seconds after FlightGear start before establishing tele
 #114 Density in slugs per cubic foot
 #115 Advance ratio
 #116 Propeller revolutions per minute
-TELEM_RX_LEN = 117 #do not modify unless fg2py.xml is also modified accordingly
+#117 Moment of inercia Ixx in slugs per squared foot
+#118 Moment of inercia Ixy in slugs per squared foot
+#119 Moment of inercia Ixz in slugs per squared foot
+#120 Moment of inercia Iyy in slugs per squared foot
+#121 Moment of inercia Iyz in slugs per squared foot
+#122 Moment of inercia Izz in slugs per squared foot
+#123 Mass in slugs
+#124 Gravitational acceleration in feet per squared second
+TELEM_RX_LEN = 125 #do not modify unless fg2py.xml is also modified accordingly
 
 ''' TRANSMITTING TELEMETRY '''
 #0 Normalized aileron command

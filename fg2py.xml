@@ -825,6 +825,62 @@
                <format>%f</format>
             </chunk>
 
+            <chunk>
+               <node>/fdm/jsbsim/inertia/ixx-slugs_ft2</node>
+               <name>Moment of inercia Ixx</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/ixy-slugs_ft2</node>
+               <name>Moment of inercia Ixy</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/ixz-slugs_ft2</node>
+               <name>Moment of inercia Ixz</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/iyy-slugs_ft2</node>
+               <name>Moment of inercia Iyy</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/iyz-slugs_ft2</node>
+               <name>Moment of inercia Iyz</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/izz-slugs_ft2</node>
+               <name>Moment of inercia Izz</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/mass-slugs</node>
+               <name>Mass</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/accelerations/gravity-ft_sec2</node>
+               <name>Gravitational acceleration</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
         </output>
     </generic>
  </PropertyList>

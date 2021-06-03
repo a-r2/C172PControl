@@ -4,7 +4,7 @@ import numpy as np
 from c172p_model import *
 from settings import *
 
-DYN_LEN = 10 #[Fax, Fgx, Ft, Fay, Fgy, Faz, Fgz, Max, May, Maz]
+DYN_LEN = 10 #[D, gx, T, C, gy, L, gz, l, m, n]
 
 class Dynamics():
     def __init__(self, rx2dyn_out, dyn2csv_in, event_start):
@@ -19,6 +19,9 @@ class Dynamics():
             framescount = rxdata.shape[0]
             for i in range(framescount):                
                 time                  = rxdata[i,0]
+                phi                   = rxdata[i,16]
+                theta                 = rxdata[i,18]
+                psi                   = rxdata[i,20]
                 alpha_deg             = rxdata[i,21]
                 alpha_rad             = rxdata[i,22]
                 beta_rad              = rxdata[i,24]
@@ -42,48 +45,52 @@ class Dynamics():
                 density               = rxdata[i,114]
                 advance_ratio         = rxdata[i,115]
                 rpm_prop              = rxdata[i,116]
+                mass                  = rxdata[i,123]
+                gravity               = rxdata[i,124]
 
-                CD1 = CD1()
-                CD2 = CD2(h_b_mac_ft, flaps_pos_deg)
-                CD3 = CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg)
-                CD4 = CD4(beta_rad)
+                quat = euler_to_attquat(np.array([phi, theta, psi]))
 
-                CC1 = CC1(beta_rad, flaps_pos_deg)
-                CC2 = CC2(rudder_pos_rad)
+                CD1 = aerocoeff_CD1()
+                CD2 = aerocoeff_CD2(h_b_mac_ft, flaps_pos_deg)
+                CD3 = aerocoeff_CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg)
+                CD4 = aerocoeff_CD4(beta_rad)
 
-                CL1 = CL1(h_b_mac_ft, alpha_rad, stall_hyst_norm)
-                CL2 = CL2(h_b_mac_ft, flaps_pos_deg)
-                CL3 = CL3(elev_pos_rad)
-                CL4 = CL4(q_rad_sec, ci2vel)
-                CL5 = CL5(alphadot_rad_sec, ci2vel)
+                CC1 = aerocoeff_CC1(beta_rad, flaps_pos_deg)
+                CC2 = aerocoeff_CC2(rudder_pos_rad)
 
-                Cl1 = Cl1(beta_rad, alpha_rad)
-                Cl2 = Cl2(bi2vel, p_rad_sec) 
-                Cl3 = Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm)
-                Cl4 = Cl4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm)
-                Cl5 = Cl5(rudder_pos_rad)
+                CL1 = aerocoeff_CL1(h_b_mac_ft, alpha_rad, stall_hyst_norm)
+                CL2 = aerocoeff_CL2(h_b_mac_ft, flaps_pos_deg)
+                CL3 = aerocoeff_CL3(elev_pos_rad)
+                CL4 = aerocoeff_CL4(q_rad_sec, ci2vel)
+                CL5 = aerocoeff_CL5(alphadot_rad_sec, ci2vel)
 
-                Cm1 = Cm1(qbar_psf)
-                Cm2 = Cm2(alpha_deg, alpha_rad)
-                Cm3 = Cm3(ci2vel, q_rad_sec)
-                Cm4 = Cm4(flaps_pos_deg)
-                Cm5 = Cm5(ci2vel, alphadot_rad_sec)
-                Cm6 = Cm6(elev_pos_rad, alpha_deg)
+                Cl1 = aerocoeff_Cl1(beta_rad, alpha_rad)
+                Cl2 = aerocoeff_Cl2(bi2vel, p_rad_sec) 
+                Cl3 = aerocoeff_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm)
+                Cl4 = aerocoeff_Cl4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm)
+                Cl5 = aerocoeff_Cl5(rudder_pos_rad)
 
-                Cn1 = Cn1(beta_rad)
-                Cn2 = Cn2(bi2vel, r_rad_sec)
-                Cn3 = Cn3(bi2vel, r_rad_sec, alpha_rad)
-                Cn4 = Cn4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad)
-                Cn5 = Cn5(rudder_pos_rad)
-                Cn6 = Cn6()
+                Cm1 = aerocoeff_Cm1(qbar_psf)
+                Cm2 = aerocoeff_Cm2(alpha_deg, alpha_rad)
+                Cm3 = aerocoeff_Cm3(ci2vel, q_rad_sec)
+                Cm4 = aerocoeff_Cm4(flaps_pos_deg)
+                Cm5 = aerocoeff_Cm5(ci2vel, alphadot_rad_sec)
+                Cm6 = aerocoeff_Cm6(elev_pos_rad, alpha_deg)
 
-                D = qbar_psf * SW_SQFT * (CFx1 + CFx2 + CFx3 + CFx4) 
-                C = qbar_psf * SW_SQFT * (CFy1 + CFy2)
-                L = SW_SQFT * (qbar_psf * (CFz1 + CFz2 + CFz3 + CFz4) + qbarUW_psf * CFz5)
-                l = qbar_psf * SW_SQFT * BW_FT * (CMx1 + CMx2 + CMx3 + CMx4 + CMx5)
-                m = SW_SQFT * CBARW_FT * (qbar_psf * (CMy1 + CMy2 + CMy3 + CMy4) + qbarUW_psf * CMy5 + qbar_induced_psf * CMy6)
-                n = SW_SQFT * BW_FT * (qbar_psf * (CMz1 + CMz2 + CMz3 + CMz4) + qbar_induced_psf * CMz5 + qbar_propwash_psf * CMz6)
-                gx, gy, gz = force_gravity(quat, mass, gravity)
+                Cn1 = aerocoeff_Cn1(beta_rad)
+                Cn2 = aerocoeff_Cn2(bi2vel, r_rad_sec)
+                Cn3 = aerocoeff_Cn3(bi2vel, r_rad_sec, alpha_rad)
+                Cn4 = aerocoeff_Cn4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad)
+                Cn5 = aerocoeff_Cn5(rudder_pos_rad)
+                Cn6 = aerocoeff_Cn6()
+
+                D = qbar_psf * SW_SI * (CD1 + CD2 + CD3 + CD4) 
+                C = qbar_psf * SW_SI * (CC1 + CC2)
+                L = SW_SI * (qbar_psf * (CL1 + CL2 + CL3 + CL4) + qbarUW_psf * CL5)
+                l = qbar_psf * SW_SI * BW_SI * (Cl1 + Cl2 + Cl3 + Cl4 + Cl5)
+                m = SW_SI * CW_SI * (qbar_psf * (Cm1 + Cm2 + Cm3 + Cm4) + qbarUW_psf * Cm5 + qbar_induced_psf * Cm6)
+                n = SW_SI * BW_SI * (qbar_psf * (Cn1 + Cn2 + Cn3 + Cn4) + qbar_induced_psf * Cn5 + qbar_propwash_psf * Cn6)
+                gx, gy, gz = gravity_body(quat, mass, gravity)
                 T = thrust_eng(advance_ratio, density, rpm_prop)
 
                 self.csvdyn[i,:] = [time, D, gx, T, C, gy, L, gz, l, m, n]

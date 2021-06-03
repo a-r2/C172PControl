@@ -615,7 +615,7 @@ def aerocoeff_Cn6():
 ''' PROPULSIVE FORCE '''
 def thrust_eng(advance_ratio, density, rpm_prop):
     #Engine (160 HP) thrust
-    return CT_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 2) * (PROP_DIAM_M ** 4)
+    return CT_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 2) * (D_PROP_SI ** 4)
 
 ''' GRAVITATIONAL FORCE '''
 def gravity_body(quat, mass, gravity):
@@ -626,7 +626,7 @@ def gravity_body(quat, mass, gravity):
 ''' PROPULSION POWER ''' 
 def power_eng(advance_ratio, density, rpm_prop):
     #Engine (160 HP) power
-    return CP_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 3) * (PROP_DIAM_M ** 5)
+    return CP_interp(advance_ratio) * slugft3_to_kgm3(density) * (rpm_to_rps(rpm_prop) ** 3) * (D_PROP_SI ** 5)
 
 ''' CONTROL MODEL PARAMETERS '''
 STATE_LEN = 13 #[pn, pe, pd, q0, q1, q2, q3, u, v, w, p, q, r]
@@ -649,7 +649,7 @@ def J_acm(u, n):
     if n == 0:
         return 0
     else:
-        return u / (n * PROP_DIAM_M)
+        return u / (n * D_PROP_SI)
 
 def Va_acm(u, v, w):
     #Aerodynamic velocity (Va) as defined in the analytic control models
@@ -807,15 +807,15 @@ def parder_deltat_qbarprop(rho, Vprop, parder_deltat_Vprop):
 
 def parder_pd_T(J, n, parder_pd_rho):
     #Partial derivative of T with respect to pd
-    return CT_interp(J) * (n ** 2) * (PROP_DIAM_M ** 4) * parder_pd_rho
+    return CT_interp(J) * (n ** 2) * (D_PROP_SI ** 4) * parder_pd_rho
 
 def parder_u_T(rho, J, n, parder_J_CT):
     #Partial derivative of T with respect to u
-    return rho * n * (PROP_DIAM_M ** 3) * parder_J_CT_interp(J)
+    return rho * n * (D_PROP_SI ** 3) * parder_J_CT_interp(J)
 
 def parder_deltat_T(rho, J, n, parder_J_CT, parder_deltat_n):
     #Partial derivative of T with respect to deltat
-    return rho * (PROP_DIAM_M ** 3) * (2 * CT_interp(J) * n * PROP_DIAM_M - u * parder_J_CT_interp(J)) * parder_deltat_n
+    return rho * (D_PROP_SI ** 3) * (2 * CT_interp(J) * n * D_PROP_SI - u * parder_J_CT_interp(J)) * parder_deltat_n
 
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
@@ -1071,81 +1071,81 @@ class ControlModel():
                 parder_r_dotq3_eq  = 0.5 * q0_eq
 
                 #Partial derivatives of \dot{u} evaluated in the equilibrium point
-                parder_pd_dotu_eq     = (1 / mass) * (- parder_pd_qbar_eq * SW_SI * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + parder_pd_T_eq)
+                parder_pd_dotu_eq     = (1 / mass) * (- parder_pd_qbar_eq * SW_SI * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + parder_pd_T_eq)
                 parder_q0_dotu_eq     = - 2 * G0_SI * q2_eq
                 parder_q1_dotu_eq     = 2 * G0_SI * q3_eq
                 parder_q2_dotu_eq     = - 2 * G0_SI * q0_eq
                 parder_q3_dotu_eq     = 2 * G0_SI * q1_eq
-                parder_u_dotu_eq      = (1 / mass) * (- SW_SI * (parder_u_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * (parder_u_CFx3_eq + parder_u_CFx4_eq)) + parder_u_T_eq)
-                parder_v_dotu_eq      = r_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * parder_v_CFx4_eq)
-                parder_w_dotu_eq      = - q_eq - (SW_SI / mass) * (parder_w_qbar_eq * (CFx1_eq + CFx2_eq + CFx3_eq + CFx4_eq) + qbar_eq * (parder_w_CFx3_eq + parder_w_CFx4_eq))
+                parder_u_dotu_eq      = (1 / mass) * (- SW_SI * (parder_u_qbar_eq * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + qbar_eq * (parder_u_CD3_eq + parder_u_CD4_eq)) + parder_u_T_eq)
+                parder_v_dotu_eq      = r_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + qbar_eq * parder_v_CD4_eq)
+                parder_w_dotu_eq      = - q_eq - (SW_SI / mass) * (parder_w_qbar_eq * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + qbar_eq * (parder_w_CD3_eq + parder_w_CD4_eq))
                 parder_q_dotu_eq      = - w_eq
                 parder_r_dotu_eq      = v_eq
-                parder_deltaf_dotu_eq = - ((qbar_eq * SW_SI) / mass) * (parder_deltaf_CFx2_eq + parder_deltaf_CFx3_eq)
+                parder_deltaf_dotu_eq = - ((qbar_eq * SW_SI) / mass) * (parder_deltaf_CD2_eq + parder_deltaf_CD3_eq)
                 parder_deltat_dotu_eq = parder_deltat_T_eq / mass
 
                 #Partial derivatives of \dot{v} evaluated in the equilibrium point
-                parder_pd_dotv_eq     = (1 / mass) * (parder_pd_qbar_eq * SW_SI * (CFy1_eq + CFy2_eq))
+                parder_pd_dotv_eq     = (1 / mass) * (parder_pd_qbar_eq * SW_SI * (CC1_eq + CC2_eq))
                 parder_q0_dotv_eq     = 2 * G0_SI * q1_eq
                 parder_q1_dotv_eq     = 2 * G0_SI * q0_eq
                 parder_q2_dotv_eq     = 2 * G0_SI * q3_eq
                 parder_q3_dotv_eq     = 2 * G0_SI * q2_eq
-                parder_u_dotv_eq      = - r_eq + (SW_SI / mass) * (parder_u_qbar_eq * (CFy1_eq + CFy2_eq) + qbar_eq * parder_u_CFy1_eq)
-                parder_v_dotv         = (SW_SI / mass) * (parder_v_qbar_eq * (CFy1_eq + CFy2_eq) + qbar_eq * parder_v_CFy1_eq)
-                parder_w_dotv_eq      = p_eq + (SW_SI / mass) * (parder_w_qbar_eq * (CFy1_eq + CFy2_eq) + qbar_eq * parder_w_CFy1_eq)
+                parder_u_dotv_eq      = - r_eq + (SW_SI / mass) * (parder_u_qbar_eq * (CC1_eq + CC2_eq) + qbar_eq * parder_u_CC1_eq)
+                parder_v_dotv         = (SW_SI / mass) * (parder_v_qbar_eq * (CC1_eq + CC2_eq) + qbar_eq * parder_v_CC1_eq)
+                parder_w_dotv_eq      = p_eq + (SW_SI / mass) * (parder_w_qbar_eq * (CC1_eq + CC2_eq) + qbar_eq * parder_w_CC1_eq)
                 parder_p_dotv_eq      = w_eq
                 parder_r_dotv_eq      = - u_eq
-                parder_deltaf_dotv_eq = ((qbar_eq * SW_SI) / mass) * parder_deltaf_CFy1_eq
-                parder_deltar_dotv_eq = ((qbar_eq * SW_SI) / mass) * parder_deltar_CFy2_eq
+                parder_deltaf_dotv_eq = ((qbar_eq * SW_SI) / mass) * parder_deltaf_CC1_eq
+                parder_deltar_dotv_eq = ((qbar_eq * SW_SI) / mass) * parder_deltar_CC2_eq
 
                 #Partial derivatives of \dot{w} evaluated in the equilibrium point
-                parder_pd_dotw_eq     = - (SW_SI / mass) * (parder_pd_qbar_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + parder_pd_quw_eq * CFz5_eq)
+                parder_pd_dotw_eq     = - (SW_SI / mass) * (parder_pd_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + parder_pd_quw_eq * CL5_eq)
                 parder_q0_dotw_eq     = 2 * G0_SI * q0_eq
                 parder_q1_dotw_eq     = - 2 * G0_SI * q1_eq
                 parder_q2_dotw_eq     = - 2 * G0_SI * q2_eq
                 parder_q3_dotw_eq     = 2 * G0_SI * q3_eq
-                parder_u_dotw_eq      = q_eq - (SW_SI / mass) * (parder_u_qbar_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + qbar_eq * (parder_u_CFz1_eq + parder_u_CFz4_eq) + parder_u_quw_eq * CFz5_eq + quw_eq * parder_u_CFz5_eq)
-                parder_v_dotw_eq      = - p_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + qbar_eq * parder_v_CFz4_eq + quw_eq * CFz5_eq)
-                parder_w_dotw_eq      = - (SW_SI / mass) * (parder_w_qbar_eq * (CFz1_eq + CFz2_eq + CFz3_eq + CFz4_eq) + qbar_eq * (parder_w_CFz1_eq + parder_w_CFz4_eq) + parder_w_quw_eq * CFz5_eq + quw_eq * parder_w_CFz5_eq)
+                parder_u_dotw_eq      = q_eq - (SW_SI / mass) * (parder_u_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + qbar_eq * (parder_u_CL1_eq + parder_u_CL4_eq) + parder_u_quw_eq * CL5_eq + quw_eq * parder_u_CL5_eq)
+                parder_v_dotw_eq      = - p_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + qbar_eq * parder_v_CL4_eq + quw_eq * CL5_eq)
+                parder_w_dotw_eq      = - (SW_SI / mass) * (parder_w_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + qbar_eq * (parder_w_CL1_eq + parder_w_CL4_eq) + parder_w_quw_eq * CL5_eq + quw_eq * parder_w_CL5_eq)
                 parder_p_dotw_eq      = - v_eq
-                parder_q_dotw_eq      = u_eq - ((qbar_eq * SW_SFQT) / mass) * parder_q_CFz4
-                parder_deltaf_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltaf_CFz2_eq
-                parder_deltae_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltae_CFz3_eq
+                parder_q_dotw_eq      = u_eq - ((qbar_eq * SW_SFQT) / mass) * parder_q_CL4
+                parder_deltaf_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltaf_CL2_eq
+                parder_deltae_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltae_CL3_eq
 
                 #Partial derivatives of \dot{p} evaluated in the equilibrium point
-                parder_pd_dotp_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma4 * (parder_pd_qbarind_eq * CMz5_eq + parder_pd_qbarprop_eq * CMz6_eq))
-                parder_u_dotp_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_u_CMx1_eq + parder_u_CMx2_eq + parder_u_CMx3_eq + parder_u_CMx4_eq) + Gamma4 * (parder_u_CMz1_eq + parder_u_CMz2_eq + parder_u_CMz3_eq + parder_u_CMz4_eq)) + Gamma4 * (parder_u_qbarind_eq * CMz5_eq + parder_u_qbarprop_eq * CMz6_eq))
-                parder_v_dotp_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_v_CMx1_eq + parder_v_CMx2_eq + parder_v_CMx3_eq) + Gamma4 * (parder_v_CMz1_eq + parder_v_CMz2_eq + parder_v_CMz3_eq + parder_v_CMz4_eq)))
-                parder_w_dotp_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma3 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma4 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma3 * (parder_w_CMx1_eq + parder_w_CMx2_eq + parder_w_CMx3_eq + parder_w_CMx4_eq) + Gamma4 * (parder_w_CMz1_eq + parder_w_CMz2_eq + parder_w_CMz3_eq + parder_w_CMz4_eq)))
-                parder_p_dotp_eq      = Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma3 * parder_p_CMx2_eq
+                parder_pd_dotp_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + Gamma4 * (parder_pd_qbarind_eq * Cn5_eq + parder_pd_qbarprop_eq * Cn6_eq))
+                parder_u_dotp_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma3 * (parder_u_Cl1_eq + parder_u_Cl2_eq + parder_u_Cl3_eq + parder_u_Cl4_eq) + Gamma4 * (parder_u_Cn1_eq + parder_u_Cn2_eq + parder_u_Cn3_eq + parder_u_Cn4_eq)) + Gamma4 * (parder_u_qbarind_eq * Cn5_eq + parder_u_qbarprop_eq * Cn6_eq))
+                parder_v_dotp_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma3 * (parder_v_Cl1_eq + parder_v_Cl2_eq + parder_v_Cl3_eq) + Gamma4 * (parder_v_Cn1_eq + parder_v_Cn2_eq + parder_v_Cn3_eq + parder_v_Cn4_eq)))
+                parder_w_dotp_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma3 * (parder_w_Cl1_eq + parder_w_Cl2_eq + parder_w_Cl3_eq + parder_w_Cl4_eq) + Gamma4 * (parder_w_Cn1_eq + parder_w_Cn2_eq + parder_w_Cn3_eq + parder_w_Cn4_eq)))
+                parder_p_dotp_eq      = Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma3 * parder_p_Cl2_eq
                 parder_q_dotp_eq      = Gamma1 * p_eq - Gamma2 * r_eq
-                parder_r_dotp_eq      = - Gamma2 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_r_CMx3_eq + Gamma4 * (parder_p_CMz2_eq + parder_p_CMz3_eq))
-                parder_deltaa_dotp_eq = SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_deltaa_CMx4_eq + Gamma4 * parder_deltaa_CMz4_eq)
-                parder_deltaf_dotp_eq = SW_SI * BW_SI * qbar_eq * Gamma3 * parder_deltaf_CMx3_eq
-                parder_deltar_dotp_eq = SW_SI * BW_SI * (Gamma3 * qbar_eq * parder_deltar_CMx5_eq + Gamma4 * qbarind_eq * parder_deltar_CMz5_eq)
+                parder_r_dotp_eq      = - Gamma2 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_r_Cl3_eq + Gamma4 * (parder_p_Cn2_eq + parder_p_Cn3_eq))
+                parder_deltaa_dotp_eq = SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_deltaa_Cl4_eq + Gamma4 * parder_deltaa_Cn4_eq)
+                parder_deltaf_dotp_eq = SW_SI * BW_SI * qbar_eq * Gamma3 * parder_deltaf_Cl3_eq
+                parder_deltar_dotp_eq = SW_SI * BW_SI * (Gamma3 * qbar_eq * parder_deltar_Cl5_eq + Gamma4 * qbarind_eq * parder_deltar_Cn5_eq)
 
                 #Partial derivatives of \dot{q} evaluated in the equilibrium point
-                parder_pd_dotq_eq     = ((SW_SI * CW_SI) / Iyy) * (parder_pd_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * parder_pd_CMy1_eq + parder_pd_quw_eq * CMy5_eq + parder_pd_qbarind_eq * CMy6_eq)
-                parder_u_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * (parder_u_CMy2_eq + parder_u_CMy3_eq) + parder_u_quw_eq * CMy5_eq + quw_eq * parder_u_CMy5_eq + parder_u_qbarind_eq * CMy6_eq + qbarind_eq * parder_u_CMy6_eq)
-                parder_v_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_v_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * parder_v_CMy3_eq + quw_eq * parder_v_CMy5_eq)
-                parder_w_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_eq * (CMy1_eq + CMy2_eq + CMy3_eq + CMy4_eq) + qbar_eq * (parder_w_CMy2_eq + parder_w_CMy3_eq) + parder_w_quw_eq * CMy5_eq + quw_eq * parder_w_CMy5_eq + qbarind_eq * parder_w_CMy6_eq)
+                parder_pd_dotq_eq     = ((SW_SI * CW_SI) / Iyy) * (parder_pd_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * parder_pd_Cm1_eq + parder_pd_quw_eq * Cm5_eq + parder_pd_qbarind_eq * Cm6_eq)
+                parder_u_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * (parder_u_Cm2_eq + parder_u_Cm3_eq) + parder_u_quw_eq * Cm5_eq + quw_eq * parder_u_Cm5_eq + parder_u_qbarind_eq * Cm6_eq + qbarind_eq * parder_u_Cm6_eq)
+                parder_v_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_v_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * parder_v_Cm3_eq + quw_eq * parder_v_Cm5_eq)
+                parder_w_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * (parder_w_Cm2_eq + parder_w_Cm3_eq) + parder_w_quw_eq * Cm5_eq + quw_eq * parder_w_Cm5_eq + qbarind_eq * parder_w_Cm6_eq)
                 parder_p_dotq_eq      = Gamma5 * r_eq - 2 * Gamma6 * p_eq
-                parder_q_dotq_eq      = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_q_CMy3_eq
+                parder_q_dotq_eq      = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_q_Cm3_eq
                 parder_r_dotq_eq      = Gamma5 * p_eq + 2 * Gamma6 * r_eq
-                parder_deltaf_dotq_eq = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_deltaf_CMy4_eq
-                parder_deltae_dotq_eq = ((SW_SI * CW_SI * q_ind) / Iyy) * parder_deltae_CMy6_eq
+                parder_deltaf_dotq_eq = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_deltaf_Cm4_eq
+                parder_deltae_dotq_eq = ((SW_SI * CW_SI * q_ind) / Iyy) * parder_deltae_Cm6_eq
 
                 #Partial derivatives of \dot{r} evaluated in the equilibrium point
-                parder_pd_dotr_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + Gamma8 * (parder_pd_qbarind_eq * CMz5_eq + parder_pd_qbarprop_eq * CMz6_eq))
-                parder_u_dotr_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_u_CMx1_eq + parder_u_CMx2_eq + parder_u_CMx3_eq + parder_u_CMx4_eq) + Gamma8 * (parder_u_CMz1_eq + parder_u_CMz2_eq + parder_u_CMz3_eq + parder_u_CMz4_eq)) + Gamma8 * (parder_u_qbarind_eq * CMz5_eq + parder_u_qbarprop_eq * CMz6_eq))
-                parder_v_dotr_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_v_CMx1_eq + parder_v_CMx2_eq + parder_v_CMx3_eq) + Gamma8 * (parder_v_CMz1_eq + parder_v_CMz2_eq + parder_v_CMz3_eq + parder_v_CMz4_eq)))
-                parder_w_dotr_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma4 * (CMx1_eq + CMx2_eq + CMx3_eq + CMx4_eq + CMx5_eq) + Gamma8 * (CMz1_eq + CMz2_eq + CMz3_eq + CMz4_eq)) + qbar_eq * (Gamma4 * (parder_w_CMx1_eq + parder_w_CMx2_eq + parder_w_CMx3_eq + parder_w_CMx4_eq) + Gamma8 * (parder_w_CMz1_eq + parder_w_CMz2_eq + parder_w_CMz3_eq + parder_w_CMz4_eq)))
-                parder_p_dotr_eq      = Gamma7 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma4 * parder_p_CMx2_eq
+                parder_pd_dotr_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + Gamma8 * (parder_pd_qbarind_eq * Cn5_eq + parder_pd_qbarprop_eq * Cn6_eq))
+                parder_u_dotr_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma4 * (parder_u_Cl1_eq + parder_u_Cl2_eq + parder_u_Cl3_eq + parder_u_Cl4_eq) + Gamma8 * (parder_u_Cn1_eq + parder_u_Cn2_eq + parder_u_Cn3_eq + parder_u_Cn4_eq)) + Gamma8 * (parder_u_qbarind_eq * Cn5_eq + parder_u_qbarprop_eq * Cn6_eq))
+                parder_v_dotr_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma4 * (parder_v_Cl1_eq + parder_v_Cl2_eq + parder_v_Cl3_eq) + Gamma8 * (parder_v_Cn1_eq + parder_v_Cn2_eq + parder_v_Cn3_eq + parder_v_Cn4_eq)))
+                parder_w_dotr_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma4 * (parder_w_Cl1_eq + parder_w_Cl2_eq + parder_w_Cl3_eq + parder_w_Cl4_eq) + Gamma8 * (parder_w_Cn1_eq + parder_w_Cn2_eq + parder_w_Cn3_eq + parder_w_Cn4_eq)))
+                parder_p_dotr_eq      = Gamma7 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma4 * parder_p_Cl2_eq
                 parder_q_dotr_eq      = Gamma7 * p_eq - Gamma1 * r_eq
-                parder_r_dotr_eq      = - Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_r_CMx3_eq + Gamma8 * (parder_r_CMz2_eq + parder_r_CMz3_eq))
-                parder_deltaa_dotr_eq = SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_deltaa_CMx4_eq + Gamma8 * parder_deltaa_CMz4_eq)
-                parder_deltaf_dotr_eq = SW_SI * BW_SI * qbar_eq * Gamma4 * parder_deltaf_CMx3_eq
-                parder_deltar_dotr_eq = SW_SI * BW_SI * (Gamma4 * qbar_eq * parder_deltar_CMx5_eq + Gamma8 * qbarind_eq * parder_deltar_CMz5_eq)
+                parder_r_dotr_eq      = - Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_r_Cl3_eq + Gamma8 * (parder_r_Cn2_eq + parder_r_Cn3_eq))
+                parder_deltaa_dotr_eq = SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_deltaa_Cl4_eq + Gamma8 * parder_deltaa_Cn4_eq)
+                parder_deltaf_dotr_eq = SW_SI * BW_SI * qbar_eq * Gamma4 * parder_deltaf_Cl3_eq
+                parder_deltar_dotr_eq = SW_SI * BW_SI * (Gamma4 * qbar_eq * parder_deltar_Cl5_eq + Gamma8 * qbarind_eq * parder_deltar_Cn5_eq)
 
                 self.csvlm[i,:] = [time, dx]
 

@@ -2,6 +2,7 @@ import csv
 import multiprocessing as mp
 import numpy as np
 
+from actuation import *
 from dynamics import *
 from settings import *
 
@@ -90,7 +91,7 @@ class CSVDynamicsLog():
                 event_start = value
         self.name = name + '.csv'
         if len(kwargs) > 0:
-            self.proc = mp.Process(target=self.write_log, args=(dyn2csv_out, event_start), daemon=True) #process for logging RX telemetry
+            self.proc = mp.Process(target=self.write_log, args=(dyn2csv_out, event_start), daemon=True) #process for logging dynamics
             self.proc.start()
     def read_log(self):
         with open(self.name, 'r', newline='') as csvfile:
@@ -137,7 +138,7 @@ class CSVKinematicsLog():
                 event_start = value
         self.name = name + '.csv'
         if len(kwargs) > 0:
-            self.proc = mp.Process(target=self.write_log, args=(kin2csv_out, event_start), daemon=True) #process for logging RX telemetry
+            self.proc = mp.Process(target=self.write_log, args=(kin2csv_out, event_start), daemon=True) #process for logging kinematics
             self.proc.start()
     def read_log(self):
         with open(self.name, 'r', newline='') as csvfile:

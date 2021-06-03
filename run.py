@@ -16,7 +16,7 @@ def initialize():
     #Pipes
     rx2act_out, rx2act_in = mp.Pipe() #RX telemetry data pipe to calculate actuation
     rx2csv_out, rx2csv_in = mp.Pipe() #RX telemetry data pipe to store in CSV
-    #rx2dyn_out, rx2dyn_in = mp.Pipe() #RX telemetry data pipe to calculate dynamics 
+    rx2dyn_out, rx2dyn_in = mp.Pipe() #RX telemetry data pipe to calculate dynamics 
     #rx2kin_out, rx2kin_in = mp.Pipe() #RX telemetry data pipe to calculate kinematics 
     rx2nlm_out, rx2nlm_in = mp.Pipe() #RX telemetry data pipe to calculate non-linear model
     rx2lm_out, rx2lm_in = mp.Pipe() #RX telemetry data pipe to calculate linear model
@@ -24,7 +24,7 @@ def initialize():
     lm2act_out, lm2act_in = mp.Pipe() #linear model data pipe to calculate actuation
     act2csv_out, act2csv_in = mp.Pipe() #actuation data pipe to store in CSV
     act2tx_out, act2tx_in = mp.Pipe() #actuation data pipe to transmit TX telemetry
-    #dyn2csv_out, dyn2csv_in = mp.Pipe() #dynamics data pipe to store in CSV
+    dyn2csv_out, dyn2csv_in = mp.Pipe() #dynamics data pipe to store in CSV
     #kin2csv_out, kin2csv_in = mp.Pipe() #kinematics data pipe to store in CSV
     nlm2csv_out, nlm2csv_in = mp.Pipe() #non-linear model data pipe to store in CSV
     lm2csv_out, lm2csv_in = mp.Pipe() #linear model data pipe to store in CSV
@@ -38,13 +38,13 @@ def initialize():
     #CSV logs
     csvtelemargs = {'rx2csv_out':rx2csv_out, 'act2csv_out':act2csv_out, 'event_start':event_start}
     CSVTelemetryLog(TELEM_LOG_FILENAME, **csvtelemargs) #RX telemetry log
-    #csvdynargs = {'dyn2csv_out':dyn2csv_out, 'event_start':event_start}
-    #CSVDynamicsLog(DYN_LOG_FILENAME, **csvdynargs) #calculated dynamics log
+    csvdynargs = {'dyn2csv_out':dyn2csv_out, 'event_start':event_start}
+    CSVDynamicsLog(DYN_LOG_FILENAME, **csvdynargs) #calculated dynamics log
     #csvkinargs = {'kin2csv_out':kin2csv_out, 'event_start':event_start}
     #CSVKinematicsLog(KIN_LOG_FILENAME, **csvkinargs) #calculated kinematics log
 
     #Dynamics
-    #Dynamics(rx2dyn_out, dyn2csv_in, event_start) #calculate dynamics 
+    Dynamics(rx2dyn_out, dyn2csv_in, event_start) #calculate dynamics 
 
     #Kinematics
     #Kinematics(rx2dyn_out, kin2csv_in, event_start) #calculate kinematics 

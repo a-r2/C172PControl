@@ -2,10 +2,11 @@ import multiprocessing as mp
 import numpy as np
 import random
 
-#from actuation import *
 from dynamics import *
 #from kinematics import *
 from settings import *
+
+ACT_LEN = 8 #[deltaa, deltae, deltaf, deltar, deltat, deltam]
 
 class Actuation():
     def __init__(self, act_type, rx2act_out, act2csv_in, act2tx_in, event_start):
