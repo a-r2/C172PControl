@@ -7,11 +7,11 @@ from settings import *
 DYN_LEN = 10 #[D, gx, T, C, gy, L, gz, l, m, n]
 
 class Dynamics():
-    def __init__(self, rx2dyn_out, dyn2csv_in, event_start):
+    def __init__(self, dyn2csv_in, rx2dyn_out, event_start):
         self.csvdyn = np.zeros((MODEL_HZ, DYN_LEN + 1)) #array for storing dynamics
-        self.proc   = mp.Process(target=self.forces_moments_body, args=(rx2dyn_out, dyn2csv_in, event_start), daemon=True) #process for calculating dynamics
+        self.proc   = mp.Process(target=self.forces_moments_body, args=(dyn2csv_in, rx2dyn_out, event_start), daemon=True) #process for calculating dynamics
         self.proc.start()
-    def forces_moments_body(self, rx2dyn_out, dyn2csv_in, event_start):
+    def forces_moments_body(self, dyn2csv_in, rx2dyn_out, event_start):
         #Aerodynamic and propulsive forces and moments applied to the aircraft in body frame
         event_start.wait() #wait for simulation start event
         while True:
@@ -95,5 +95,5 @@ class Dynamics():
 
                 self.csvdyn[i,:] = [time, D, gx, T, C, gy, L, gz, l, m, n]
 
-            dyn2csv_in.send(self.csvdyn[:framescount,:]) #send calculated dynamics to store in CSV
+            dyn2csv_in.send(self.csvdyn[:framescount,:]) #send dynamics to CSV
             self.csvdyn = np.empty((MODEL_HZ, DYN_LEN + 1)) #empty array 

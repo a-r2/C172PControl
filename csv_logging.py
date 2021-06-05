@@ -3,16 +3,18 @@ import multiprocessing as mp
 import numpy as np
 
 from actuation import *
+from c172p_model import *
 from dynamics import *
+from equilibrium import *
 from settings import *
 
 class CSVTelemetryLog():
     def __init__(self, name, **kwargs):
         for key, value in kwargs.items():
-            if key == 'rx2csv_out':
-                rx2csv_out = value
-            elif key == 'act2csv_out':
+            if key == 'act2csv_out':
                 act2csv_out = value
+            elif key == 'rx2csv_out':
+                rx2csv_out = value
             elif key == 'event_start':
                 event_start = value
         self.rxname = 'rx_' + name + '.csv'
@@ -152,16 +154,109 @@ class CSVKinematicsLog():
                 i += 1
             return kindata
     def write_log(self, kin2csv_out, event_start):
-        event_start.wait() #wait for simulation start
         with open(self.name, 'w', newline='') as csvfile:
             kinlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
-            csvdata = np.zeros((MODEL_HZ, KIN_LEN)) #array for storing data frames
+            csvdata1 = np.zeros((MODEL_HZ, KIN_LEN + 1)) #array for storing data frames
+            csvdata2 = np.zeros((MODEL_HZ, KIN_LEN + 1)) #backup array for storing overflowed data frames
             i = 0
             event_start.wait() #wait for simulation start
             while True:
-                kindata = kin2csv_out.recv()
-                csvdata[i,:] = kindata 
+                try:
+                    kindata = kin2csv_out.recv() #receive RX telemetry
+                    framescount = kindata.shape[0]
+                    for j in range(framescount):                
+                        if i > (MODEL_HZ - 1):
+                            csvdata2[i-MODEL_HZ,:] = kindata[j,:] 
+                        else:
+                            csvdata1[i,:] = kindata[j,:]
+                        i += 1
+                    if i > (MODEL_HZ - 1):
+                        kinlog.writerows((csvdata1[k,:] for k in range(MODEL_HZ))) #write array into CSV 
+                        i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
+                        csvdata1 = csvdata2
+                        csvdata2 = np.empty((MODEL_HZ, (KIN_LEN + 1))) #empty backup array 
+                except:
+                    pass
+
+class CSVModelLog():
+    def __init__(self, name, **kwargs):
+        for key, value in kwargs.items():
+            if key == 'mod2csv_out':
+                mod2csv_out = value
+            elif key == 'event_start':
+                event_start = value
+        self.name = name + '.csv'
+        if len(kwargs) > 0:
+            self.proc = mp.Process(target=self.write_log, args=(mod2csv_out, event_start), daemon=True) #process for logging control model 
+            self.proc.start()
+    def read_log(self):
+        with open(self.name, 'r', newline='') as csvfile:
+            modlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
+            rowscount = len(list(modlog))
+            csvfile.seek(0) #go to first row
+            moddata = np.zeros((rowscount, STATE_LEN + 1))
+            i = 0
+            for row in modlog:
+                moddata[i,:] = row
                 i += 1
-                if i > (MODEL_HZ - 1):
-                    kinlog.writerows((csvdata[k,:] for k in range(MODEL_HZ))) #write array into CSV 
+            return moddata
+    def write_log(self, mod2csv_out, event_start):
+        with open(self.name, 'w', newline='') as csvfile:
+            modlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
+            csvdata1 = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing data frames
+            csvdata2 = np.zeros((MODEL_HZ, STATE_LEN + 1)) #backup array for storing overflowed data frames
+            i = 0
+            event_start.wait() #wait for simulation start
+            while True:
+                try:
+                    moddata = mod2csv_out.recv() #receive RX telemetry
+                    framescount = moddata.shape[0]
+                    for j in range(framescount):                
+                        if i > (MODEL_HZ - 1):
+                            csvdata2[i-MODEL_HZ,:] = moddata[j,:] 
+                        else:
+                            csvdata1[i,:] = moddata[j,:]
+                        i += 1
+                    if i > (MODEL_HZ - 1):
+                        modlog.writerows((csvdata1[k,:] for k in range(MODEL_HZ))) #write array into CSV 
+                        i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
+                        csvdata1 = csvdata2
+                        csvdata2 = np.empty((MODEL_HZ, (STATE_LEN + 1))) #empty backup array 
+                except:
+                    pass
+
+class CSVEquilibriumLog():
+    def __init__(self, name, **kwargs):
+        for key, value in kwargs.items():
+            if key == 'eq2csv_out':
+                eq2csv_out = value
+            elif key == 'event_start':
+                event_start = value
+        self.name = name + '.csv'
+        if len(kwargs) > 0:
+            self.proc = mp.Process(target=self.write_log, args=(eq2csv_out, event_start), daemon=True) #process for logging equilibrium point
+            self.proc.start()
+    def read_log(self):
+        with open(self.name, 'r', newline='') as csvfile:
+            eqlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
+            rowscount = len(list(eqlog))
+            csvfile.seek(0) #go to first row
+            rxdata = np.zeros((rowscount, EQ_LEN))
+            i = 0
+            for row in eqlog:
+                rxdata[i,:] = row
+                i += 1
+            return rxdata
+    def write_log(self, eq2csv_out, event_start):
+        with open(self.name, 'w', newline='') as csvfile:
+            eqlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
+            csvdata = np.zeros((ACT_HZ, EQ_LEN + 1)) #array for storing data frames
+            i = 0
+            event_start.wait() #wait for simulation start
+            while True:
+                eqdata = eq2csv_out.recv()
+                csvdata[i,:] = eqdata
+                i += 1
+                if i > (ACT_HZ - 1):
+                    eqlog.writerows((csvdata[k,:] for k in range(ACT_HZ))) #write array into CSV 
                     i = 0

@@ -8,10 +8,19 @@ CFG_IP_ADDRESS = 'localhost'
 CFG_PORT = 60003 #config port
 
 ''' ACTUATION '''
-ACT_TYPE = 1
+ACT_TYPE = 'random' #'random'
+
+''' CONTROL MODEL '''
+MOD_TYPE = 'alm' #'anlm', 'alm'
+MOD_LOG_FILENAME = 'control_model_log'
 
 ''' DYNAMICS '''
 DYN_LOG_FILENAME = 'dynamics_log'
+
+''' EQUILIBRIUM POINT '''
+EQ_TYPE = 'constant'
+EQ_POINT_INIT = (0,0,100,0,0,0,100,0,0,0,0,0) #[pn_eq, pe_eq, pd_eq, phi_eq, theta_eq, psi_eq, u_eq, v_eq, w_eq, p_eq, q_eq, r_eq]
+EQ_LOG_FILENAME = 'eq_point_log'
 
 ''' KINEMATICS '''
 KIN_LOG_FILENAME = 'kinematics_log'

@@ -2,8 +2,8 @@ import multiprocessing as mp
 import numpy as np
 from math import atan2, sin, sqrt
 
-from settings import *
 from scipy import interpolate
+from settings import *
 from utils import *
 
 ''' FLIGHTGEAR MODEL PARAMETERS '''
@@ -606,11 +606,10 @@ def aerocoeff_Cn4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_r
 
 def aerocoeff_Cn5(rudder_pos_rad):
     #Aerodynamic yaw coefficient 5
-    return rudder_pos_rad * -0.0645
-
+    return - 0.0645 * rudder_pos_rad
 def aerocoeff_Cn6():
     #Aerodynamic yaw coefficient 6
-    return -0.0500 * C_SPIRAL_PROPWASH
+    return - 0.0500 * C_SPIRAL_PROPWASH
 
 ''' PROPULSIVE FORCE '''
 def thrust_eng(advance_ratio, density, rpm_prop):
@@ -661,7 +660,7 @@ def Vauw_acm(u, w):
 
 def Vind2_acm(u, rho, T):
     #Squared propulsion induced velocity (Vind^2) as defined in the analytic control models
-    return u * abs(u) + ((2 * T) / (rho * PROP_AREA_SI))
+    return u * abs(u) + ((2 * T) / (rho * A_PROP_SI))
 
 def Vind_acm(u, rho, T, Vind2):
     #Propulsion induced velocity (Vind) as defined in the analytic control models
@@ -708,18 +707,18 @@ def parder_pd_rho(pd):
 
 def parder_pd_Vind(u, rho, T, Vind2, parder_pd_rho):
     #Partial derivative of Vind with respect to pd
-    Vind2_sign = (np.sign(Vind2) >= 0)
-    return - Vind2_sign * parder_pd_rho * ((T * (rho * PROP_AREA_SI * u * abs(u) + 2 * T)) / ((rho ** 3) * (PROP_AREA_SI ** 2) * (Vind ** 3)))
+    Vind2_sign = float(np.sign(Vind2) >= 0)
+    return - Vind2_sign * parder_pd_rho * ((T * (rho * A_PROP_SI * u * abs(u) + 2 * T)) / ((rho ** 3) * (A_PROP_SI ** 2) * (sqrt(Vind2) ** 3)))
 
 def parder_u_Vind(u, rho, T, Vind2):
     #Partial derivative of Vind with respect to u
-    Vind2_sign = (np.sign(Vind2) >= 0)
-    return Vind2_sign * (u ** 2) * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / (rho * PROP_AREA_SI * abs(u) * (Vind ** 3))
+    Vind2_sign = float(np.sign(Vind2) >= 0)
+    return Vind2_sign * (u ** 2) * (rho * A_PROP_SI * u * abs(u) + 2 * T) / (rho * A_PROP_SI * abs(u) * (sqrt(Vind2) ** 3))
 
 def parder_deltat_Vind(u, rho, T, Vind2, parder_deltat_T):
     #Partial derivative of Vind with respect to deltat
-    Vind2_sign = (np.sign(Vind2) >= 0)
-    return Vind2_sign * parder_deltat_T * (rho * PROP_AREA_SI * u * abs(u) + 2 * T) / ((rho ** 2) * (PROP_AREA_SI ** 2) * (Vind ** 3))
+    Vind2_sign = float(np.sign(Vind2) >= 0)
+    return Vind2_sign * parder_deltat_T * (rho * A_PROP_SI * u * abs(u) + 2 * T) / ((rho ** 2) * (A_PROP_SI ** 2) * (sqrt(Vind2) ** 3))
 
 def parder_pd_Vprop(parder_pd_Vind):
     #Partial derivative of Vprop with respect to pd
@@ -737,7 +736,7 @@ def parder_u_alpha(w, Vauw):
     #Partial derivative of alpha with respect to u
     return - w / (Vauw ** 2)
 
-def parder_w_alpha(w, Vauw):
+def parder_w_alpha(u, Vauw):
     #Partial derivative of alpha with respect to w
     return u / (Vauw ** 2)
 
@@ -753,20 +752,20 @@ def parder_w_beta(v, w, Va, Vauw):
     #Partial derivative of beta with respect to w
     return - (v * w) / (Vauw * (Va ** 2))
 
-def parder_pd_q(Va, parder_pd_rho):
-    #Partial derivative of q with respect to pd
+def parder_pd_qbar(Va, parder_pd_rho):
+    #Partial derivative of qbar with respect to pd
     return 0.5 * parder_pd_rho * (Va ** 2)
 
-def parder_u_q(u, rho):
-    #Partial derivative of q with respect to u
+def parder_u_qbar(u, rho):
+    #Partial derivative of qbar with respect to u
     return rho * u
 
-def parder_v_q(v, rho):
-    #Partial derivative of q with respect to v
+def parder_v_qbar(v, rho):
+    #Partial derivative of qbar with respect to v
     return rho * v
 
-def parder_w_q(w, rho):
-    #Partial derivative of q with respect to w
+def parder_w_qbar(w, rho):
+    #Partial derivative of qbar with respect to w
     return rho * w
 
 def parder_pd_qbaruw(Vauw, parder_pd_rho):
@@ -819,18 +818,19 @@ def parder_deltat_T(rho, J, n, parder_J_CT, parder_deltat_n):
 
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
-    def __init__(self, rx2nlm_out, rx2lm_out, nlm2act_in, lm2act_in, nlm2csv_in, lm2csv_in, eq2lm_out, event_start):
-        self.csvnlm = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing non-linear model
-        self.csvlm = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing linear model
-        self.proc1 = mp.Process(target=self.non_linear, args=(rx2nlm_out, nlm2act_in, nlm2csv_in, event_start), daemon=True) #process for calculating non-linear model
-        self.proc2 = mp.Process(target=self.linear, args=(rx2lm_out, lm2act_in, lm2csv_in, event_start), daemon=True) #process for calculating linear model
-        self.proc1.start()
-        self.proc2.start()
-    def non_linear(self, rx2nlm_out, nlm2act_in, nlm2csv_in, event_start):
+    def __init__(self, mod_type, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
+        self.csvmod = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing control model
+        if mod_type == 'anlm': #analytic non-linear control model
+            self.proc = mp.Process(target=self.non_linear, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic non-linear control model
+        elif mod_type == 'alm': #analytic linear control model
+            self.proc = mp.Process(target=self.linear, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic linear control model
+        self.proc.start()
+    def non_linear(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
         #Analytic non-linear control model
         event_start.wait() #wait for simulation start event
         while True:
-            rxdata      = rx2nlm_out.recv() #receive RX telemetry
+            rxdata      = rx2mod_out.recv() #receive RX telemetry
+            eqdata      = (0,0,100,0,0,0,100,0,0,0,0,0) #eq2mod_out.recv() #receive equilibrium point
             framescount = rxdata.shape[0]
             for i in range(framescount):                
                 time  = rxdata[i,0]
@@ -870,64 +870,77 @@ class ControlModel():
                 Gamma8 = mominert_gamma8(Ixx, Gamma)
 
                 #Equilibrium point
-                pn_eq    = eqdata[i,0]
-                pe_eq    = eqdata[i,1]
-                pd_eq    = eqdata[i,2]
-                phi_eq   = eqdata[i,3]
-                theta_eq = eqdata[i,4]
-                psi_eq   = eqdata[i,5]
-                u_eq     = eqdata[i,6]
-                v_eq     = eqdata[i,7]
-                w_eq     = eqdata[i,8]
-                p_eq     = eqdata[i,9]
-                q_eq     = eqdata[i,10]
-                r_eq     = eqdata[i,11]
+                pn_eq    = eqdata[0]
+                pe_eq    = eqdata[1]
+                pd_eq    = eqdata[2]
+                phi_eq   = eqdata[3]
+                theta_eq = eqdata[4]
+                psi_eq   = eqdata[5]
+                u_eq     = eqdata[6]
+                v_eq     = eqdata[7]
+                w_eq     = eqdata[8]
+                p_eq     = eqdata[9]
+                q_eq     = eqdata[10]
+                r_eq     = eqdata[11]
                 (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
 
+                #Initialize state space
                 dx = np.zeros(STATE_LEN)
                 (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
 
-                dx[0:3] = body_to_vehicle(phi, theta, psi) * np.array([u, v, w])
-                dx[3:6] = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) + np.array([fx, fy, fz]) / mass
-                dx[6:10] = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) * np.array([q0, q1, q2, q3])
-                dx[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) * np.array([l, m, n])
+                qbv = body_to_vehicle(phi, theta, psi)
+                dx[0:3] = qbv.rotation_matrix @ np.array([u, v, w])
+                dx[3:7] = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) @ np.array([q0, q1, q2, q3])
+                dx[7:10] = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) @ np.array([p, q, r]) + np.array([fx, fy, fz]) / mass
+                dx[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n])
 
-                self.csvnlm[i,:] = [time, dx]
+                self.csvmod[i,:] = [time, *dx]
 
-            nlm2csv_in.send(self.csvnlm[:framescount,:]) #send calculated non-linear model to store in CSV
-            self.csvnlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
+            mod2csv_in.send(self.csvmod[:framescount,:]) #send calculated non-linear model to store in CSV
+            self.csvmod = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
 
-    def linear(self, rx2lm_out, lm2act_in, lm2csv_in, eq2lm_out, event_start):
+    def linear(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
         #Analytic linear control model
         event_start.wait() #wait for simulation start event
         while True:
-            rxdata      = rx2lm_out.recv() #receive RX telemetry
-            eqdata      = eq2lm_out.recv() #receive equilibrium point
+            eqdata      = eq2mod_out.recv() #receive equilibrium point
+            rxdata      = rx2mod_out.recv() #receive RX telemetry
             framescount = rxdata.shape[0]
             for i in range(framescount):                
-                time  = rxdata[i,0]
-                phi   = rxdata[i,16]
-                theta = rxdata[i,18]
-                psi   = rxdata[i,20]
-                u     = rxdata[i,30]
-                v     = rxdata[i,31]
-                w     = rxdata[i,32]
-                p     = rxdata[i,42]
-                q     = rxdata[i,43]
-                r     = rxdata[i,44]
-                fx    = rxdata[i,59]
-                fy    = rxdata[i,64]
-                fz    = rxdata[i,69]
-                l     = rxdata[i,74]
-                m     = rxdata[i,79]
-                n     = rxdata[i,84]
-                Ixx   = rxdata[i,117]
-                Ixy   = rxdata[i,118]
-                Ixz   = rxdata[i,119]
-                Iyy   = rxdata[i,120]
-                Iyz   = rxdata[i,121]
-                Izz   = rxdata[i,122]
-                mass  = rxdata[i,123]
+                time     = rxdata[i,0]
+                phi      = rxdata[i,16]
+                theta    = rxdata[i,18]
+                psi      = rxdata[i,20]
+                u        = rxdata[i,30]
+                v        = rxdata[i,31]
+                w        = rxdata[i,32]
+                p        = rxdata[i,42]
+                q        = rxdata[i,43]
+                r        = rxdata[i,44]
+                T        = rxdata[i,58]
+                fx       = rxdata[i,59]
+                fy       = rxdata[i,64]
+                fz       = rxdata[i,69]
+                l        = rxdata[i,74]
+                m        = rxdata[i,79]
+                n        = rxdata[i,84]
+                deltaa_r = rxdata[i,87]
+                deltaa_l = rxdata[i,90]
+                deltae   = rxdata[i,93]
+                deltaf_deg = rxdata[i,94]
+                deltaf   = rxdata[i,96]
+                deltar   = rxdata[i,99]
+                deltat   = rxdata[i,100]
+                deltam   = rxdata[i,101]
+                Ixx      = rxdata[i,117]
+                Ixy      = rxdata[i,118]
+                Ixz      = rxdata[i,119]
+                Iyy      = rxdata[i,120]
+                Iyz      = rxdata[i,121]
+                Izz      = rxdata[i,122]
+                mass     = rxdata[i,123]
+                
+                deltaa = 0.5 * (deltaa_l + deltaa_r) #deltaa_l = deltaa_r
 
                 #Moments of inertia
                 Gamma  = mominert_gamma(Ixx, Ixz, Izz)
@@ -941,18 +954,18 @@ class ControlModel():
                 Gamma8 = mominert_gamma8(Ixx, Gamma)
 
                 #Equilibrium point
-                pn_eq    = eqdata[i,0]
-                pe_eq    = eqdata[i,1]
-                pd_eq    = eqdata[i,2]
-                phi_eq   = eqdata[i,3]
-                theta_eq = eqdata[i,4]
-                psi_eq   = eqdata[i,5]
-                u_eq     = eqdata[i,6]
-                v_eq     = eqdata[i,7]
-                w_eq     = eqdata[i,8]
-                p_eq     = eqdata[i,9]
-                q_eq     = eqdata[i,10]
-                r_eq     = eqdata[i,11]
+                pn_eq    = eqdata[0]
+                pe_eq    = eqdata[1]
+                pd_eq    = eqdata[2]
+                phi_eq   = eqdata[3]
+                theta_eq = eqdata[4]
+                psi_eq   = eqdata[5]
+                u_eq     = eqdata[6]
+                v_eq     = eqdata[7]
+                w_eq     = eqdata[8]
+                p_eq     = eqdata[9]
+                q_eq     = eqdata[10]
+                r_eq     = eqdata[11]
                 (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
 
                 #Initialize state space
@@ -961,42 +974,47 @@ class ControlModel():
                 B  = np.zeros((STATE_LEN, INPUT_LEN))
                 (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
 
-                #Misc equilibrium point
+                #Misc variables equilibrium point
                 rho_eq      = barometric_density(pd_eq)
+                Vauw_eq     = Vauw_acm(u_eq, w_eq)
+                Va_eq       = Va_acm(u_eq, v_eq, w_eq)
                 alpha_eq    = alpha_acm(u_eq, w_eq)
                 beta_eq     = beta_acm(v_eq, Vauw_eq)
-                n_eq        = n_acm(deltat_eq, deltam_eq)
-                J_eq        = J_acm(u_eq, n_eq)
-                T_eq        = power_eng(J_eq, rho_eq, n_eq)
-                Va_eq       = Va_acm(u_eq, v_eq, w_eq)
-                Vauw_eq     = Vauw_acm(u_eq, w_eq)
-                Vind2_eq    = Vind2_acm(u_eq, rho_eq, T_eq)
-                Vind_eq     = Vind_acm(u_eq, rho_eq, T_eq, Vind2_eq)
+
+                #Misc variables
+                n           = n_acm(deltat, deltam)
+                J_eq        = J_acm(u_eq, n)
+                Vind2_eq    = Vind2_acm(u_eq, rho_eq, T)
+                Vind_eq     = Vind_acm(u_eq, rho_eq, T, Vind2_eq)
                 Vprop_eq    = Vprop_acm(u_eq, Vind_eq)
                 qbar_eq     = qbar_acm(rho_eq, Va_eq)
                 qbaruw_eq   = qbaruw_acm(rho_eq, Vauw_eq)
                 qbarind_eq  = qbarind_acm(rho_eq, Vind_eq)
                 qbarprop_eq = qbarprop_acm(rho_eq, Vprop_eq)
 
-                #Misc partial derivatives evaluated in the equilibrium point
-                parder_deltat_n_eq        = parder_deltat_n()
+                #Tables derivatives at the equilibrium point 
+                parder_J_CT       = parder_J_CT_interp(J_eq)
+                parder_deltaf_CD2 = parder_deltaf_CD2_interp(deltaf_deg)
+
+                #Misc partial derivatives evaluated at the equilibrium point
                 parder_pd_rho_eq          = parder_pd_rho(pd_eq)
-                parder_pd_qbar_eq         = parder_pd_qbar(Va_eq, parder_pd_rho_eq)
-                parder_pd_Vind_eq         = parder_pd_Vind(u_eq, rho_eq, T_eq, Vind2_eq, parder_pd_rho_eq)
-                parder_u_Vind_eq          = parder_u_Vind(u_eq, rho_eq, T_eq, Vind2_eq)
-                parder_deltat_Vind_eq     = parder_deltat_Vind(u_eq, rho_eq, T_eq, Vind2_eq, parder_deltat_T_eq)
-                parder_pd_Vprop_eq        = parder_pd_Vprop(parder_pd_Vind_eq)
-                parder_u_Vprop_eq         = parder_u_Vprop(parder_u_Vind_eq)
-                parder_deltat_Vprop_eq    = parder_deltat_Vprop(parder_deltat_Vind_eq)
+                parder_deltat_n_eq        = parder_deltat_n()
                 parder_u_alpha_eq         = parder_u_alpha(w_eq, Vauw_eq)
-                parder_w_alpha_eq         = parder_w_alpha(w_eq, Vauw_eq)
+                parder_w_alpha_eq         = parder_w_alpha(u_eq, Vauw_eq)
                 parder_u_beta_eq          = parder_u_beta(u_eq, v_eq, Va_eq, Vauw_eq)
                 parder_v_beta_eq          = parder_v_beta(Va_eq, Vauw_eq)
                 parder_w_beta_eq          = parder_w_beta(v_eq, w_eq, Va_eq, Vauw_eq)
-                parder_pd_q_eq            = parder_pd_q(Va_eq, parder_pd_rho_eq)
-                parder_u_q_eq             = parder_u_q(u_eq, rho_eq)
-                parder_v_q_eq             = parder_v_q(v_eq, rho_eq)
-                parder_w_q_eq             = parder_w_q(w_eq, rho_eq)
+                parder_pd_Vind_eq         = parder_pd_Vind(u_eq, rho_eq, T, Vind2_eq, parder_pd_rho_eq)
+                parder_u_Vind_eq          = parder_u_Vind(u_eq, rho_eq, T, Vind2_eq)
+                parder_deltat_T_eq        = parder_deltat_T(rho_eq, J_eq, n, parder_J_CT, parder_deltat_n_eq)
+                parder_deltat_Vind_eq     = parder_deltat_Vind(u_eq, rho_eq, T, Vind2_eq, parder_deltat_T_eq)
+                parder_pd_Vprop_eq        = parder_pd_Vprop(parder_pd_Vind_eq)
+                parder_u_Vprop_eq         = parder_u_Vprop(parder_u_Vind_eq)
+                parder_deltat_Vprop_eq    = parder_deltat_Vprop(parder_deltat_Vind_eq)
+                parder_pd_qbar_eq         = parder_pd_qbar(Va_eq, parder_pd_rho_eq)
+                parder_u_qbar_eq          = parder_u_qbar(u_eq, rho_eq)
+                parder_v_qbar_eq          = parder_v_qbar(v_eq, rho_eq)
+                parder_w_qbar_eq          = parder_w_qbar(w_eq, rho_eq)
                 parder_pd_qbaruw_eq       = parder_pd_qbaruw(Vauw_eq, parder_pd_rho_eq)
                 parder_u_qbaruw_eq        = parder_u_qbaruw(parder_u_qbar_eq)
                 parder_w_qbaruw_eq        = parder_w_qbaruw(parder_w_qbar_eq)
@@ -1004,14 +1022,12 @@ class ControlModel():
                 parder_u_qbarind_eq       = parder_u_qbarind(rho_eq, Vind_eq, parder_u_Vind_eq)
                 parder_deltat_qbarind_eq  = parder_deltat_qbarind(rho_eq, Vind_eq, parder_deltat_Vind_eq)
                 parder_pd_qbarprop_eq     = parder_pd_qbarprop(rho_eq, Vprop_eq, parder_pd_rho_eq, parder_pd_Vind_eq)
-                parder_u_qbarprop_eq      = parder_u_qbarprop(rho_eq, Vprop_eq, parder_u_Vprop_eq)
                 parder_deltat_qbarprop_eq = parder_deltat_qbarprop(rho_eq, Vprop_eq, parder_deltat_Vprop_eq)
-                parder_pd_T_eq            = parder_pd_T(J_eq, n_eq, parder_pd_rho_eq)
-                parder_u_T_eq             = parder_u_T(rho_eq, J_eq, n_eq, parder_J_CT_eq)
-                parder_deltat_T_eq        = parder_deltat_T(rho_eq, J_eq, n_eq, parder_J_CT_eq, parder_deltat_n_eq)
-                parder_pd_T_eq            = parder_pd_T(J_eq, n_eq, parder_pd_rho_eq)
+                parder_u_qbarprop_eq      = parder_u_qbarprop(rho_eq, Vprop_eq, parder_u_Vprop_eq)
+                parder_pd_T_eq            = parder_pd_T(J_eq, n, parder_pd_rho_eq)
+                parder_u_T_eq             = parder_u_T(rho_eq, J_eq, n, parder_J_CT_eq)
 
-                #Partial derivatives of \dot{p_n} evaluated in the equilibrium point
+                #Partial derivatives of \dot{p_n} evaluated at the equilibrium point
                 parder_q0_dotpn_eq = 2 * (q0_eq * u_eq - q3_eq * v_eq + q2_eq * w_eq)
                 parder_q1_dotpn_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
                 parder_q2_dotpn_eq = 2 * (- q2_eq * u_eq + q1_eq * v_eq + q0_eq * w_eq)
@@ -1020,7 +1036,7 @@ class ControlModel():
                 parder_v_dotpn_eq  = 2 * (q1_eq * q2_eq - q0_eq * q3_eq)
                 parder_w_dotpn_eq  = 2 * (q0_eq * q2_eq + q1_eq * q3_eq)
 
-                #Partial derivatives of \dot{p_e} evaluated in the equilibrium point
+                #Partial derivatives of \dot{p_e} evaluated at the equilibrium point
                 parder_q0_dotpe_eq = 2 * (q3_eq * u_eq + q0_eq * v_eq - q1_eq * w_eq)
                 parder_q1_dotpe_eq = 2 * (q2_eq * u_eq - q1_eq * v_eq - q0_eq * w_eq)
                 parder_q2_dotpe_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
@@ -1029,7 +1045,7 @@ class ControlModel():
                 parder_v_dotpe_eq  = q0_eq^2 + q2_eq^2 - q1_eq^2 - q3_eq^2
                 parder_w_dotpe_eq  = 2 * (q2_eq * q3_eq - q0_eq * q1_eq)
 
-                #Partial derivatives of \dot{p_d} evaluated in the equilibrium point
+                #Partial derivatives of \dot{p_d} evaluated at the equilibrium point
                 parder_q0_dotpd_eq = 2 * (- q2_eq * u_eq + q1_eq * v_eq + q0_eq * w_eq)
                 parder_q1_dotpd_eq = 2 * (q3_eq * u_eq + q0_eq * v_eq - q1_eq * w_eq)
                 parder_q2_dotpd_eq = 2 * (- q0_eq * u_eq + q3_eq * v_eq - q2_eq * w_eq)
@@ -1038,7 +1054,7 @@ class ControlModel():
                 parder_v_dotpd_eq  = 2 * (q0_eq * q1_eq + q2_eq * q3_eq)
                 parder_w_dotpd_eq  = q0_eq^2 + q3_eq^2 - q1_eq^2 - q2_eq^2
 
-                #Partial derivatives of \dot{q_0} evaluated in the equilibrium point
+                #Partial derivatives of \dot{q_0} evaluated at the equilibrium point
                 parder_q1_dotq0_eq = - 0.5 * p_eq
                 parder_q2_dotq0_eq = - 0.5 * q_eq
                 parder_q3_dotq0_eq = - 0.5 * r_eq
@@ -1046,7 +1062,7 @@ class ControlModel():
                 parder_q_dotq0_eq  = - 0.5 * q2_eq
                 parder_r_dotq0_eq  = - 0.5 * q3_eq
 
-                #Partial derivatives of \dot{q_1} evaluated in the equilibrium point
+                #Partial derivatives of \dot{q_1} evaluated at the equilibrium point
                 parder_q0_dotq1_eq = 0.5 * p_eq
                 parder_q2_dotq1_eq = 0.5 * r_eq
                 parder_q3_dotq1_eq = - 0.5 * q_eq
@@ -1054,7 +1070,7 @@ class ControlModel():
                 parder_q_dotq1_eq  = - 0.5 * q3_eq
                 parder_r_dotq1_eq  = 0.5 * q2_eq
 
-                #Partial derivatives of \dot{q_2} evaluated in the equilibrium point
+                #Partial derivatives of \dot{q_2} evaluated at the equilibrium point
                 parder_q0_dotq2_eq = 0.5 * q_eq
                 parder_q1_dotq2_eq = - 0.5 * r_eq
                 parder_q3_dotq2_eq = 0.5 * p_eq
@@ -1062,7 +1078,7 @@ class ControlModel():
                 parder_q_dotq2_eq  = 0.5 * q0_eq
                 parder_r_dotq2_eq  = - 0.5 * q1_eq
 
-                #Partial derivatives of \dot{q_3} evaluated in the equilibrium point
+                #Partial derivatives of \dot{q_3} evaluated at the equilibrium point
                 parder_q0_dotq3_eq = 0.5 * r_eq
                 parder_q1_dotq3_eq = 0.5 * q_eq
                 parder_q2_dotq3_eq = - 0.5 * p_eq
@@ -1070,7 +1086,7 @@ class ControlModel():
                 parder_q_dotq3_eq  = 0.5 * q1_eq
                 parder_r_dotq3_eq  = 0.5 * q0_eq
 
-                #Partial derivatives of \dot{u} evaluated in the equilibrium point
+                #Partial derivatives of \dot{u} evaluated at the equilibrium point
                 parder_pd_dotu_eq     = (1 / mass) * (- parder_pd_qbar_eq * SW_SI * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + parder_pd_T_eq)
                 parder_q0_dotu_eq     = - 2 * G0_SI * q2_eq
                 parder_q1_dotu_eq     = 2 * G0_SI * q3_eq
@@ -1084,7 +1100,7 @@ class ControlModel():
                 parder_deltaf_dotu_eq = - ((qbar_eq * SW_SI) / mass) * (parder_deltaf_CD2_eq + parder_deltaf_CD3_eq)
                 parder_deltat_dotu_eq = parder_deltat_T_eq / mass
 
-                #Partial derivatives of \dot{v} evaluated in the equilibrium point
+                #Partial derivatives of \dot{v} evaluated at the equilibrium point
                 parder_pd_dotv_eq     = (1 / mass) * (parder_pd_qbar_eq * SW_SI * (CC1_eq + CC2_eq))
                 parder_q0_dotv_eq     = 2 * G0_SI * q1_eq
                 parder_q1_dotv_eq     = 2 * G0_SI * q0_eq
@@ -1098,7 +1114,7 @@ class ControlModel():
                 parder_deltaf_dotv_eq = ((qbar_eq * SW_SI) / mass) * parder_deltaf_CC1_eq
                 parder_deltar_dotv_eq = ((qbar_eq * SW_SI) / mass) * parder_deltar_CC2_eq
 
-                #Partial derivatives of \dot{w} evaluated in the equilibrium point
+                #Partial derivatives of \dot{w} evaluated at the equilibrium point
                 parder_pd_dotw_eq     = - (SW_SI / mass) * (parder_pd_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + parder_pd_quw_eq * CL5_eq)
                 parder_q0_dotw_eq     = 2 * G0_SI * q0_eq
                 parder_q1_dotw_eq     = - 2 * G0_SI * q1_eq
@@ -1112,7 +1128,7 @@ class ControlModel():
                 parder_deltaf_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltaf_CL2_eq
                 parder_deltae_dotw_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltae_CL3_eq
 
-                #Partial derivatives of \dot{p} evaluated in the equilibrium point
+                #Partial derivatives of \dot{p} evaluated at the equilibrium point
                 parder_pd_dotp_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + Gamma4 * (parder_pd_qbarind_eq * Cn5_eq + parder_pd_qbarprop_eq * Cn6_eq))
                 parder_u_dotp_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma3 * (parder_u_Cl1_eq + parder_u_Cl2_eq + parder_u_Cl3_eq + parder_u_Cl4_eq) + Gamma4 * (parder_u_Cn1_eq + parder_u_Cn2_eq + parder_u_Cn3_eq + parder_u_Cn4_eq)) + Gamma4 * (parder_u_qbarind_eq * Cn5_eq + parder_u_qbarprop_eq * Cn6_eq))
                 parder_v_dotp_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma3 * (parder_v_Cl1_eq + parder_v_Cl2_eq + parder_v_Cl3_eq) + Gamma4 * (parder_v_Cn1_eq + parder_v_Cn2_eq + parder_v_Cn3_eq + parder_v_Cn4_eq)))
@@ -1122,20 +1138,20 @@ class ControlModel():
                 parder_r_dotp_eq      = - Gamma2 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_r_Cl3_eq + Gamma4 * (parder_p_Cn2_eq + parder_p_Cn3_eq))
                 parder_deltaa_dotp_eq = SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_deltaa_Cl4_eq + Gamma4 * parder_deltaa_Cn4_eq)
                 parder_deltaf_dotp_eq = SW_SI * BW_SI * qbar_eq * Gamma3 * parder_deltaf_Cl3_eq
-                parder_deltar_dotp_eq = SW_SI * BW_SI * (Gamma3 * qbar_eq * parder_deltar_Cl5_eq + Gamma4 * qbarind_eq * parder_deltar_Cn5_eq)
+                parder_deltar_dotp_eq = SW_SI * BW_SI * (Gamma3 * qbar_eq * parder_deltar_Cl5_eq + Gamma4 * qbarind * parder_deltar_Cn5_eq)
 
-                #Partial derivatives of \dot{q} evaluated in the equilibrium point
+                #Partial derivatives of \dot{q} evaluated at the equilibrium point
                 parder_pd_dotq_eq     = ((SW_SI * CW_SI) / Iyy) * (parder_pd_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * parder_pd_Cm1_eq + parder_pd_quw_eq * Cm5_eq + parder_pd_qbarind_eq * Cm6_eq)
-                parder_u_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * (parder_u_Cm2_eq + parder_u_Cm3_eq) + parder_u_quw_eq * Cm5_eq + quw_eq * parder_u_Cm5_eq + parder_u_qbarind_eq * Cm6_eq + qbarind_eq * parder_u_Cm6_eq)
+                parder_u_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * (parder_u_Cm2_eq + parder_u_Cm3_eq) + parder_u_quw_eq * Cm5_eq + quw_eq * parder_u_Cm5_eq + parder_u_qbarind_eq * Cm6_eq + qbarind * parder_u_Cm6_eq)
                 parder_v_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_v_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * parder_v_Cm3_eq + quw_eq * parder_v_Cm5_eq)
-                parder_w_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * (parder_w_Cm2_eq + parder_w_Cm3_eq) + parder_w_quw_eq * Cm5_eq + quw_eq * parder_w_Cm5_eq + qbarind_eq * parder_w_Cm6_eq)
+                parder_w_dotq_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * (parder_w_Cm2_eq + parder_w_Cm3_eq) + parder_w_quw_eq * Cm5_eq + quw_eq * parder_w_Cm5_eq + qbarind * parder_w_Cm6_eq)
                 parder_p_dotq_eq      = Gamma5 * r_eq - 2 * Gamma6 * p_eq
                 parder_q_dotq_eq      = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_q_Cm3_eq
                 parder_r_dotq_eq      = Gamma5 * p_eq + 2 * Gamma6 * r_eq
                 parder_deltaf_dotq_eq = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_deltaf_Cm4_eq
                 parder_deltae_dotq_eq = ((SW_SI * CW_SI * q_ind) / Iyy) * parder_deltae_Cm6_eq
 
-                #Partial derivatives of \dot{r} evaluated in the equilibrium point
+                #Partial derivatives of \dot{r} evaluated at the equilibrium point
                 parder_pd_dotr_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + Gamma8 * (parder_pd_qbarind_eq * Cn5_eq + parder_pd_qbarprop_eq * Cn6_eq))
                 parder_u_dotr_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma4 * (parder_u_Cl1_eq + parder_u_Cl2_eq + parder_u_Cl3_eq + parder_u_Cl4_eq) + Gamma8 * (parder_u_Cn1_eq + parder_u_Cn2_eq + parder_u_Cn3_eq + parder_u_Cn4_eq)) + Gamma8 * (parder_u_qbarind_eq * Cn5_eq + parder_u_qbarprop_eq * Cn6_eq))
                 parder_v_dotr_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma4 * (parder_v_Cl1_eq + parder_v_Cl2_eq + parder_v_Cl3_eq) + Gamma8 * (parder_v_Cn1_eq + parder_v_Cn2_eq + parder_v_Cn3_eq + parder_v_Cn4_eq)))
@@ -1145,9 +1161,9 @@ class ControlModel():
                 parder_r_dotr_eq      = - Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_r_Cl3_eq + Gamma8 * (parder_r_Cn2_eq + parder_r_Cn3_eq))
                 parder_deltaa_dotr_eq = SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_deltaa_Cl4_eq + Gamma8 * parder_deltaa_Cn4_eq)
                 parder_deltaf_dotr_eq = SW_SI * BW_SI * qbar_eq * Gamma4 * parder_deltaf_Cl3_eq
-                parder_deltar_dotr_eq = SW_SI * BW_SI * (Gamma4 * qbar_eq * parder_deltar_Cl5_eq + Gamma8 * qbarind_eq * parder_deltar_Cn5_eq)
+                parder_deltar_dotr_eq = SW_SI * BW_SI * (Gamma4 * qbar_eq * parder_deltar_Cl5_eq + Gamma8 * qbarind * parder_deltar_Cn5_eq)
 
-                self.csvlm[i,:] = [time, dx]
+                self.csvmod[i,:] = [time, dx]
 
-            lm2csv_in.send(self.csvlm[:framescount,:]) #send calculated linear model to store in CSV
-            self.csvlm = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
+            mod2csv_in.send(self.csvmod[:framescount,:]) #send calculated linear model to store in CSV
+            self.csvmod = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 

@@ -4,6 +4,7 @@ from actuation import *
 from csv_logging import *
 from config import *
 from dynamics import *
+from equilibrium import *
 from settings import *
 from telemetry import *
 
@@ -14,43 +15,54 @@ def initialize():
     event_start = mp.Event() #simulation start event
 
     #Pipes
-    rx2act_out, rx2act_in = mp.Pipe() #RX telemetry data pipe to calculate actuation
-    rx2csv_out, rx2csv_in = mp.Pipe() #RX telemetry data pipe to store in CSV
-    rx2dyn_out, rx2dyn_in = mp.Pipe() #RX telemetry data pipe to calculate dynamics 
-    #rx2kin_out, rx2kin_in = mp.Pipe() #RX telemetry data pipe to calculate kinematics 
-    rx2nlm_out, rx2nlm_in = mp.Pipe() #RX telemetry data pipe to calculate non-linear model
-    rx2lm_out, rx2lm_in = mp.Pipe() #RX telemetry data pipe to calculate linear model
-    nlm2act_out, nlm2act_in = mp.Pipe() #non-linear model data pipe to calculate actuation
-    lm2act_out, lm2act_in = mp.Pipe() #linear model data pipe to calculate actuation
-    act2csv_out, act2csv_in = mp.Pipe() #actuation data pipe to store in CSV
-    act2tx_out, act2tx_in = mp.Pipe() #actuation data pipe to transmit TX telemetry
-    dyn2csv_out, dyn2csv_in = mp.Pipe() #dynamics data pipe to store in CSV
-    #kin2csv_out, kin2csv_in = mp.Pipe() #kinematics data pipe to store in CSV
-    nlm2csv_out, nlm2csv_in = mp.Pipe() #non-linear model data pipe to store in CSV
-    lm2csv_out, lm2csv_in = mp.Pipe() #linear model data pipe to store in CSV
+    act2csv_out, act2csv_in = mp.Pipe() #actuation data pipe to CSV
+    act2tx_out, act2tx_in = mp.Pipe() #actuation data pipe to TX telemetry
+    dyn2csv_out, dyn2csv_in = mp.Pipe() #dynamics data pipe to CSV
+    eq2act_out, eq2act_in = mp.Pipe() #equilibrium point data pipe to actuation
+    eq2mod_out, eq2mod_in = mp.Pipe() #equilibrium point data pipe to control model
+    eq2csv_out, eq2csv_in = mp.Pipe() #equilibrium point data pipe to CSV
+    #kin2csv_out, kin2csv_in = mp.Pipe() #kinematics data pipe to CSV
+    mod2act_out, mod2act_in = mp.Pipe() #control model data pipe to actuation
+    mod2csv_out, mod2csv_in = mp.Pipe() #control model data pipe to CSV
+    rx2act_out, rx2act_in = mp.Pipe() #RX telemetry data pipe to actuation
+    rx2csv_out, rx2csv_in = mp.Pipe() #RX telemetry data pipe to CSV
+    rx2dyn_out, rx2dyn_in = mp.Pipe() #RX telemetry data pipe to dynamics 
+    rx2eq_out, rx2eq_in = mp.Pipe() #RX telemetry data pipe to equilibrium point
+    #rx2kin_out, rx2kin_in = mp.Pipe() #RX telemetry data pipe to kinematics 
+    rx2mod_out, rx2mod_in = mp.Pipe() #RX telemetry data pipe to control model
 
     #Config
     Config(CFG_IP_ADDRESS, CFG_PORT, event_rxtcp) #simulator configuration
 
     #Telemetry
-    Telemetry(TELEM_IP_ADDRESS, TELEM_RX_PORT, TELEM_IP_ADDRESS, TELEM_TX_PORT, rx2act_in, rx2csv_in, rx2dyn_in, act2tx_out, event_rxtcp, event_txtcp, event_start) #telemetry links
+    Telemetry(TELEM_IP_ADDRESS, TELEM_RX_PORT, TELEM_IP_ADDRESS, TELEM_TX_PORT, act2tx_out, rx2act_in, rx2csv_in, rx2dyn_in, rx2eq_in, rx2mod_in, event_rxtcp, event_txtcp, event_start) #telemetry links
 
     #CSV logs
-    csvtelemargs = {'rx2csv_out':rx2csv_out, 'act2csv_out':act2csv_out, 'event_start':event_start}
+    csvtelemargs = {'act2csv_out':act2csv_out, 'rx2csv_out':rx2csv_out, 'event_start':event_start}
     CSVTelemetryLog(TELEM_LOG_FILENAME, **csvtelemargs) #RX telemetry log
     csvdynargs = {'dyn2csv_out':dyn2csv_out, 'event_start':event_start}
     CSVDynamicsLog(DYN_LOG_FILENAME, **csvdynargs) #calculated dynamics log
     #csvkinargs = {'kin2csv_out':kin2csv_out, 'event_start':event_start}
     #CSVKinematicsLog(KIN_LOG_FILENAME, **csvkinargs) #calculated kinematics log
+    csvmodargs = {'mod2csv_out':mod2csv_out, 'event_start':event_start}
+    CSVModelLog(MOD_LOG_FILENAME, **csvmodargs) #calculated control model log
+    csveqargs = {'eq2csv_out':eq2csv_out, 'event_start':event_start}
+    CSVEquilibriumLog(EQ_LOG_FILENAME, **csveqargs) #calculated equilibrium point log
 
     #Dynamics
-    Dynamics(rx2dyn_out, dyn2csv_in, event_start) #calculate dynamics 
+    Dynamics(dyn2csv_in, rx2dyn_out, event_start) #calculate dynamics 
 
     #Kinematics
-    #Kinematics(rx2dyn_out, kin2csv_in, event_start) #calculate kinematics 
+    #Kinematics(kin2csv_in, rx2dyn_out, event_start) #calculate kinematics 
 
     #Actuation
-    Actuation(ACT_TYPE, rx2act_out, act2csv_in, act2tx_in, event_start) #calculate actuation
+    Actuation(ACT_TYPE, act2csv_in, act2tx_in, eq2act_out, mod2act_out, rx2act_out, event_start) #calculate actuation
+
+    #Control model
+    ControlModel(MOD_TYPE, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start) #calculate control model
+
+    #Equilibrium point
+    Equilibrium(EQ_TYPE, EQ_POINT_INIT, eq2csv_in, eq2mod_in, rx2eq_out, event_start) #calculate equilibrium point
 
 if __name__ == "__main__":
     initialize()
