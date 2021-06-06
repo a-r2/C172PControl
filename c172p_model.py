@@ -31,7 +31,7 @@ A_PROP_SI  = propeller_area(D_PROP_SI) #propeller area [m^2]
 A_PROP_IMP = propeller_area(m_to_ft(D_PROP_SI)) #propeller area [ft^2]
 
 ''' AERODYNAMIC ACTUATORS DEFLECTION '''
-DELTAA_RANGE = [(-20, 15), (-1, 1)] #negative: right, positive: left
+DELTAA_RANGE = [(-20, 15), (-1, 1)] #negative: left, positive: right 
 DELTAE_RANGE = [(-28, 23), (-1, 1)]
 DELTAF_RANGE = [(0, 30), (0, 1)]
 DELTAR_RANGE = [(-16, 16), (-1, 1)]
@@ -711,6 +711,42 @@ def parder_pd_rho(pd):
     #Partial derivative of rho with respect to pd
     return parder_pd_barometric_density(pd)
 
+def parder_u_Va(u, Va):
+    #Partial derivative of Va with respect to u
+    return u / Va
+
+def parder_v_Va(v, Va):
+    #Partial derivative of Va with respect to v
+    return v / Va
+
+def parder_w_Va(w, Va):
+    #Partial derivative of Va with respect to w
+    return w / Va
+
+def parder_u_bi2vel(u, Va, parder_u_Va):
+    #Partial derivative of Va with respect to u
+    return - 0.5000 * BW_SI * parder_u_Va / (Va ** 3)
+
+def parder_v_bi2vel(v, Va, parder_v_Va):
+    #Partial derivative of Va with respect to v
+    return - 0.5000 * BW_SI * parder_v_Va / (Va ** 3)
+
+def parder_w_bi2vel(w, Va, parder_w_Va):
+    #Partial derivative of Va with respect to w
+    return - 0.5000 * BW_SI * parder_w_Va / (Va ** 3)
+
+def parder_u_ci2vel(u, Va, parder_u_Va):
+    #Partial derivative of Va with respect to u
+    return - 0.5000 * CW_SI * parder_u_Va / (Va ** 3)
+
+def parder_v_ci2vel(v, Va, parder_v_Va):
+    #Partial derivative of Va with respect to v
+    return - 0.5000 * CW_SI * parder_v_Va / (Va ** 3)
+
+def parder_w_ci2vel(w, Va, parder_w_Va):
+    #Partial derivative of Va with respect to w
+    return - 0.5000 * CW_SI * parder_w_Va / (Va ** 3)
+
 def parder_pd_Vind(u, rho, T, Vind2, parder_pd_rho):
     #Partial derivative of Vind with respect to pd
     Vind2_sign = float(np.sign(Vind2) >= 0)
@@ -823,79 +859,299 @@ def parder_deltat_T(u, rho, J, n, parder_J_CT, parder_deltat_n):
     return rho * (D_PROP_SI ** 3) * (2 * CT_interp(J) * n * D_PROP_SI - u * parder_J_CT_interp(J)) * parder_deltat_n
 
 ''' DYNAMIC COEFFICIENTS PARTIAL DERIVATIVES'''
-def parder_deltaf_CD2(h_b_mac_ft, flaps_pos_deg):
+def parder_deltaf_CD2(h_b_mac_ft, parder_deltaf_TD2):
     #Partial derivative of CD2 with respect to deltaf
-    return kCDge_interp(h_b_mac_ft) * parder_deltaf_TD2_interp(flaps_pos_deg)
+    return kCDge_interp(h_b_mac_ft) * parder_deltaf_TD2
 
-def parder_u_CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg, w, Vauw):
+def parder_u_CD3(h_b_mac_ft, parder_alpha_TD3, parder_u_alpha):
     #Partial derivative of CD3 with respect to u
-    return kCDge_interp(h_b_mac_ft) * parder_alpha_TD3_interp(alpha_rad, flaps_pos_deg) * parder_u_alpha(w, Vauw)
+    return kCDge_interp(h_b_mac_ft) * parder_alpha_TD3 * parder_u_alpha
 
-def parder_w_CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg, u, Vauw):
+def parder_w_CD3(h_b_mac_ft, parder_alpha_TD3, parder_w_alpha):
     #Partial derivative of CD3 with respect to w
-    return kCDge_interp(h_b_mac_ft) * parder_alpha_TD3_interp(alpha_rad, flaps_pos_deg) * parder_w_alpha(u, Vauw)
+    return kCDge_interp(h_b_mac_ft) * parder_alpha_TD3 * parder_w_alpha
 
-def parder_deltaf_CD3(h_b_mac_ft, flaps_pos_deg):
+def parder_deltaf_CD3(h_b_mac_ft, parder_deltaf_TD3):
     #Partial derivative of CD3 with respect to deltaf
-    return kCDge_interp(h_b_mac_ft) * parder_deltaf_TD3_interp(alpha_rad, flaps_pos_deg)
+    return kCDge_interp(h_b_mac_ft) * parder_deltaf_TD3
 
-def parder_u_CD4(beta_rad, u, v, Va, Vauw):
+def parder_u_CD4(beta_rad, parder_u_beta):
     #Partial derivative of CD4 with respect to u
-    return (beta_rad / abs(beta_rad)) * 0.1500 * parder_u_beta(u, v, Va, Vauw)
+    return 0.1500 * (beta_rad / abs(beta_rad)) * parder_u_beta
 
-def parder_v_CD4(beta_rad):
+def parder_v_CD4(beta_rad, parder_v_beta):
     #Partial derivative of CD4 with respect to v
-    return (beta_rad / abs(beta_rad)) * 0.1500 * parder_v_beta(Va, Vauw)
+    return 0.1500 * (beta_rad / abs(beta_rad)) * parder_v_beta
 
-def parder_w_CD4(beta_rad):
+def parder_w_CD4(beta_rad, parder_w_beta):
     #Partial derivative of CD4 with respect to w
-    return (beta_rad / abs(beta_rad)) * 0.1500 * parder_w_beta(v, w, Va, Vauw)
+    return 0.1500 * (beta_rad / abs(beta_rad)) * parder_w_beta
 
-def parder_u_CC1(beta_rad, flaps_pos_deg, u, v, Va, Vauw):
+def parder_u_CC1(parder_beta_TC1, parder_u_beta):
     #Partial derivative of CC1 with respect to u
-    return parder_beta_TC1_interp(beta_rad, flaps_pos_deg) * parder_u_beta(u, v, Va, Vauw)
+    return parder_beta_TC1 * parder_u_beta
 
-def parder_v_CC1(beta_rad, flaps_pos_deg, Va, Vauw):
+def parder_v_CC1(parder_beta_TC1, parder_v_beta):
     #Partial derivative of CC1 with respect to v
-    return parder_beta_TC1_interp(beta_rad, flaps_pos_deg) * parder_v_beta(Va, Vauw)
+    return parder_beta_TC1 * parder_v_beta
 
-def parder_w_CC1(beta_rad, flaps_pos_deg, v, w, Va, Vauw):
+def parder_w_CC1(parder_beta_TC1, parder_w_beta):
     #Partial derivative of CC1 with respect to w
-    return parder_beta_TC1_interp(beta_rad, flaps_pos_deg) * parder_w_beta(v, w, Va, Vauw)
+    return parder_beta_TC1 * parder_w_beta
 
-def parder_deltaf_CC1(beta_rad, flaps_pos_deg):
+def parder_deltaf_CC1(parder_deltaf_TC1):
     #Partial derivative of CC1 with respect to deltaf
-    return parder_deltaf_TC1_interp(beta_rad, flaps_pos_deg)
+    return parder_deltaf_TC1
 
 def parder_deltaf_CC2():
     #Partial derivative of CC2 with respect to deltar
     return 0.1500
 
-parder_deltaf_TD2_eq  = parder_deltaf_TD2_interp(deltaf_deg)
-parder_alpha_TD3_eq   = parder_alpha_TD3_interp(alpha_eq, deltaf_deg)
-parder_deltaf_TD3_eq  = parder_deltaf_TD3_interp(alpha_eq, deltaf_deg)
-parder_beta_TC1_eq    = parder_beta_TC1_interp(beta_eq, deltaf_deg)
-parder_deltaf_TC1_eq  = parder_deltaf_TC1_interp(beta_eq, deltaf_deg)
-parder_alpha_TL1_eq   = parder_alpha_TL1_interp(alpha_eq, 0)
-parder_deltaf_TL2_eq  = parder_deltaf_TL2_interp(deltaf_deg)
-parder_alpha_Tl1_eq   = parder_alpha_Tl1_interp(alpha_eq)
-parder_deltaf_Tl31_eq = parder_deltaf_Tl31_interp(deltaf_deg)
-parder_alpha_Tl32_eq  = parder_alpha_Tl32_interp(alpha_eq, r_eq)
-parder_r_Tl32_eq      = parder_r_Tl32_interp(alpha_eq, r_eq)
-parder_alpha_Tl33_eq  = parder_alpha_Tl33_interp(alpha_eq, r_eq)
-parder_r_Tl33_eq      = parder_r_Tl33_interp(alpha_eq, r_eq)
-parder_alpha_Tl4_eq   = parder_alpha_Tl4_interp(alpha_eq, 0)
-parder_qbar_Tm1_eq    = parder_qbar_Tm1_interp(qbar_eq)
-parder_alpha_Tm2_eq   = parder_alpha_Tm2_interp(alpha_deg_eq)
-parder_deltaf_Tm4_eq  = parder_deltaf_Tm4_interp(deltaf)
-parder_deltae_Tm5_eq  = parder_deltae_Tm5_interp(deltae, alpha_eq)
-parder_alpha_Tm5_eq   = parder_alpha_Tm5_interp(deltae, alpha_eq)
-parder_beta_Tn1_eq    = parder_beta_Tn1_interp(beta_eq)
-parder_r_Tn3_eq       = parder_r_Tn3_interp(r_eq, alpha_eq)
-parder_alpha_Tn3_eq   = parder_alpha_Tn3_interp(alpha_eq, r_eq)
-parder_alpha_Tn4_eq   = parder_alpha_Tn4_interp(alpha_eq, beta_eq)
-parder_beta_Tn4_eq    = parder_beta_Tn4_interp(alpha_eq, beta_eq)
-parder_J_CT_eq        = parder_J_CT_interp(J_eq)
+def parder_u_CL1(h_b_mac_ft, parder_alpha_TL1, parder_u_alpha):
+    #Partial derivative of CL1 with respect to u
+    return kCLge_interp(h_b_mac_ft) * parder_alpha_TL1 * parder_u_alpha
+
+def parder_w_CL1(h_b_mac_ft, parder_alpha_TL1, parder_w_alpha):
+    #Partial derivative of CL1 with respect to w
+    return kCLge_interp(h_b_mac_ft) * parder_alpha_TL1 * parder_w_alpha
+
+def parder_deltaf_CL2(h_b_mac_ft, parder_deltaf_CL2):
+    #Partial derivative of CL2 with respect to deltaf
+    return kCLge_interp(h_b_mac_ft) * parder_deltaf_CL2
+
+def parder_deltae_CL3():
+    #Partial derivative of CL3 with respect to deltae
+    return 0.4300
+
+def parder_u_CL4(q_rad_sec, parder_u_ci2vel):
+    #Partial derivative of CL4 with respect to u
+    return  3.9000 * q_rad_sec * parder_u_ci2vel
+
+def parder_v_CL4(q_rad_sec, parder_v_ci2vel):
+    #Partial derivative of CL4 with respect to v
+    return  3.9000 * q_rad_sec * parder_v_ci2vel
+
+def parder_w_CL4(q_rad_sec, parder_w_ci2vel):
+    #Partial derivative of CL4 with respect to w
+    return  3.9000 * q_rad_sec * parder_w_ci2vel
+
+def parder_q_CL4(ci2vel):
+    #Partial derivative of CL4 with respect to q
+    return 3.9000 * ci2vel
+
+def parder_u_CL5(alphadot_rad_sec, parder_u_ci2vel):
+    #Partial derivative of CL5 with respect to u
+    return  1.7000 * alphadot_rad_sec  * parder_u_ci2vel
+
+def parder_v_CL5(alphadot_rad_sec, parder_v_ci2vel):
+    #Partial derivative of CL5 with respect to v
+    return  1.7000 * alphadot_rad_sec  * parder_v_ci2vel
+
+def parder_w_CL5(alphadot_rad_sec, parder_w_ci2vel):
+    #Partial derivative of CL5 with respect to w
+    return  1.7000 * alphadot_rad_sec  * parder_w_ci2vel
+
+def parder_u_Cl1(beta_rad, alpha_rad, parder_u_beta, parder_alpha_Tl1, parder_u_alpha):
+    #Partial derivative of Cl1 with respect to u
+    return - 0.0920 * (parder_u_beta * Tl1_interp(alpha_rad) + beta_rad * parder_alpha_Tl1 * parder_u_alpha)
+
+def parder_v_Cl1(beta_rad, alpha_rad, parder_v_beta):
+    #Partial derivative of Cl1 with respect to v
+    return - 0.0920 * (parder_v_beta * Tl1_interp(alpha_rad))
+
+def parder_w_Cl1(beta_rad, alpha_rad, parder_w_beta, parder_alpha_Tl1, parder_w_alpha):
+    #Partial derivative of Cl1 with respect to w
+    return - 0.0920 * (parder_w_beta * Tl1_interp(alpha_rad) + beta_rad * parder_alpha_Tl1 * parder_w_alpha)
+
+def parder_u_Cl2(p_rad_sec, parder_u_bi2vel):
+    #Partial derivative of Cl2 with respect to u
+    return - 0.4840 * parder_u_bi2vel * p_rad_sec
+
+def parder_v_Cl2(p_rad_sec, parder_v_bi2vel):
+    #Partial derivative of Cl2 with respect to v
+    return - 0.4840 * parder_v_bi2vel * p_rad_sec
+
+def parder_w_Cl2(p_rad_sec, parder_w_bi2vel):
+    #Partial derivative of Cl2 with respect to w
+    return - 0.4840 * parder_w_bi2vel * p_rad_sec
+
+def parder_p_Cl2(bi2vel):
+    #Partial derivative of Cl2 with respect to w
+    return - 0.4840 * bi2vel
+
+def parder_u_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_u_bi2vel, parder_alpha_Tl32, parder_alpha_Tl33, parder_u_alpha):
+    #Partial derivative of Cl3 with respect to u
+    if stall_hyst_norm:
+        return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_u_bi2vel * Tl32_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl32 * parder_u_alpha)
+
+    else:
+        return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_u_bi2vel * Tl33_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl33 * parder_u_alpha)
+
+def parder_v_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_v_bi2vel, parder_alpha_Tl32, parder_alpha_Tl33, parder_v_alpha):
+    #Partial derivative of Cl3 with respect to v
+    if stall_hyst_norm:
+        return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_v_bi2vel * Tl32_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl32 * parder_v_alpha)
+
+    else:
+        return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_v_bi2vel * Tl33_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl33 * parder_v_alpha)
+
+def parder_w_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_w_bi2vel, parder_alpha_Tl32, parder_alpha_Tl33, parder_w_alpha):
+    #Partial derivative of Cl3 with respect to w
+    if stall_hyst_norm:
+        return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_w_bi2vel * Tl32_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl32 * parder_w_alpha)
+
+    else:
+        return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_w_bi2vel * Tl33_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl33 * parder_w_alpha)
+
+def parder_deltaf_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_w_bi2vel, parder_w_Tl32, parder_w_Tl33):
+    #Partial derivative of Cl3 with respect to deltaf
+    if stall_hyst_norm:
+        return bi2vel * r_rad_sec * parder_deltaf_Tl31 * Tl32_interp(alpha_rad, r_rad_sec)
+    else:
+        return bi2vel * r_rad_sec * parder_deltaf_Tl31  * Tl33_interp(alpha_rad, r_rad_sec)
+
+def parder_r_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, parder_w_bi2vel, parder_w_Tl32, parder_w_Tl33):
+    #Partial derivative of Cl3 with respect to r
+    if stall_hyst_norm:
+        return bi2vel * Tl31_interp(flaps_pos_deg) * (Tl32_interp(alpha_rad, r_rad_sec) + r_rad_sec * parder_r_Tl32)
+    else:
+        return bi2vel * Tl31_interp(flaps_pos_deg) * (Tl32_interp(alpha_rad, r_rad_sec) + r_rad_sec * parder_r_Tl32)
+
+def parder_u_Cl4(left_aileron_pos_rad, right_aileron_pos_rad, parder_alpha_Tl4, parder_u_alpha):
+    #Partial derivative of Cl4 with respect to u
+    return 0.2290 * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * parder_alpha_Tl4 * parder_u_alpha
+
+def parder_w_Cl4(left_aileron_pos_rad, right_aileron_pos_rad, parder_alpha_Tl4, parder_u_alpha):
+    #Partial derivative of Cl4 with respect to w
+    return 0.2290 * averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * parder_alpha_Tl4 * parder_w_alpha
+
+def parder_deltaa_Cl4(alpha_rad, stall_hyst_norm):
+    #Partial derivative of Cl4 with respect to deltaa
+    return 0.2290 * deg_to_rad(0.5 * (DELTAA_RANGE[0][1] - DELTAA_RANGE[0][0])) * Tl3_interp(alpha_rad, stall_hyst_norm)
+
+def parder_deltar_Cl5():
+    #Partial derivative of Cl5 with respect to deltar
+    return 0.0147
+
+def parder_pd_Cm1(qbar_psf, parder_qbar_Tm1):
+    #Partial derivative of Cm1 with respect to pd
+    return  parder_qbar_Tm1 * parder_pd_qbar
+
+def parder_u_Cm2(alpha_deg, alpha_rad, parder_alpha_Tm2, parder_u_alpha):
+    #Partial derivative of Cm2 with respect to u
+    return - 1.8000 * (cos(alpha_rad) * Tm2_interp(alpha_deg) + sin(alpha_rad) * parder_alpha_Tm2 * parder_u_alpha)
+
+def parder_w_Cm2(alpha_deg, alpha_rad, parder_alpha_Tm2, parder_w_alpha):
+    #Partial derivative of Cm2 with respect to w
+    return - 1.8000 * (cos(alpha_rad) * Tm2_interp(alpha_deg) + sin(alpha_rad) * parder_alpha_Tm2 * parder_w_alpha)
+
+def parder_u_Cm3(q_rad_sec, parder_u_ci2vel):
+    #Partial derivative of Cm3 with respect to u
+    return - 12.4000 * q_rad_sec * parder_u_ci2vel  
+
+def parder_v_Cm3(q_rad_sec, parder_v_ci2vel):
+    #Partial derivative of Cm3 with respect to v
+    return - 12.4000 * q_rad_sec * parder_v_ci2vel  
+
+def parder_w_Cm3(q_rad_sec, parder_w_ci2vel):
+    #Partial derivative of Cm3 with respect to w
+    return - 12.4000 * q_rad_sec * parder_w_ci2vel  
+
+def parder_q_Cm3(q_rad_sec, ci2vel):
+    #Partial derivative of Cm3 with respect to q
+    return - 12.4000 * ci2vel
+
+def parder_deltaf_Cm4(parder_deltaf_Tm4):
+    #Partial derivative of Cm4 with respect to deltaf
+    return 0.7000 * parder_deltaf_Tm4
+
+def parder_u_Cm5(alphadot_rad_sec, parder_u_ci2vel):
+    #Partial derivative of Cm5 with respect to u
+    return - 7.2700 * alphadot_rad_sec  * parder_u_ci2vel  
+
+def parder_v_Cm5(alphadot_rad_sec, parder_v_ci2vel):
+    #Partial derivative of Cm5 with respect to v
+    return - 7.2700 * alphadot_rad_sec * parder_v_ci2vel  
+
+def parder_w_Cm5(alphadot_rad_sec, parder_w_ci2vel):
+    #Partial derivative of Cm5 with respect to w
+    return - 7.2700  * alphadot_rad_sec * parder_w_ci2vel  
+
+def parder_u_Cm6(elev_pos_rad, parder_alpha_Tm5, parder_u_alpha):
+    #Partial derivative of Cm6 with respect to u
+    return - 1.2800 * elev_pos_rad * parder_alpha_Tm5 * parder_u_alpha
+
+def parder_w_Cm6(elev_pos_rad, parder_alpha_Tm5, parder_w_alpha):
+    #Partial derivative of Cm6 with respect to w
+    return - 1.2800 * elev_pos_rad * parder_alpha_Tm5 * parder_w_alpha
+
+def parder_deltae_Cm6(elev_pos_rad, parder_deltae_Tm5):
+    #Partial derivative of Cm6 with respect to deltae
+    return - 1.2800 * (Tm5_interp(elev_pos_rad, alpha_deg) + parder_deltae_Tm5)
+
+def parder_u_Cn1(parder_beta_Tn1, parder_u_beta):
+    #Partial derivative of Cn1 with respect to u 
+    return parder_beta_Tn1 * parder_u_beta
+
+def parder_v_Cn1(parder_beta_Tn1, parder_v_beta):
+    #Partial derivative of Cn1 with respect to v 
+    return parder_beta_Tn1 * parder_v_beta
+
+def parder_w_Cn1(parder_beta_Tn1, parder_w_beta):
+    #Partial derivative of Cn1 with respect to w 
+    return parder_beta_Tn1 * parder_w_beta
+
+def parder_u_Cn2(r_rad_sec, parder_u_bi2vel):
+    #Partial derivative of Cn2 with respect to u
+    return - 0.0937 * r_rad_sec * parder_u_bi2vel  
+
+def parder_v_Cn2(r_rad_sec, parder_v_bi2vel):
+    #Partial derivative of Cn2 with respect to v
+    return - 0.0937 * r_rad_sec * parder_v_bi2vel  
+
+def parder_w_Cn2(r_rad_sec, parder_w_bi2vel):
+    #Partial derivative of Cn2 with respect to w
+    return - 0.0937  * r_rad_sec * parder_w_bi2vel  
+
+def parder_r_Cn2(bi2vel):
+    #Partial derivative of Cn2 with respect to w
+    return - 0.0937  * bi2vel  
+
+def parder_u_Cn3(bi2vel, r_rad_sec, alpha_rad, parder_u_bi2vel, parder_alpha_Tn3, parder_u_alpha):
+    #Partial derivative of Cn3 with respect to u
+    return parder_u_bi2vel * Tn3_interp(r_rad_sec, alpha_rad) + bi2vel * parder_alpha_Tn3 * parder_u_alpha
+
+def parder_v_Cn3(bi2vel, r_rad_sec, alpha_rad, parder_v_bi2vel):
+    #Partial derivative of Cn3 with respect to v
+    return parder_v_bi2vel * Tn3_interp(r_rad_sec, alpha_rad)
+
+def parder_w_Cn3(bi2vel, r_rad_sec, alpha_rad, parder_w_bi2vel, parder_alpha_Tn3, parder_w_alpha):
+    #Partial derivative of Cn3 with respect to w
+    return parder_w_bi2vel * Tn3_interp(r_rad_sec, alpha_rad) + bi2vel * parder_alpha_Tn3 * parder_w_alpha
+
+def parder_r_Cn3(bi2vel, parder_r_Tn3):
+    #Partial derivative of Cn3 with respect to r
+    return bi2vel * parder_r_Tn3
+
+def parder_u_Cn4(left_aileron_pos_rad, right_aileron_pos_rad, parder_alpha_Tn4, parder_beta_Tn4, parder_u_alpha, parder_u_beta):
+    #Partial derivative of Cn4 with respect to u
+    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * (parder_alpha_Tn4 * parder_u_alpha + parder_beta_Tn4 * parder_u_beta)
+
+def parder_v_Cn4(left_aileron_pos_rad, right_aileron_pos_rad, parder_beta_Tn4, parder_v_beta):
+    #Partial derivative of Cn4 with respect to v
+    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * parder_beta_Tn4 * parder_v_beta
+
+def parder_w_Cn4(left_aileron_pos_rad, right_aileron_pos_rad, parder_alpha_Tn4, parder_beta_Tn4, parder_w_alpha, parder_w_beta):
+    #Partial derivative of Cn4 with respect to w
+    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * (parder_alpha_Tn4 * parder_w_alpha + parder_beta_Tn4 * parder_w_beta)
+
+def parder_deltaa_Cn4(alpha_rad, beta_rad):
+    #Partial derivative of Cn4 with respect to deltaa
+    return deg_to_rad(0.5 * (DELTAA_RANGE[0][1] - DELTAA_RANGE[0][0])) * Tn4_interp(alpha_rad, beta_rad)
+
+def parder_r_Cn5(rudder_pos_rad):
+    #Partial derivative of Cn5 with respect to deltar
+    return - 0.0645 
 
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
