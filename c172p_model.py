@@ -16,7 +16,7 @@ STH_IMP           = 21.9000 #horizontal tail area [ft^2]
 STV_IMP           = 16.5000 #vertical tail area [ft^2]
 SW_IMP            = 174.0000 #wing area [ft^2]
 C_SPIRAL_PROPWASH = 0.2500 #coefficient due to the propeller induced velocity
-DELTA_M_MIN       = 0.1000 #minimum delta_m to maintain the engine running [-]
+DELTAM_MIN        = 0.1000 #minimum delta_m to maintain the engine running [-]
 
 ''' MODEL PARAMETERS CONVERSION '''
 BW_SI      = ft_to_m(BW_IMP) #wing span [m]
@@ -29,6 +29,12 @@ SW_SI      = ft_to_m(sqrt(SW_IMP)) ** 2 #wing area [m^2]
 
 A_PROP_SI  = propeller_area(D_PROP_SI) #propeller area [m^2]
 A_PROP_IMP = propeller_area(m_to_ft(D_PROP_SI)) #propeller area [ft^2]
+
+''' AERODYNAMIC ACTUATORS DEFLECTION '''
+DELTAA_RANGE = [(-20, 15), (-1, 1)] #negative: right, positive: left
+DELTAE_RANGE = [(-28, 23), (-1, 1)]
+DELTAF_RANGE = [(0, 30), (0, 1)]
+DELTAR_RANGE = [(-16, 16), (-1, 1)]
 
 ''' MOMENTS OF INERTIA '''
 def mominert_gamma(Ixx, Ixz, Izz):
@@ -138,7 +144,7 @@ kCDge_interp = interp_table_1d(kCDge)
 
 #Drag coefficient due to flaps position
 #Column 0: flaps_pos_deg
-CD2 = np.array(
+TD2 = np.array(
                 [
                 [0.0000, 0.0000],
                 [10.0000, 0.0070],
@@ -146,12 +152,12 @@ CD2 = np.array(
                 [30.0000, 0.0180]
                 ]
               )
-CD2_interp               = interp_table_1d(CD2)
-parder_deltaf_CD2_interp = parder_table_1d(CD2)
+TD2_interp               = interp_table_1d(TD2)
+parder_deltaf_TD2_interp = parder_table_1d(TD2)
 
 #Drag coefficient due to angle of attack and flaps position
 #Column 0: alpha_rad | Row 0: flaps_pos_deg
-CD3 = np.array(   
+TD3 = np.array(   
                 [
                 [np.NaN, 0.0000, 10.0000, 20.0000, 30.0000],
                 [-0.0873, 0.0041, 0.0000, 0.0005, 0.0014],
@@ -184,12 +190,12 @@ CD3 = np.array(
                 [1.5710 , 1.6000, 2.0800, 2.3680, 2.5120]
                 ]
               )
-CD3_interp                                        = interp_table_2d(CD3)
-parder_alpha_CD3_interp, parder_deltaf_CD3_interp = parder_table_2d(CD3)
+TD3_interp                                        = interp_table_2d(TD3)
+parder_alpha_TD3_interp, parder_deltaf_TD3_interp = parder_table_2d(TD3)
 
 #Side force coefficient due to side-slip angle and flaps position
 #Column 0: beta_rad | Row 0: flaps_pos_deg
-CY1 = np.array(
+TC1 = np.array(
                 [
                 [np.NaN, 0.0000, 30.0000],
                 [-0.3490, 0.1370, 0.1060],
@@ -197,8 +203,8 @@ CY1 = np.array(
                 [0.3490, -0.1370, -0.1060]
                 ]
               )
-CY1_interp                                       = interp_table_2d(CY1)
-parder_beta_CY1_interp, parder_deltaf_CY1_interp = parder_table_2d(CY1)
+TC1_interp                                       = interp_table_2d(TC1)
+parder_beta_TC1_interp, parder_deltaf_TC1_interp = parder_table_2d(TC1)
 
 #Lift coefficient due to ground effect
 #Column 0: h_b_mac_ft
@@ -223,7 +229,7 @@ kCLge_interp = interp_table_1d(kCLge)
 
 #Lift coefficient due to alpha and aerodynamic hysteresis
 #Column 0: alpha_rad | Row 0: stall_hyst_norm
-CL1 = np.array(   
+TL1 = np.array(   
                 [
                 [np.NaN, 0.0000, 1.0000],
                 [-0.0900, -0.2200, -0.2200],
@@ -250,12 +256,12 @@ CL1 = np.array(
                 [1.5700, 0.0100, 0.0100]
                 ]
               )
-CL1_interp                 = interp_table_2d(CL1)
-parder_alpha_CL1_interp, _ = parder_table_2d(CL1)
+TL1_interp                 = interp_table_2d(TL1)
+parder_alpha_TL1_interp, _ = parder_table_2d(TL1)
 
 #Lift coefficient due to flaps position
 #Column 0: flaps_pos_deg
-CL2 = np.array(
+TL2 = np.array(
                 [
                 [0.0000, 0.0000],
                 [10.0000, 0.2000],
@@ -263,46 +269,46 @@ CL2 = np.array(
                 [30.0000, 0.3500]
                 ]
               )
-CL2_interp               = interp_table_1d(CL2)
-parder_deltaf_CL2_interp = parder_table_1d(CL2)
+TL2_interp               = interp_table_1d(TL2)
+parder_deltaf_TL2_interp = parder_table_1d(TL2)
 
 #Roll moment coefficient due to alpha wing
 #Column 0: alpha_rad
-Cl1 = np.array(
+Tl1 = np.array(
                 [
                 [0.2790, 1.0000],
                 [0.2970, 3.5000]
                 ]
               )
-Cl1_interp              = interp_table_1d(Cl1)
-parder_alpha_Cl1_interp = parder_table_1d(Cl1)
+Tl1_interp              = interp_table_1d(Tl1)
+parder_alpha_Tl1_interp = parder_table_1d(Tl1)
 
 #Roll moment coefficient due to flaps position
 #Column 0: flaps_pos_deg
-Cl31 = np.array(
+Tl31 = np.array(
                 [
                 [0.0000, 0.0798],
                 [30.000, 0.1246]
                 ]
               )
-Cl31_interp               = interp_table_1d(Cl31)
-parder_deltaf_Cl31_interp = parder_table_1d(Cl31)
+Tl31_interp               = interp_table_1d(Tl31)
+parder_deltaf_Tl31_interp = parder_table_1d(Tl31)
 
 #Roll moment coefficient due to flaps position (stall)
 #Column 0: alpha_rad | Row 0: r_rad_sec
-Cl32 = np.array(
+Tl32 = np.array(
                 [
                 [np.NaN, -0.1500, -0.1000, 0.0000, 0.1000, 0.1500],
                 [0.2970, 35.0000, 30.0000, 1.0000, 30.0000, 35.0000],
                 [0.5000, 5.0000, 5.0000, 1.0000, 5.0000, 5.0000]
                 ]
               )
-Cl32_interp                                    = interp_table_2d(Cl32)
-parder_alpha_Cl32_interp, parder_r_Cl32_interp = parder_table_2d(Cl32)
+Tl32_interp                                    = interp_table_2d(Tl32)
+parder_alpha_Tl32_interp, parder_r_Tl32_interp = parder_table_2d(Tl32)
 
 #Roll moment coefficient due to flaps position
 #Column 0: alpha_rad | Row 0: r_rad_sec
-Cl33 = np.array(
+Tl33 = np.array(
                 [
                 [np.NaN, -0.1500, -0.1000, 0.0000, 0.1000, 0.1500],
                 [0.2790, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000],
@@ -310,12 +316,12 @@ Cl33 = np.array(
                 [0.5000, 5.0000, 5.0000, 1.0000, 5.0000, 5.0000]
                 ]
               )
-Cl33_interp                                   = interp_table_2d(Cl33)
-parder_alpha_Cl33_interp, parder_r_Cl33_interp = parder_table_2d(Cl33)
+Tl33_interp                                   = interp_table_2d(Tl33)
+parder_alpha_Tl33_interp, parder_r_Tl33_interp = parder_table_2d(Tl33)
 
 #Roll moment coefficient due to flaps position
 #Column 0: alpha_rad | Row 0: stall_hyst_norm 
-Cl4 = np.array(
+Tl4 = np.array(
                 [
                 [np.NaN, 0.0000, 1.0000],
                 [0.2790, 1.0000, 0.3000],
@@ -323,23 +329,23 @@ Cl4 = np.array(
                 [0.6110, -0.1000, -0.1000]
                 ]
               )
-Cl4_interp                 = interp_table_2d(Cl4)
-parder_alpha_Cl4_interp, _ = parder_table_2d(Cl4)
+Tl4_interp                 = interp_table_2d(Tl4)
+parder_alpha_Tl4_interp, _ = parder_table_2d(Tl4)
 
 #Pitch moment coefficient due to qbar_psf
 #Column 0: qbar_psf 
-Cm1 = np.array(
+Tm1 = np.array(
                 [
                 [13.6000, 0.0900],
                 [21.2000, 0.0400]
                 ]
               )
-Cm1_interp             = interp_table_1d(Cm1)
-parder_qbar_Cm1_interp = parder_table_1d(Cm1)
+Tm1_interp             = interp_table_1d(Tm1)
+parder_qbar_Tm1_interp = parder_table_1d(Tm1)
 
 #Pitch moment coefficient due to alpha_deg
 #Column 0: alpha_deg 
-Cm2 = np.array(
+Tm2 = np.array(
                 [
                 [20.0000, 1.0000],
                 [25.0000, 0.6000],
@@ -350,25 +356,12 @@ Cm2 = np.array(
                 [90.0000, 0.1000]
                 ]
               )
-Cm2_interp              = interp_table_1d(Cm2)
-parder_alpha_Cm2_interp = parder_table_1d(Cm2)
-
-#Pitch moment coefficient due to elev_pos_rad and alpha_deg
-#Column 0: elev_pos_rad | Row 0: alpha_deg
-Cm5 = np.array(
-                [
-                [np.NaN, 18.0000, 25.0000, 35.0000, 45.0000, 55.0000, 65.0000, 90.0000],
-                [-0.4900, 1.0000, 0.5000, 0.2000, 0.1000, 0.1000, 0.1000, 0.1000],
-                [0.0000, 1.0000, 0.6000, 0.3000, 0.1500, 0.1000, 0.1000, 0.1000],
-                [0.4000, 1.0000, 0.9000, 0.8000, 0.7000, 0.6000, 0.5000, 0.4000]
-                ]
-              )
-Cm5_interp                                        = interp_table_2d(Cm5)
-parder_deltae_Cm5_interp, parder_alpha_Cm5_interp = parder_table_2d(Cm5)
+Tm2_interp              = interp_table_1d(Tm2)
+parder_alpha_Tm2_interp = parder_table_1d(Tm2)
 
 #Pitch moment coefficient due to flaps_pos_deg
 #Column 0: flaps_pos_deg
-Cm6 = np.array(
+Tm4 = np.array(
                 [
                 [0.0000, 0.0000],
                 [10.0000, -0.0654],
@@ -376,24 +369,37 @@ Cm6 = np.array(
                 [30.0000, -0.1140]
                 ]
               )
-Cm6_interp               = interp_table_1d(Cm6)
-parder_deltaf_Cm6_interp = parder_table_1d(Cm6)
+Tm4_interp               = interp_table_1d(Tm4)
+parder_deltaf_Tm4_interp = parder_table_1d(Tm4)
+
+#Pitch moment coefficient due to elev_pos_rad and alpha_deg
+#Column 0: elev_pos_rad | Row 0: alpha_deg
+Tm5 = np.array(
+                [
+                [np.NaN, 18.0000, 25.0000, 35.0000, 45.0000, 55.0000, 65.0000, 90.0000],
+                [-0.4900, 1.0000, 0.5000, 0.2000, 0.1000, 0.1000, 0.1000, 0.1000],
+                [0.0000, 1.0000, 0.6000, 0.3000, 0.1500, 0.1000, 0.1000, 0.1000],
+                [0.4000, 1.0000, 0.9000, 0.8000, 0.7000, 0.6000, 0.5000, 0.4000]
+                ]
+              )
+Tm5_interp                                        = interp_table_2d(Tm5)
+parder_deltae_Tm5_interp, parder_alpha_Tm5_interp = parder_table_2d(Tm5)
 
 #Yaw moment coefficient due to beta_rad 
 #Column 0: beta_rad 
-Cn1 = np.array(
+Tn1 = np.array(
                 [
                 [-0.3490, -0.0205],
                 [0.0000, 0.0000],
                 [0.3490, 0.0205]
                 ]
               )
-Cn1_interp             = interp_table_1d(Cn1)
-parder_beta_Cn1_interp = parder_table_1d(Cn1)
+Tn1_interp             = interp_table_1d(Tn1)
+parder_beta_Tn1_interp = parder_table_1d(Tn1)
 
 #Yaw moment coefficient due to r_rad_sec
 #Column 0: r_rad_sec | Row 0: alpha_rad 
-Cn4 = np.array(
+Tn3 = np.array(
                 [
                 [np.NaN, 0.2790, 0.4000],
                 [-15.0000, 0.0000, 0.0000],
@@ -407,12 +413,12 @@ Cn4 = np.array(
                 [15.0000, 0.0000, 0.0000]
                 ]
               )
-Cn4_interp                                   = interp_table_2d(Cn4)
-parder_r_Cn4_interp, parder_alpha_Cn4_interp = parder_table_2d(Cn4)
+Tn3_interp                                   = interp_table_2d(Tn3)
+parder_r_Tn3_interp, parder_alpha_Tn3_interp = parder_table_2d(Tn3)
 
 #Yaw moment coefficient due to alpha_rad and beta_rad
 #Column 0: alpha_rad | Row 0: beta_rad 
-Cn5 = np.array(
+Tn4 = np.array(
                 [
                 [np.NaN, -0.3500, 0.0000, 0.3500],
                 [0.0000, -0.0216, -0.0216, -0.0216],
@@ -420,8 +426,8 @@ Cn5 = np.array(
                 [0.0940, -0.0250, -0.0504, -0.0250]
                 ]
               )
-Cn5_interp                                      = interp_table_2d(Cn5)
-parder_alpha_Cn5_interp, parder_beta_Cn5_interp = parder_table_2d(Cn5)
+Tn4_interp                                      = interp_table_2d(Tn4)
+parder_alpha_Tn4_interp, parder_beta_Tn4_interp = parder_table_2d(Tn4)
 
 #Multiplier of thrust coefficient due to advance_ratio
 #Column 0: advance_ratio
@@ -498,11 +504,11 @@ def aerocoeff_CD1():
 
 def aerocoeff_CD2(h_b_mac_ft, flaps_pos_deg):
     #Aerodynamic drag coefficient 2
-    return kCDge_interp(h_b_mac_ft) * CD2_interp(flaps_pos_deg)
+    return kCDge_interp(h_b_mac_ft) * TD2_interp(flaps_pos_deg)
 
 def aerocoeff_CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg):
     #Aerodynamic drag coefficient 3
-    return kCDge_interp(h_b_mac_ft) * CD3_interp(alpha_rad, flaps_pos_deg)
+    return kCDge_interp(h_b_mac_ft) * TD3_interp(alpha_rad, flaps_pos_deg)
 
 def aerocoeff_CD4(beta_rad):
     #Aerodynamic drag coefficient 4
@@ -520,7 +526,7 @@ def aerocoeff_CC2(rudder_pos_rad):
 ''' AERODYNAMIC LIFT FORCE COEFFICIENTS '''
 def aerocoeff_CL1(h_b_mac_ft, alpha_rad, stall_hyst_norm):
     #Aerodynamic lift coefficient 1
-    return kCLge_interp(h_b_mac_ft) * CL1_interp(alpha_rad, stall_hyst_norm)
+    return kCLge_interp(h_b_mac_ft) * TL1_interp(alpha_rad, stall_hyst_norm)
 
 def aerocoeff_CL2(h_b_mac_ft, flaps_pos_deg):
     #Aerodynamic lift coefficient 2
@@ -541,7 +547,7 @@ def aerocoeff_CL5(alphadot_rad_sec, ci2vel):
 ''' AERODYNAMIC ROLL MOMENT COEFFICIENTS '''
 def aerocoeff_Cl1(beta_rad, alpha_rad):
     #Aerodynamic roll coefficient 1
-    return beta_rad * -0.0920 * Cl1_interp(alpha_rad)
+    return beta_rad * -0.0920 * Tl1_interp(alpha_rad)
 
 def aerocoeff_Cl2(bi2vel, p_rad_sec):
     #Aerodynamic roll coefficient 2
@@ -550,13 +556,13 @@ def aerocoeff_Cl2(bi2vel, p_rad_sec):
 def aerocoeff_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm):
     #Aerodynamic roll coefficient 3
     if stall_hyst_norm:
-        return bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl32_interp(alpha_rad, r_rad_sec)
+        return bi2vel * r_rad_sec * Tl31_interp(flaps_pos_deg) * Tl32_interp(alpha_rad, r_rad_sec)
     else:
-        return bi2vel * r_rad_sec * Cl31_interp(flaps_pos_deg) * Cl33_interp(alpha_rad, r_rad_sec)
+        return bi2vel * r_rad_sec * Tl31_interp(flaps_pos_deg) * Tl33_interp(alpha_rad, r_rad_sec)
 
 def aerocoeff_Cl4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm):
     #Aerodynamic roll coefficient 4
-    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * 0.2290 * Cl4_interp(alpha_rad, stall_hyst_norm)
+    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * 0.2290 * Tl4_interp(alpha_rad, stall_hyst_norm)
 
 def aerocoeff_Cl5(rudder_pos_rad):
     #Aerodynamic roll coefficient 5
@@ -565,11 +571,11 @@ def aerocoeff_Cl5(rudder_pos_rad):
 ''' AERODYNAMIC PITCH MOMENT COEFFICIENTS '''
 def aerocoeff_Cm1(qbar_psf):
     #Aerodynamic pitch coefficient 1
-    return Cm1_interp(qbar_psf)
+    return Tm1_interp(qbar_psf)
 
 def aerocoeff_Cm2(alpha_deg, alpha_rad):
     #Aerodynamic pitch coefficient 2
-    return sin(alpha_rad) * -1.8000 * Cm2_interp(alpha_deg)
+    return sin(alpha_rad) * -1.8000 * Tm2_interp(alpha_deg)
 
 def aerocoeff_Cm3(ci2vel, q_rad_sec):
     #Aerodynamic pitch coefficient 3
@@ -577,7 +583,7 @@ def aerocoeff_Cm3(ci2vel, q_rad_sec):
 
 def aerocoeff_Cm4(flaps_pos_deg):
     #Aerodynamic pitch coefficient 4
-    return Cm6_interp(flaps_pos_deg) * 0.7000
+    return Tm4_interp(flaps_pos_deg) * 0.7000
 
 def aerocoeff_Cm5(ci2vel, alphadot_rad_sec):
     #Aerodynamic pitch coefficient 5
@@ -585,12 +591,12 @@ def aerocoeff_Cm5(ci2vel, alphadot_rad_sec):
 
 def aerocoeff_Cm6(elev_pos_rad, alpha_deg):
     #Aerodynamic pitch coefficient 6
-    return elev_pos_rad * -1.2800 * Cm5_interp(elev_pos_rad, alpha_deg)
+    return elev_pos_rad * -1.2800 * Tm5_interp(elev_pos_rad, alpha_deg)
 
 ''' AERODYNAMIC YAW MOMENT COEFFICIENTS '''
 def aerocoeff_Cn1(beta_rad):
     #Aerodynamic yaw coefficient 1
-    return Cn1_interp(beta_rad)
+    return Tn1_interp(beta_rad)
 
 def aerocoeff_Cn2(bi2vel, r_rad_sec):
     #Aerodynamic yaw coefficient 2
@@ -598,11 +604,11 @@ def aerocoeff_Cn2(bi2vel, r_rad_sec):
 
 def aerocoeff_Cn3(bi2vel, r_rad_sec, alpha_rad):
     #Aerodynamic yaw coefficient 3
-    return bi2vel * Cn4_interp(r_rad_sec, alpha_rad)
+    return bi2vel * Tn3_interp(r_rad_sec, alpha_rad)
 
 def aerocoeff_Cn4(left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad):
     #Aerodynamic yaw coefficient 4
-    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Cn5_interp(alpha_rad, beta_rad)
+    return averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad) * Tn4_interp(alpha_rad, beta_rad)
 
 def aerocoeff_Cn5(rudder_pos_rad):
     #Aerodynamic yaw coefficient 5
@@ -691,7 +697,7 @@ def qbarprop_acm(rho, Vprop):
 
 def n_acm(deltat, deltam):
     #Propeller RPS (Revolutions Per Second) law as defined in the analytic control models
-    if deltam >= DELTA_M_MIN:
+    if deltam >= DELTAM_MIN:
         return (N_MAX - N_MIN) * deltat + N_MIN
     else:
         return 0
@@ -792,7 +798,7 @@ def parder_deltat_qbarind(rho, Vind, parder_deltat_Vind):
     #Partial derivative of qbarind with respect to deltat
     return rho * Vind * parder_deltat_Vind
 
-def parder_pd_qbarprop(rho, Vprop, parder_pd_rho, parder_pd_Vind):
+def parder_pd_qbarprop(rho, Vprop, parder_pd_rho, parder_pd_Vprop):
     #Partial derivative of qbarprop with respect to pd
     return 0.5 * Vprop * (parder_pd_rho * Vprop + 2 * rho * parder_pd_Vprop)
 
@@ -812,9 +818,84 @@ def parder_u_T(rho, J, n, parder_J_CT):
     #Partial derivative of T with respect to u
     return rho * n * (D_PROP_SI ** 3) * parder_J_CT_interp(J)
 
-def parder_deltat_T(rho, J, n, parder_J_CT, parder_deltat_n):
+def parder_deltat_T(u, rho, J, n, parder_J_CT, parder_deltat_n):
     #Partial derivative of T with respect to deltat
     return rho * (D_PROP_SI ** 3) * (2 * CT_interp(J) * n * D_PROP_SI - u * parder_J_CT_interp(J)) * parder_deltat_n
+
+''' DYNAMIC COEFFICIENTS PARTIAL DERIVATIVES'''
+def parder_deltaf_CD2(h_b_mac_ft, flaps_pos_deg):
+    #Partial derivative of CD2 with respect to deltaf
+    return kCDge_interp(h_b_mac_ft) * parder_deltaf_TD2_interp(flaps_pos_deg)
+
+def parder_u_CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg, w, Vauw):
+    #Partial derivative of CD3 with respect to u
+    return kCDge_interp(h_b_mac_ft) * parder_alpha_TD3_interp(alpha_rad, flaps_pos_deg) * parder_u_alpha(w, Vauw)
+
+def parder_w_CD3(h_b_mac_ft, alpha_rad, flaps_pos_deg, u, Vauw):
+    #Partial derivative of CD3 with respect to w
+    return kCDge_interp(h_b_mac_ft) * parder_alpha_TD3_interp(alpha_rad, flaps_pos_deg) * parder_w_alpha(u, Vauw)
+
+def parder_deltaf_CD3(h_b_mac_ft, flaps_pos_deg):
+    #Partial derivative of CD3 with respect to deltaf
+    return kCDge_interp(h_b_mac_ft) * parder_deltaf_TD3_interp(alpha_rad, flaps_pos_deg)
+
+def parder_u_CD4(beta_rad, u, v, Va, Vauw):
+    #Partial derivative of CD4 with respect to u
+    return (beta_rad / abs(beta_rad)) * 0.1500 * parder_u_beta(u, v, Va, Vauw)
+
+def parder_v_CD4(beta_rad):
+    #Partial derivative of CD4 with respect to v
+    return (beta_rad / abs(beta_rad)) * 0.1500 * parder_v_beta(Va, Vauw)
+
+def parder_w_CD4(beta_rad):
+    #Partial derivative of CD4 with respect to w
+    return (beta_rad / abs(beta_rad)) * 0.1500 * parder_w_beta(v, w, Va, Vauw)
+
+def parder_u_CC1(beta_rad, flaps_pos_deg, u, v, Va, Vauw):
+    #Partial derivative of CC1 with respect to u
+    return parder_beta_TC1_interp(beta_rad, flaps_pos_deg) * parder_u_beta(u, v, Va, Vauw)
+
+def parder_v_CC1(beta_rad, flaps_pos_deg, Va, Vauw):
+    #Partial derivative of CC1 with respect to v
+    return parder_beta_TC1_interp(beta_rad, flaps_pos_deg) * parder_v_beta(Va, Vauw)
+
+def parder_w_CC1(beta_rad, flaps_pos_deg, v, w, Va, Vauw):
+    #Partial derivative of CC1 with respect to w
+    return parder_beta_TC1_interp(beta_rad, flaps_pos_deg) * parder_w_beta(v, w, Va, Vauw)
+
+def parder_deltaf_CC1(beta_rad, flaps_pos_deg):
+    #Partial derivative of CC1 with respect to deltaf
+    return parder_deltaf_TC1_interp(beta_rad, flaps_pos_deg)
+
+def parder_deltaf_CC2():
+    #Partial derivative of CC2 with respect to deltar
+    return 0.1500
+
+parder_deltaf_TD2_eq  = parder_deltaf_TD2_interp(deltaf_deg)
+parder_alpha_TD3_eq   = parder_alpha_TD3_interp(alpha_eq, deltaf_deg)
+parder_deltaf_TD3_eq  = parder_deltaf_TD3_interp(alpha_eq, deltaf_deg)
+parder_beta_TC1_eq    = parder_beta_TC1_interp(beta_eq, deltaf_deg)
+parder_deltaf_TC1_eq  = parder_deltaf_TC1_interp(beta_eq, deltaf_deg)
+parder_alpha_TL1_eq   = parder_alpha_TL1_interp(alpha_eq, 0)
+parder_deltaf_TL2_eq  = parder_deltaf_TL2_interp(deltaf_deg)
+parder_alpha_Tl1_eq   = parder_alpha_Tl1_interp(alpha_eq)
+parder_deltaf_Tl31_eq = parder_deltaf_Tl31_interp(deltaf_deg)
+parder_alpha_Tl32_eq  = parder_alpha_Tl32_interp(alpha_eq, r_eq)
+parder_r_Tl32_eq      = parder_r_Tl32_interp(alpha_eq, r_eq)
+parder_alpha_Tl33_eq  = parder_alpha_Tl33_interp(alpha_eq, r_eq)
+parder_r_Tl33_eq      = parder_r_Tl33_interp(alpha_eq, r_eq)
+parder_alpha_Tl4_eq   = parder_alpha_Tl4_interp(alpha_eq, 0)
+parder_qbar_Tm1_eq    = parder_qbar_Tm1_interp(qbar_eq)
+parder_alpha_Tm2_eq   = parder_alpha_Tm2_interp(alpha_deg_eq)
+parder_deltaf_Tm4_eq  = parder_deltaf_Tm4_interp(deltaf)
+parder_deltae_Tm5_eq  = parder_deltae_Tm5_interp(deltae, alpha_eq)
+parder_alpha_Tm5_eq   = parder_alpha_Tm5_interp(deltae, alpha_eq)
+parder_beta_Tn1_eq    = parder_beta_Tn1_interp(beta_eq)
+parder_r_Tn3_eq       = parder_r_Tn3_interp(r_eq, alpha_eq)
+parder_alpha_Tn3_eq   = parder_alpha_Tn3_interp(alpha_eq, r_eq)
+parder_alpha_Tn4_eq   = parder_alpha_Tn4_interp(alpha_eq, beta_eq)
+parder_beta_Tn4_eq    = parder_beta_Tn4_interp(alpha_eq, beta_eq)
+parder_J_CT_eq        = parder_J_CT_interp(J_eq)
 
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
@@ -907,38 +988,44 @@ class ControlModel():
             rxdata      = rx2mod_out.recv() #receive RX telemetry
             framescount = rxdata.shape[0]
             for i in range(framescount):                
-                time     = rxdata[i,0]
-                phi      = rxdata[i,16]
-                theta    = rxdata[i,18]
-                psi      = rxdata[i,20]
-                u        = rxdata[i,30]
-                v        = rxdata[i,31]
-                w        = rxdata[i,32]
-                p        = rxdata[i,42]
-                q        = rxdata[i,43]
-                r        = rxdata[i,44]
-                T        = rxdata[i,58]
-                fx       = rxdata[i,59]
-                fy       = rxdata[i,64]
-                fz       = rxdata[i,69]
-                l        = rxdata[i,74]
-                m        = rxdata[i,79]
-                n        = rxdata[i,84]
-                deltaa_r = rxdata[i,87]
-                deltaa_l = rxdata[i,90]
-                deltae   = rxdata[i,93]
-                deltaf_deg = rxdata[i,94]
-                deltaf   = rxdata[i,96]
-                deltar   = rxdata[i,99]
-                deltat   = rxdata[i,100]
-                deltam   = rxdata[i,101]
-                Ixx      = rxdata[i,117]
-                Ixy      = rxdata[i,118]
-                Ixz      = rxdata[i,119]
-                Iyy      = rxdata[i,120]
-                Iyz      = rxdata[i,121]
-                Izz      = rxdata[i,122]
-                mass     = rxdata[i,123]
+                time         = rxdata[i,0]
+                phi          = rxdata[i,16]
+                theta        = rxdata[i,18]
+                psi          = rxdata[i,20]
+                u            = rxdata[i,30]
+                v            = rxdata[i,31]
+                w            = rxdata[i,32]
+                p            = rxdata[i,42]
+                q            = rxdata[i,43]
+                r            = rxdata[i,44]
+                dotalpha     = rxdata[i,46]
+                T            = rxdata[i,58]
+                fx           = rxdata[i,59]
+                fy           = rxdata[i,64]
+                fz           = rxdata[i,69]
+                l            = rxdata[i,74]
+                m            = rxdata[i,79]
+                n            = rxdata[i,84]
+                deltaa_r_rad = rxdata[i,86] 
+                deltaa_r     = rxdata[i,87]
+                deltaa_l_rad = rxdata[i,89]
+                deltaa_l     = rxdata[i,90]
+                deltae_rad   = rxdata[i,92]
+                deltae       = rxdata[i,93]
+                deltaf_deg   = rxdata[i,94]
+                deltaf       = rxdata[i,96]
+                deltar_rad   = rxdata[i,98]
+                deltar       = rxdata[i,99]
+                deltat       = rxdata[i,100]
+                deltam       = rxdata[i,101]
+                hmac_ft      = rxdata[i,108]
+                Ixx          = rxdata[i,117]
+                Ixy          = rxdata[i,118]
+                Ixz          = rxdata[i,119]
+                Iyy          = rxdata[i,120]
+                Iyz          = rxdata[i,121]
+                Izz          = rxdata[i,122]
+                mass         = rxdata[i,123]
                 
                 deltaa = 0.5 * (deltaa_l + deltaa_r) #deltaa_l = deltaa_r
 
@@ -992,9 +1079,73 @@ class ControlModel():
                 qbarind_eq  = qbarind_acm(rho_eq, Vind_eq)
                 qbarprop_eq = qbarprop_acm(rho_eq, Vprop_eq)
 
+                #Tables at the equilibrium point
+                bi2vel_eq = BW_SI / (2 * Va_eq)
+                ci2vel_eq = CW_SI / (2 * Va_eq)
+                alpha_deg_eq = rad_to_deg(alpha_eq)
+                qbar_psf_eq = qbar_acm(rho_eq, Va_eq)
+
+                CD1_eq = aerocoeff_CD1()
+                CD2_eq = aerocoeff_CD2(hmac_ft, deltaf_deg)
+                CD3_eq = aerocoeff_CD3(hmac_ft, alpha_eq, deltaf_deg)
+                CD4_eq = aerocoeff_CD4(beta_eq)
+                CC1_eq = aerocoeff_CC1(beta_eq, deltaf_deg)
+                CC2_eq = aerocoeff_CC2(deltar_rad)
+                CL1_eq = aerocoeff_CL1(hmac_ft, alpha_eq, 0)
+                CL2_eq = aerocoeff_CL2(hmac_ft, deltaf_deg)
+                CL3_eq = aerocoeff_CL3(deltae_rad)
+                CL4_eq = aerocoeff_CL4(q_eq, ci2vel_eq)
+                CL5_eq = aerocoeff_CL5(dotalpha, ci2vel_eq)
+                Cl1_eq = aerocoeff_Cl1(beta_eq, alpha_eq)
+                Cl2_eq = aerocoeff_Cl2(bi2vel_eq, p_eq)
+                Cl3_eq = aerocoeff_Cl3(bi2vel_eq, r_eq, deltaf_deg, alpha_eq, 0)
+                Cl4_eq = aerocoeff_Cl4(deltaa_l_rad, deltaa_r_rad, alpha_eq, 0)
+                Cl5_eq = aerocoeff_Cl5(deltar_rad)
+                Cm1_eq = aerocoeff_Cm1(qbar_psf_eq)
+                Cm2_eq = aerocoeff_Cm2(alpha_deg_eq, alpha_eq)
+                Cm3_eq = aerocoeff_Cm3(ci2vel_eq, q_eq)
+                Cm4_eq = aerocoeff_Cm4(deltaf_deg)
+                Cm5_eq = aerocoeff_Cm5(ci2vel_eq, dotalpha)
+                Cm6_eq = aerocoeff_Cm6(deltae_rad, alpha_deg_eq)
+                Cn1_eq = aerocoeff_Cn1(beta_eq)
+                Cn2_eq = aerocoeff_Cn2(bi2vel_eq, r_eq)
+                Cn3_eq = aerocoeff_Cn3(bi2vel_eq, r_eq, alpha_eq)
+                Cn4_eq = aerocoeff_Cn4(deltaa_l_rad, deltaa_r_rad, alpha_eq, beta_eq)
+                Cn5_eq = aerocoeff_Cn5(deltar_rad)
+                Cn6_eq = aerocoeff_Cn6()
+
                 #Tables derivatives at the equilibrium point 
-                parder_J_CT       = parder_J_CT_interp(J_eq)
-                parder_deltaf_CD2 = parder_deltaf_CD2_interp(deltaf_deg)
+                alpha_deg_eq = rad_to_deg(alpha_eq)
+
+                parder_deltaf_TD2_eq  = parder_deltaf_TD2_interp(deltaf_deg)
+                parder_alpha_TD3_eq   = parder_alpha_TD3_interp(alpha_eq, deltaf_deg)
+                parder_deltaf_TD3_eq  = parder_deltaf_TD3_interp(alpha_eq, deltaf_deg)
+                parder_beta_TC1_eq    = parder_beta_TC1_interp(beta_eq, deltaf_deg)
+                parder_deltaf_TC1_eq  = parder_deltaf_TC1_interp(beta_eq, deltaf_deg)
+                parder_alpha_TL1_eq   = parder_alpha_TL1_interp(alpha_eq, 0)
+                parder_deltaf_TL2_eq  = parder_deltaf_TL2_interp(deltaf_deg)
+                parder_alpha_Tl1_eq   = parder_alpha_Tl1_interp(alpha_eq)
+                parder_deltaf_Tl31_eq = parder_deltaf_Tl31_interp(deltaf_deg)
+                parder_alpha_Tl32_eq  = parder_alpha_Tl32_interp(alpha_eq, r_eq)
+                parder_r_Tl32_eq      = parder_r_Tl32_interp(alpha_eq, r_eq)
+                parder_alpha_Tl33_eq  = parder_alpha_Tl33_interp(alpha_eq, r_eq)
+                parder_r_Tl33_eq      = parder_r_Tl33_interp(alpha_eq, r_eq)
+                parder_alpha_Tl4_eq   = parder_alpha_Tl4_interp(alpha_eq, 0)
+                parder_qbar_Tm1_eq    = parder_qbar_Tm1_interp(qbar_eq)
+                parder_alpha_Tm2_eq   = parder_alpha_Tm2_interp(alpha_deg_eq)
+                parder_deltaf_Tm4_eq  = parder_deltaf_Tm4_interp(deltaf)
+                parder_deltae_Tm5_eq  = parder_deltae_Tm5_interp(deltae, alpha_eq)
+                parder_alpha_Tm5_eq   = parder_alpha_Tm5_interp(deltae, alpha_eq)
+                parder_beta_Tn1_eq    = parder_beta_Tn1_interp(beta_eq)
+                parder_r_Tn3_eq       = parder_r_Tn3_interp(r_eq, alpha_eq)
+                parder_alpha_Tn3_eq   = parder_alpha_Tn3_interp(alpha_eq, r_eq)
+                parder_alpha_Tn4_eq   = parder_alpha_Tn4_interp(alpha_eq, beta_eq)
+                parder_beta_Tn4_eq    = parder_beta_Tn4_interp(alpha_eq, beta_eq)
+                parder_J_CT_eq        = parder_J_CT_interp(J_eq)
+
+                parder_u_alpha_eq = parder_u_alpha(w_eq, Vauw_eq)
+
+                parder_u_CD3_eq = parder_alpha_TD3_eq * parder_u_alpha_eq
 
                 #Misc partial derivatives evaluated at the equilibrium point
                 parder_pd_rho_eq          = parder_pd_rho(pd_eq)
@@ -1006,7 +1157,7 @@ class ControlModel():
                 parder_w_beta_eq          = parder_w_beta(v_eq, w_eq, Va_eq, Vauw_eq)
                 parder_pd_Vind_eq         = parder_pd_Vind(u_eq, rho_eq, T, Vind2_eq, parder_pd_rho_eq)
                 parder_u_Vind_eq          = parder_u_Vind(u_eq, rho_eq, T, Vind2_eq)
-                parder_deltat_T_eq        = parder_deltat_T(rho_eq, J_eq, n, parder_J_CT, parder_deltat_n_eq)
+                parder_deltat_T_eq        = parder_deltat_T(u_eq, rho_eq, J_eq, n, parder_J_CT_eq, parder_deltat_n_eq)
                 parder_deltat_Vind_eq     = parder_deltat_Vind(u_eq, rho_eq, T, Vind2_eq, parder_deltat_T_eq)
                 parder_pd_Vprop_eq        = parder_pd_Vprop(parder_pd_Vind_eq)
                 parder_u_Vprop_eq         = parder_u_Vprop(parder_u_Vind_eq)
@@ -1021,7 +1172,7 @@ class ControlModel():
                 parder_pd_qbarind_eq      = parder_pd_qbarind(rho_eq, Vind_eq, parder_pd_rho_eq, parder_pd_Vind_eq)
                 parder_u_qbarind_eq       = parder_u_qbarind(rho_eq, Vind_eq, parder_u_Vind_eq)
                 parder_deltat_qbarind_eq  = parder_deltat_qbarind(rho_eq, Vind_eq, parder_deltat_Vind_eq)
-                parder_pd_qbarprop_eq     = parder_pd_qbarprop(rho_eq, Vprop_eq, parder_pd_rho_eq, parder_pd_Vind_eq)
+                parder_pd_qbarprop_eq     = parder_pd_qbarprop(rho_eq, Vprop_eq, parder_pd_rho_eq, parder_pd_Vprop_eq)
                 parder_deltat_qbarprop_eq = parder_deltat_qbarprop(rho_eq, Vprop_eq, parder_deltat_Vprop_eq)
                 parder_u_qbarprop_eq      = parder_u_qbarprop(rho_eq, Vprop_eq, parder_u_Vprop_eq)
                 parder_pd_T_eq            = parder_pd_T(J_eq, n, parder_pd_rho_eq)
@@ -1032,7 +1183,7 @@ class ControlModel():
                 parder_q1_dotpn_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
                 parder_q2_dotpn_eq = 2 * (- q2_eq * u_eq + q1_eq * v_eq + q0_eq * w_eq)
                 parder_q3_dotpn_eq = 2 * (- q3_eq * u_eq - q0_eq * v_eq + q1_eq * w_eq)
-                parder_u_dotpn_eq  = q0_eq^2 + q1_eq^2 - q2_eq^2 - q3_eq^2
+                parder_u_dotpn_eq  = q0_eq ** 2 + q1_eq ** 2 - q2_eq ** 2 - q3_eq ** 2
                 parder_v_dotpn_eq  = 2 * (q1_eq * q2_eq - q0_eq * q3_eq)
                 parder_w_dotpn_eq  = 2 * (q0_eq * q2_eq + q1_eq * q3_eq)
 
@@ -1042,7 +1193,7 @@ class ControlModel():
                 parder_q2_dotpe_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
                 parder_q3_dotpe_eq = 2 * (q0_eq * u_eq - q3_eq * v_eq + q2_eq * w_eq)
                 parder_u_dotpe_eq  = 2 * (q0_eq * q3_eq + q1_eq * q2_eq)
-                parder_v_dotpe_eq  = q0_eq^2 + q2_eq^2 - q1_eq^2 - q3_eq^2
+                parder_v_dotpe_eq  = q0_eq ** 2 + q2_eq ** 2 - q1_eq ** 2 - q3_eq ** 2
                 parder_w_dotpe_eq  = 2 * (q2_eq * q3_eq - q0_eq * q1_eq)
 
                 #Partial derivatives of \dot{p_d} evaluated at the equilibrium point
@@ -1052,7 +1203,7 @@ class ControlModel():
                 parder_q3_dotpd_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
                 parder_u_dotpd_eq  = 2 * (q1_eq * q3_eq - q0_eq * q2_eq)
                 parder_v_dotpd_eq  = 2 * (q0_eq * q1_eq + q2_eq * q3_eq)
-                parder_w_dotpd_eq  = q0_eq^2 + q3_eq^2 - q1_eq^2 - q2_eq^2
+                parder_w_dotpd_eq  = q0_eq ** 2 + q3_eq ** 2 - q1_eq ** 2 - q2_eq ** 2
 
                 #Partial derivatives of \dot{q_0} evaluated at the equilibrium point
                 parder_q1_dotq0_eq = - 0.5 * p_eq
