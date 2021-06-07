@@ -517,7 +517,7 @@ def aerocoeff_CD4(beta_rad):
 ''' AERODYNAMIC CROSSWIND FORCE COEFFICIENTS '''
 def aerocoeff_CC1(beta_rad, flaps_pos_deg):
     #Aerodynamic crosswind coefficient 1
-    return CY1_interp(beta_rad, flaps_pos_deg)
+    return TC1_interp(beta_rad, flaps_pos_deg)
 
 def aerocoeff_CC2(rudder_pos_rad):
     #Aerodynamic crosswind coefficient 2
@@ -530,7 +530,7 @@ def aerocoeff_CL1(h_b_mac_ft, alpha_rad, stall_hyst_norm):
 
 def aerocoeff_CL2(h_b_mac_ft, flaps_pos_deg):
     #Aerodynamic lift coefficient 2
-    return kCLge_interp(h_b_mac_ft) * CL2_interp(flaps_pos_deg)
+    return kCLge_interp(h_b_mac_ft) * TL2_interp(flaps_pos_deg)
 
 def aerocoeff_CL3(elev_pos_rad):
     #Aerodynamic lift coefficient 3
@@ -877,15 +877,15 @@ def parder_deltaf_CD3(h_b_mac_ft, parder_deltaf_TD3):
 
 def parder_u_CD4(beta_rad, parder_u_beta):
     #Partial derivative of CD4 with respect to u
-    return 0.1500 * (beta_rad / abs(beta_rad)) * parder_u_beta
+    return 0 if beta_rad == 0 else 0.1500 * (beta_rad / abs(beta_rad)) * parder_u_beta
 
 def parder_v_CD4(beta_rad, parder_v_beta):
     #Partial derivative of CD4 with respect to v
-    return 0.1500 * (beta_rad / abs(beta_rad)) * parder_v_beta
+    return 0 if beta_rad == 0 else 0.1500 * (beta_rad / abs(beta_rad)) * parder_v_beta
 
 def parder_w_CD4(beta_rad, parder_w_beta):
     #Partial derivative of CD4 with respect to w
-    return 0.1500 * (beta_rad / abs(beta_rad)) * parder_w_beta
+    return 0 if beta_rad == 0 else 0.1500 * (beta_rad / abs(beta_rad)) * parder_w_beta
 
 def parder_u_CC1(parder_beta_TC1, parder_u_beta):
     #Partial derivative of CC1 with respect to u
@@ -915,9 +915,9 @@ def parder_w_CL1(h_b_mac_ft, parder_alpha_TL1, parder_w_alpha):
     #Partial derivative of CL1 with respect to w
     return kCLge_interp(h_b_mac_ft) * parder_alpha_TL1 * parder_w_alpha
 
-def parder_deltaf_CL2(h_b_mac_ft, parder_deltaf_CL2):
+def parder_deltaf_CL2(h_b_mac_ft, parder_deltaf_TL2):
     #Partial derivative of CL2 with respect to deltaf
-    return kCLge_interp(h_b_mac_ft) * parder_deltaf_CL2
+    return kCLge_interp(h_b_mac_ft) * parder_deltaf_TL2
 
 def parder_deltae_CL3():
     #Partial derivative of CL3 with respect to deltae
@@ -987,13 +987,13 @@ def parder_u_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, p
     else:
         return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_u_bi2vel * Tl33_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl33 * parder_u_alpha)
 
-def parder_v_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_v_bi2vel, parder_alpha_Tl32, parder_alpha_Tl33, parder_v_alpha):
+def parder_v_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_v_bi2vel, parder_alpha_Tl32, parder_alpha_Tl33):
     #Partial derivative of Cl3 with respect to v
     if stall_hyst_norm:
-        return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_v_bi2vel * Tl32_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl32 * parder_v_alpha)
+        return r_rad_sec * Tl31_interp(flaps_pos_deg) * parder_v_bi2vel * Tl32_interp(alpha_rad, r_rad_sec)
 
     else:
-        return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_v_bi2vel * Tl33_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl33 * parder_v_alpha)
+        return r_rad_sec * Tl31_interp(flaps_pos_deg) * parder_v_bi2vel * Tl33_interp(alpha_rad, r_rad_sec)
 
 def parder_w_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_w_bi2vel, parder_alpha_Tl32, parder_alpha_Tl33, parder_w_alpha):
     #Partial derivative of Cl3 with respect to w
@@ -1003,19 +1003,19 @@ def parder_w_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, p
     else:
         return r_rad_sec * Tl31_interp(flaps_pos_deg) * (parder_w_bi2vel * Tl33_interp(alpha_rad, r_rad_sec) + bi2vel * parder_alpha_Tl33 * parder_w_alpha)
 
-def parder_deltaf_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_w_bi2vel, parder_w_Tl32, parder_w_Tl33):
+def parder_deltaf_Cl3(bi2vel, r_rad_sec, alpha_rad, stall_hyst_norm, parder_deltaf_Tl31):
     #Partial derivative of Cl3 with respect to deltaf
     if stall_hyst_norm:
         return bi2vel * r_rad_sec * parder_deltaf_Tl31 * Tl32_interp(alpha_rad, r_rad_sec)
     else:
         return bi2vel * r_rad_sec * parder_deltaf_Tl31  * Tl33_interp(alpha_rad, r_rad_sec)
 
-def parder_r_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, parder_w_bi2vel, parder_w_Tl32, parder_w_Tl33):
+def parder_r_Cl3(bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm, parder_r_Tl32, parder_r_Tl33):
     #Partial derivative of Cl3 with respect to r
     if stall_hyst_norm:
         return bi2vel * Tl31_interp(flaps_pos_deg) * (Tl32_interp(alpha_rad, r_rad_sec) + r_rad_sec * parder_r_Tl32)
     else:
-        return bi2vel * Tl31_interp(flaps_pos_deg) * (Tl32_interp(alpha_rad, r_rad_sec) + r_rad_sec * parder_r_Tl32)
+        return bi2vel * Tl31_interp(flaps_pos_deg) * (Tl32_interp(alpha_rad, r_rad_sec) + r_rad_sec * parder_r_Tl33)
 
 def parder_u_Cl4(left_aileron_pos_rad, right_aileron_pos_rad, parder_alpha_Tl4, parder_u_alpha):
     #Partial derivative of Cl4 with respect to u
@@ -1262,15 +1262,17 @@ class ControlModel():
                 l            = rxdata[i,74]
                 m            = rxdata[i,79]
                 n            = rxdata[i,84]
-                deltaa_r_rad = rxdata[i,86] 
-                deltaa_r     = rxdata[i,87]
-                deltaa_l_rad = rxdata[i,89]
-                deltaa_l     = rxdata[i,90]
-                deltae_rad   = rxdata[i,92]
+                deltaar_pos_deg  = rxdata[i,85] 
+                deltaar_pos  = rxdata[i,86] 
+                deltaar      = rxdata[i,87]
+                deltaal_pos_deg  = rxdata[i,88] 
+                deltaal_pos  = rxdata[i,89]
+                deltaal      = rxdata[i,90]
+                deltae_pos   = rxdata[i,92]
                 deltae       = rxdata[i,93]
-                deltaf_deg   = rxdata[i,94]
+                deltaf_pos_deg = rxdata[i,94]
                 deltaf       = rxdata[i,96]
-                deltar_rad   = rxdata[i,98]
+                deltar_pos   = rxdata[i,98]
                 deltar       = rxdata[i,99]
                 deltat       = rxdata[i,100]
                 deltam       = rxdata[i,101]
@@ -1283,7 +1285,7 @@ class ControlModel():
                 Izz          = rxdata[i,122]
                 mass         = rxdata[i,123]
                 
-                deltaa = 0.5 * (deltaa_l + deltaa_r) #deltaa_l = deltaa_r
+                deltaa = 0.5 * (deltaal + deltaar) #deltaa_l = deltaa_r
 
                 #Moments of inertia
                 Gamma  = mominert_gamma(Ixx, Ixz, Izz)
@@ -1342,46 +1344,46 @@ class ControlModel():
                 qbar_psf_eq = qbar_acm(rho_eq, Va_eq)
 
                 CD1_eq = aerocoeff_CD1()
-                CD2_eq = aerocoeff_CD2(hmac_ft, deltaf_deg)
-                CD3_eq = aerocoeff_CD3(hmac_ft, alpha_eq, deltaf_deg)
+                CD2_eq = aerocoeff_CD2(hmac_ft, deltaf_pos_deg)
+                CD3_eq = aerocoeff_CD3(hmac_ft, alpha_eq, deltaf_pos_deg)
                 CD4_eq = aerocoeff_CD4(beta_eq)
-                CC1_eq = aerocoeff_CC1(beta_eq, deltaf_deg)
-                CC2_eq = aerocoeff_CC2(deltar_rad)
+                CC1_eq = aerocoeff_CC1(beta_eq, deltaf_pos_deg)
+                CC2_eq = aerocoeff_CC2(deltar_pos)
                 CL1_eq = aerocoeff_CL1(hmac_ft, alpha_eq, 0)
-                CL2_eq = aerocoeff_CL2(hmac_ft, deltaf_deg)
-                CL3_eq = aerocoeff_CL3(deltae_rad)
+                CL2_eq = aerocoeff_CL2(hmac_ft, deltaf_pos_deg)
+                CL3_eq = aerocoeff_CL3(deltae_pos)
                 CL4_eq = aerocoeff_CL4(q_eq, ci2vel_eq)
                 CL5_eq = aerocoeff_CL5(dotalpha, ci2vel_eq)
                 Cl1_eq = aerocoeff_Cl1(beta_eq, alpha_eq)
                 Cl2_eq = aerocoeff_Cl2(bi2vel_eq, p_eq)
-                Cl3_eq = aerocoeff_Cl3(bi2vel_eq, r_eq, deltaf_deg, alpha_eq, 0)
-                Cl4_eq = aerocoeff_Cl4(deltaa_l_rad, deltaa_r_rad, alpha_eq, 0)
-                Cl5_eq = aerocoeff_Cl5(deltar_rad)
+                Cl3_eq = aerocoeff_Cl3(bi2vel_eq, r_eq, deltaf_pos_deg, alpha_eq, 0)
+                Cl4_eq = aerocoeff_Cl4(deltaal_pos, deltaar_pos, alpha_eq, 0)
+                Cl5_eq = aerocoeff_Cl5(deltar_pos)
                 Cm1_eq = aerocoeff_Cm1(qbar_psf_eq)
                 Cm2_eq = aerocoeff_Cm2(alpha_deg_eq, alpha_eq)
                 Cm3_eq = aerocoeff_Cm3(ci2vel_eq, q_eq)
-                Cm4_eq = aerocoeff_Cm4(deltaf_deg)
+                Cm4_eq = aerocoeff_Cm4(deltaf_pos_deg)
                 Cm5_eq = aerocoeff_Cm5(ci2vel_eq, dotalpha)
-                Cm6_eq = aerocoeff_Cm6(deltae_rad, alpha_deg_eq)
+                Cm6_eq = aerocoeff_Cm6(deltae_pos, alpha_deg_eq)
                 Cn1_eq = aerocoeff_Cn1(beta_eq)
                 Cn2_eq = aerocoeff_Cn2(bi2vel_eq, r_eq)
                 Cn3_eq = aerocoeff_Cn3(bi2vel_eq, r_eq, alpha_eq)
-                Cn4_eq = aerocoeff_Cn4(deltaa_l_rad, deltaa_r_rad, alpha_eq, beta_eq)
-                Cn5_eq = aerocoeff_Cn5(deltar_rad)
+                Cn4_eq = aerocoeff_Cn4(deltaal_pos, deltaar_pos, alpha_eq, beta_eq)
+                Cn5_eq = aerocoeff_Cn5(deltar_pos)
                 Cn6_eq = aerocoeff_Cn6()
 
                 #Tables derivatives at the equilibrium point 
                 alpha_deg_eq = rad_to_deg(alpha_eq)
 
-                parder_deltaf_TD2_eq  = parder_deltaf_TD2_interp(deltaf_deg)
-                parder_alpha_TD3_eq   = parder_alpha_TD3_interp(alpha_eq, deltaf_deg)
-                parder_deltaf_TD3_eq  = parder_deltaf_TD3_interp(alpha_eq, deltaf_deg)
-                parder_beta_TC1_eq    = parder_beta_TC1_interp(beta_eq, deltaf_deg)
-                parder_deltaf_TC1_eq  = parder_deltaf_TC1_interp(beta_eq, deltaf_deg)
+                parder_deltaf_TD2_eq  = parder_deltaf_TD2_interp(deltaf_pos_deg)
+                parder_alpha_TD3_eq   = parder_alpha_TD3_interp(alpha_eq, deltaf_pos_deg)
+                parder_deltaf_TD3_eq  = parder_deltaf_TD3_interp(alpha_eq, deltaf_pos_deg)
+                parder_beta_TC1_eq    = parder_beta_TC1_interp(beta_eq, deltaf_pos_deg)
+                parder_deltaf_TC1_eq  = parder_deltaf_TC1_interp(beta_eq, deltaf_pos_deg)
                 parder_alpha_TL1_eq   = parder_alpha_TL1_interp(alpha_eq, 0)
-                parder_deltaf_TL2_eq  = parder_deltaf_TL2_interp(deltaf_deg)
+                parder_deltaf_TL2_eq  = parder_deltaf_TL2_interp(deltaf_pos_deg)
                 parder_alpha_Tl1_eq   = parder_alpha_Tl1_interp(alpha_eq)
-                parder_deltaf_Tl31_eq = parder_deltaf_Tl31_interp(deltaf_deg)
+                parder_deltaf_Tl31_eq = parder_deltaf_Tl31_interp(deltaf_pos_deg)
                 parder_alpha_Tl32_eq  = parder_alpha_Tl32_interp(alpha_eq, r_eq)
                 parder_r_Tl32_eq      = parder_r_Tl32_interp(alpha_eq, r_eq)
                 parder_alpha_Tl33_eq  = parder_alpha_Tl33_interp(alpha_eq, r_eq)
@@ -1398,10 +1400,6 @@ class ControlModel():
                 parder_alpha_Tn4_eq   = parder_alpha_Tn4_interp(alpha_eq, beta_eq)
                 parder_beta_Tn4_eq    = parder_beta_Tn4_interp(alpha_eq, beta_eq)
                 parder_J_CT_eq        = parder_J_CT_interp(J_eq)
-
-                parder_u_alpha_eq = parder_u_alpha(w_eq, Vauw_eq)
-
-                parder_u_CD3_eq = parder_alpha_TD3_eq * parder_u_alpha_eq
 
                 #Misc partial derivatives evaluated at the equilibrium point
                 parder_pd_rho_eq          = parder_pd_rho(pd_eq)
@@ -1433,6 +1431,86 @@ class ControlModel():
                 parder_u_qbarprop_eq      = parder_u_qbarprop(rho_eq, Vprop_eq, parder_u_Vprop_eq)
                 parder_pd_T_eq            = parder_pd_T(J_eq, n, parder_pd_rho_eq)
                 parder_u_T_eq             = parder_u_T(rho_eq, J_eq, n, parder_J_CT_eq)
+                parder_u_Va_eq            = parder_u_Va(u_eq, Va_eq)
+                parder_v_Va_eq            = parder_v_Va(v_eq, Va_eq)
+                parder_w_Va_eq            = parder_w_Va(w_eq, Va_eq)
+                parder_u_bi2vel_eq        = parder_u_bi2vel(u_eq, Va_eq, parder_u_Va_eq)
+                parder_v_bi2vel_eq        = parder_v_bi2vel(v_eq, Va_eq, parder_v_Va_eq)
+                parder_w_bi2vel_eq        = parder_w_bi2vel(w_eq, Va_eq, parder_w_Va_eq)
+                parder_u_ci2vel_eq        = parder_u_ci2vel(u_eq, Va_eq, parder_u_Va_eq)
+                parder_v_ci2vel_eq        = parder_v_ci2vel(v_eq, Va_eq, parder_v_Va_eq)
+                parder_w_ci2vel_eq        = parder_w_ci2vel(w_eq, Va_eq, parder_w_Va_eq)
+
+                #Partial derivatives of dynamics coefficients at the equilibrium point 
+                parder_deltaf_CD2_eq = parder_deltaf_CD2(hmac_ft, parder_deltaf_TD2_eq)
+                parder_u_CD3_eq = parder_u_CD3(hmac_ft, parder_alpha_TD3_eq, parder_u_alpha_eq)
+                parder_w_CD3_eq = parder_w_CD3(hmac_ft, parder_alpha_TD3_eq, parder_w_alpha_eq)
+                parder_deltaf_CD3_eq = parder_deltaf_CD3(hmac_ft, parder_deltaf_TD3_eq)
+                parder_u_CD4_eq = parder_u_CD4(beta_eq, parder_u_beta_eq)
+                parder_v_CD4_eq = parder_v_CD4(beta_eq, parder_v_beta_eq)
+                parder_w_CD4_eq = parder_w_CD4(beta_eq, parder_w_beta_eq)
+                parder_u_CC1_eq = parder_u_CC1(parder_beta_TC1_eq, parder_u_beta_eq)
+                parder_v_CC1_eq = parder_v_CC1(parder_beta_TC1_eq, parder_v_beta_eq)
+                parder_w_CC1_eq = parder_w_CC1(parder_beta_TC1_eq, parder_w_beta_eq)
+                parder_deltaf_CC1_eq = parder_deltaf_CC1(parder_deltaf_TC1_eq)
+                parder_deltaf_CC2_eq = parder_deltaf_CC2()
+                parder_u_CL1_eq = parder_u_CL1(hmac_ft, parder_alpha_TL1_eq, parder_u_alpha_eq)
+                parder_w_CL1_eq = parder_w_CL1(hmac_ft, parder_alpha_TL1_eq, parder_w_alpha_eq)
+                parder_deltaf_CL2_eq = parder_deltaf_CL2(hmac_ft, parder_deltaf_TL2_eq)
+                parder_deltae_CL3_eq = parder_deltae_CL3()
+                parder_u_CL4_eq = parder_u_CL4(q_eq, parder_u_ci2vel_eq)
+                parder_v_CL4_eq = parder_v_CL4(q_eq, parder_v_ci2vel_eq)
+                parder_w_CL4_eq = parder_w_CL4(q_eq, parder_w_ci2vel_eq)
+                parder_q_CL4_eq = parder_q_CL4(ci2vel_eq)
+                parder_u_CL5_eq = parder_u_CL5(dotalpha, parder_u_ci2vel_eq)
+                parder_v_CL5_eq = parder_v_CL5(dotalpha, parder_v_ci2vel_eq)
+                parder_w_CL5_eq = parder_w_CL5(dotalpha, parder_w_ci2vel_eq)
+                parder_u_Cl1_eq = parder_u_Cl1(beta_eq, alpha_eq, parder_u_beta_eq, parder_alpha_Tl1_eq, parder_u_alpha_eq)
+                parder_v_Cl1_eq = parder_v_Cl1(beta_eq, alpha_eq, parder_v_beta_eq)
+                parder_w_Cl1_eq = parder_w_Cl1(beta_eq, alpha_eq, parder_w_beta_eq, parder_alpha_Tl1_eq, parder_w_alpha_eq)
+                parder_u_Cl2_eq = parder_u_Cl2(p_eq, parder_u_bi2vel_eq)
+                parder_v_Cl2_eq = parder_v_Cl2(p_eq, parder_v_bi2vel_eq)
+                parder_w_Cl2_eq = parder_w_Cl2(p_eq, parder_w_bi2vel_eq)
+                parder_p_Cl2_eq = parder_p_Cl2(bi2vel_eq)
+                parder_u_Cl3_eq = parder_u_Cl3(bi2vel_eq, r_eq, deltaf_pos_deg, alpha_eq, 0, parder_u_bi2vel_eq, parder_alpha_Tl32_eq, parder_alpha_Tl33_eq, parder_u_alpha_eq)
+                parder_v_Cl3_eq = parder_v_Cl3(bi2vel_eq, r_eq, deltaf_pos_deg, alpha_eq, 0, parder_v_bi2vel_eq, parder_alpha_Tl32_eq, parder_alpha_Tl33_eq)
+                parder_w_Cl3_eq = parder_w_Cl3(bi2vel_eq, r_eq, deltaf_pos_deg, alpha_eq, 0, parder_w_bi2vel_eq, parder_alpha_Tl32_eq, parder_alpha_Tl33_eq, parder_w_alpha_eq)
+                parder_deltaf_Cl3_eq = parder_deltaf_Cl3(bi2vel_eq, r_eq, alpha_eq, 0, parder_deltaf_Tl31_eq)
+                parder_r_Cl3_eq = parder_r_Cl3(bi2vel_eq, r_eq, deltaf_pos_deg, alpha_eq, 0, parder_r_Tl32_eq, parder_r_Tl33_eq)
+                parder_u_Cl4_eq = parder_u_Cl4(deltaal_pos_deg, deltaar_pos_deg, parder_alpha_Tl4_eq, parder_u_alpha_eq)
+                parder_w_Cl4_eq = parder_w_Cl4(deltaal_pos_deg, deltaar_pos_deg, parder_alpha_Tl4_eq, parder_u_alpha_eq)
+                parder_deltaa_Cl4_eq = parder_deltaa_Cl4(alpha_eq, 0)
+                parder_deltar_Cl5_eq = parder_deltar_Cl5()
+                parder_pd_Cm1_eq = parder_pd_Cm1(qbar_eq, parder_qbar_Tm1_eq)
+                parder_u_Cm2_eq = parder_u_Cm2(alpha_deg_eq, alpha_eq, parder_alpha_Tm2_eq, parder_u_alpha_eq)
+                parder_w_Cm2_eq = parder_w_Cm2(alpha_deg_eq, alpha_eq, parder_alpha_Tm2_eq, parder_w_alpha_eq)
+                parder_u_Cm3_eq = parder_u_Cm3(q_eq, parder_u_ci2vel_eq)
+                parder_v_Cm3_eq = parder_v_Cm3(q_eq, parder_v_ci2vel_eq)
+                parder_w_Cm3_eq = parder_w_Cm3(q_eq, parder_w_ci2vel_eq)
+                parder_q_Cm3_eq = parder_q_Cm3(q_eq, ci2vel_eq)
+                parder_deltaf_Cm4_eq = parder_deltaf_Cm4(parder_deltaf_Tm4_eq)
+                parder_u_Cm5_eq = parder_u_Cm5(dotalpha, parder_u_ci2vel_eq)
+                parder_v_Cm5_eq = parder_v_Cm5(dotalpha, parder_v_ci2vel_eq)
+                parder_w_Cm5_eq = parder_w_Cm5(dotalpha, parder_w_ci2vel_eq)
+                parder_u_Cm6_eq = parder_u_Cm6(deltae_pos_eq, parder_alpha_Tm5_eq, parder_u_alpha_eq)
+                parder_w_Cm6_eq = parder_w_Cm6(deltae_pos_eq, parder_alpha_Tm5_eq, parder_w_alpha_eq)
+                parder_deltae_Cm6_eq = parder_deltae_Cm6(deltae_pos_eq, parder_deltae_Tm5_eq)
+                parder_u_Cn1_eq = parder_u_Cn1(parder_beta_Tn1_eq, parder_u_beta_eq)
+                parder_v_Cn1_eq = parder_v_Cn1(parder_beta_Tn1_eq, parder_v_beta_eq)
+                parder_w_Cn1_eq = parder_w_Cn1(parder_beta_Tn1_eq, parder_w_beta_eq)
+                parder_u_Cn2_eq = parder_u_Cn2(r_rad_sec, parder_u_bi2vel_eq)
+                parder_v_Cn2_eq = parder_v_Cn2(r_rad_sec, parder_v_bi2vel_eq)
+                parder_w_Cn2_eq = parder_w_Cn2(r_rad_sec, parder_w_bi2vel_eq)
+                parder_r_Cn2_eq = parder_r_Cn2(bi2vel_eq)
+                parder_u_Cn3_eq = parder_u_Cn3(bi2vel_eq, r_eq, alpha_eq, parder_u_bi2vel_eq, parder_alpha_Tn3_eq, parder_u_alpha_eq)
+                parder_v_Cn3_eq = parder_v_Cn3(bi2vel_eq, r_eq, alpha_eq, parder_v_bi2vel_eq)
+                parder_w_Cn3_eq = parder_w_Cn3(bi2vel_eq, r_eq, alpha_eq, parder_w_bi2vel_eq, parder_alpha_Tn3_eq, parder_w_alpha_eq)
+                parder_r_Cn3_eq = parder_r_Cn3(bi2vel_eq, parder_r_Tn3_eq)
+                parder_u_Cn4_eq = parder_u_Cn4(deltaal_pos_eq, deltaar_pos_eq, parder_alpha_Tn4_eq, parder_beta_Tn4_eq, parder_u_alpha_eq, parder_u_beta_eq)
+                parder_v_Cn4_eq = parder_v_Cn4(deltaal_pos_eq, deltaar_pos_eq, parder_beta_Tn4_eq, parder_v_beta_eq)
+                parder_w_Cn4_eq = parder_w_Cn4(deltaal_pos_eq, deltaar_pos_eq, parder_alpha_Tn4_eq, parder_beta_Tn4_eq, parder_w_alpha_eq, parder_w_beta_eq)
+                parder_deltaa_Cn4_eq = parder_deltaa_Cn4(alpha_eq, beta_eq)
+                parder_r_Cn5_eq = parder_r_Cn5(deltar_pos_eq)
 
                 #Partial derivatives of \dot{p_n} evaluated at the equilibrium point
                 parder_q0_dotpn_eq = 2 * (q0_eq * u_eq - q3_eq * v_eq + q2_eq * w_eq)
