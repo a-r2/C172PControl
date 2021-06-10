@@ -73,10 +73,11 @@ def interp_table_1d(table_1d):
 
 def interp_table_2d(table_2d):
     #Interpolation function corresponding to 2D look-up table
-    table_2d_trans  = table_2d.transpose()
-    table_2d_interp = interpolate.interp2d(table_2d_trans[0,1:], table_2d_trans[1:,0], table_2d_trans[1:,1:])
+    table_2d_trans   = table_2d.transpose()
+    table_2d_interp  = interpolate.interp2d(table_2d_trans[0,1:], table_2d_trans[1:,0], table_2d_trans[1:,1:])
+    table_2d_interp1 = (lambda x, y: np.squeeze(table_2d_interp(x,y))) #eliminate singleton dimension
 
-    return table_2d_interp
+    return table_2d_interp1
 
 def parder_table_1d(table_1d):
     #Derivative of 1D look-up table
@@ -104,6 +105,7 @@ def parder_table_2d(table_2d):
         parder_x_table_2d[2:-1,j+1] = np.diff(table_2d[1:,j+1]) / np.diff(table_2d[1:,0])
     parder_x_table_2d_trans  = parder_x_table_2d.transpose()
     parder_x_table_2d_interp = interpolate.interp2d(parder_x_table_2d_trans[0,1:], parder_x_table_2d_trans[1:,0], parder_x_table_2d_trans[1:,1:], bounds_error=False, fill_value=0)
+    parder_x_table_2d_interp1 = (lambda x, y: np.squeeze(parder_x_table_2d_interp(x,y))) #eliminate singleton dimension
 
     parder_y_table_2d         = np.zeros((table_2d.shape[0] + 1, table_2d.shape[1] + 1))
     parder_y_table_2d[0,0]    = np.NaN
@@ -117,8 +119,9 @@ def parder_table_2d(table_2d):
         parder_y_table_2d[i+1,2:-1] = np.diff(table_2d[i+1,1:]) / np.diff(table_2d[0,1:])
     parder_y_table_2d_trans  = parder_y_table_2d.transpose()
     parder_y_table_2d_interp = interpolate.interp2d(parder_y_table_2d_trans[0,1:], parder_y_table_2d_trans[1:,0], parder_y_table_2d_trans[1:,1:], bounds_error=False, fill_value=0)
+    parder_y_table_2d_interp1 = (lambda x, y: np.squeeze(parder_y_table_2d_interp(x,y))) #eliminate singleton dimension
 
-    return parder_x_table_2d_interp, parder_y_table_2d_interp
+    return parder_x_table_2d_interp1, parder_y_table_2d_interp1
     
 ''' DYNAMIC COEFFICIENTS TABLES '''
 #Drag coefficient due to ground effect
@@ -871,9 +874,9 @@ def parder_w_CD3_alcm(h_b_mac_ft, parder_alpha_TD3, parder_w_alpha):
     #Partial derivative of CD3 with respect to w
     return kCDge_interp(h_b_mac_ft) * parder_alpha_TD3 * parder_w_alpha
 
-def parder_deltaf_CD3_alcm(h_b_mac_ft, parder_deltaf_TD3):
+def parder_deltaf_CD3_alcm(h_b_mac_ft, parder_deltaf_TD3_eq):
     #Partial derivative of CD3 with respect to deltaf
-    return kCDge_interp(h_b_mac_ft) * parder_deltaf_TD3
+    return kCDge_interp(h_b_mac_ft) * parder_deltaf_TD3_eq
 
 def parder_u_CD4_alcm(beta_rad, parder_u_beta):
     #Partial derivative of CD4 with respect to u
@@ -2069,6 +2072,8 @@ class ControlModel():
                                             parder_deltaf_dotr_eq,
                                             parder_deltar_dotr_eq
                                             ])
+
+                print(parder_delta_eq)
 
                 A = update_A_alcm(A, parder_x_eq)
                 B = update_B_alcm(B, parder_delta_eq)
