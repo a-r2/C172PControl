@@ -1437,7 +1437,10 @@ def update_B_alcm(B, parder_delta_eq):
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
     def __init__(self, mod_type, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
-        self.csvmod = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing control model
+        self.t         = TELEM_WAIT
+        self.dt        = 1/CM_HZ
+        self.simmod    = np.zeros(STATE_LEN) #array for storing actuation
+        self.csvmod    = np.zeros(STATE_LEN + 1) #array for storing csv actuation
         if mod_type == 'anlm': #analytic non-linear control model
             self.proc = mp.Process(target=self.non_linear, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic non-linear control model
         elif mod_type == 'alm': #analytic linear control model
@@ -1448,33 +1451,38 @@ class ControlModel():
         event_start.wait() #wait for simulation start event
         while True:
             rxdata      = rx2mod_out.recv() #receive RX telemetry
-            eqdata      = (0,0,100,0,0,0,100,0,0,0,0,0) #eq2mod_out.recv() #receive equilibrium point
-            framescount = rxdata.shape[0]
-            for i in range(framescount):                
-                time  = rxdata[i,0]
-                phi   = rxdata[i,16]
-                theta = rxdata[i,18]
-                psi   = rxdata[i,20]
-                u     = rxdata[i,30]
-                v     = rxdata[i,31]
-                w     = rxdata[i,32]
-                p     = rxdata[i,42]
-                q     = rxdata[i,43]
-                r     = rxdata[i,44]
-                fx    = rxdata[i,59]
-                fy    = rxdata[i,64]
-                fz    = rxdata[i,69]
-                l     = rxdata[i,74]
-                m     = rxdata[i,79]
-                n     = rxdata[i,84]
-                Ixx   = rxdata[i,117]
-                Ixy   = rxdata[i,118]
-                Ixz   = rxdata[i,119]
-                Iyy   = rxdata[i,120]
-                Iyz   = rxdata[i,121]
-                Izz   = rxdata[i,122]
-                mass  = rxdata[i,123]
-                g     = rxdata[i,124]
+            eqdata      = eq2mod_out.recv() #receive equilibrium point
+            if (np.any(rxdata[:,0] >= self.t)):
+                i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
+                rxdata = rxdata[i,:] #get first frame
+                self.t = self.t + self.dt
+
+                time  = rxdata[0]
+                phi   = rxdata[16]
+                theta = rxdata[18]
+                psi   = rxdata[20]
+                u     = rxdata[30]
+                v     = rxdata[31]
+                w     = rxdata[32]
+                p     = rxdata[42]
+                q     = rxdata[43]
+                r     = rxdata[44]
+                fx    = rxdata[59]
+                fy    = rxdata[64]
+                fz    = rxdata[69]
+                l     = rxdata[74]
+                m     = rxdata[79]
+                n     = rxdata[84]
+                Ixx   = rxdata[117]
+                Ixy   = rxdata[118]
+                Ixz   = rxdata[119]
+                Iyy   = rxdata[120]
+                Iyz   = rxdata[121]
+                Izz   = rxdata[122]
+                mass  = rxdata[123]
+                g     = rxdata[124]
+
+                (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
             
                 #Moments of inertia
                 Gamma  = mominert_gamma(Ixx, Ixz, Izz)
@@ -1504,18 +1512,18 @@ class ControlModel():
 
                 #Initialize state space
                 dx = np.zeros(STATE_LEN)
-                (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
 
                 qbv = body_to_vehicle(phi, theta, psi)
+
                 dx[0:3] = qbv.rotation_matrix @ np.array([u, v, w])
                 dx[3:7] = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) @ np.array([q0, q1, q2, q3])
                 dx[7:10] = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) @ np.array([p, q, r]) + np.array([fx, fy, fz]) / mass
                 dx[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n])
 
-                self.csvmod[i,:] = [time, *dx]
-
-            mod2csv_in.send(self.csvmod[:framescount,:]) #send calculated non-linear model to store in CSV
-            self.csvmod = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
+                self.simmod     = dx
+                self.csvmod[0]  = time #add timestamp
+                self.csvmod[1:] = self.simmod
+                mod2csv_in.send(self.csvmod) #send calculated non-linear model to CSV
 
     def linear(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
         #Analytic linear control model
@@ -1526,49 +1534,50 @@ class ControlModel():
             rxdata      = rx2mod_out.recv() #receive RX telemetry
             framescount = rxdata.shape[0]
             for i in range(framescount):                
-                time         = rxdata[i,0]
-                pe           = rxdata[i,2]
-                pn           = rxdata[i,3]
-                pd           = - ft_to_m(rxdata[i,9])
-                phi          = rxdata[i,16]
-                theta        = rxdata[i,18]
-                psi          = rxdata[i,20]
-                u            = rxdata[i,30]
-                v            = rxdata[i,31]
-                w            = rxdata[i,32]
-                p            = rxdata[i,42]
-                q            = rxdata[i,43]
-                r            = rxdata[i,44]
-                dotalpha     = rxdata[i,46]
-                T            = rxdata[i,58]
-                fx           = rxdata[i,59]
-                fy           = rxdata[i,64]
-                fz           = rxdata[i,69]
-                l            = rxdata[i,74]
-                m            = rxdata[i,79]
-                n            = rxdata[i,84]
+                time             = rxdata[i,0]
+                pe               = rxdata[i,2]
+                pn               = rxdata[i,3]
+                pd               = - ft_to_m(rxdata[i,9])
+                phi              = rxdata[i,16]
+                theta            = rxdata[i,18]
+                psi              = rxdata[i,20]
+                u                = rxdata[i,30]
+                v                = rxdata[i,31]
+                w                = rxdata[i,32]
+                p                = rxdata[i,42]
+                q                = rxdata[i,43]
+                r                = rxdata[i,44]
+                dotalpha         = rxdata[i,46]
+                T                = rxdata[i,58]
+                fx               = rxdata[i,59]
+                fy               = rxdata[i,64]
+                fz               = rxdata[i,69]
+                l                = rxdata[i,74]
+                m                = rxdata[i,79]
+                n                = rxdata[i,84]
                 deltaar_pos_deg  = rxdata[i,85] 
-                deltaar_pos  = rxdata[i,86] 
-                deltaar      = rxdata[i,87]
+                deltaar_pos      = rxdata[i,86] 
+                deltaar          = rxdata[i,87]
                 deltaal_pos_deg  = rxdata[i,88] 
-                deltaal_pos  = rxdata[i,89]
-                deltaal      = rxdata[i,90]
-                deltae_pos   = rxdata[i,92]
-                deltae       = rxdata[i,93]
-                deltaf_pos_deg = rxdata[i,94]
-                deltaf       = rxdata[i,96]
-                deltar_pos   = rxdata[i,98]
-                deltar       = rxdata[i,99]
-                deltat       = rxdata[i,100]
-                deltam       = rxdata[i,101]
-                hmac_ft      = rxdata[i,108]
-                Ixx          = rxdata[i,117]
-                Ixy          = rxdata[i,118]
-                Ixz          = rxdata[i,119]
-                Iyy          = rxdata[i,120]
-                Iyz          = rxdata[i,121]
-                Izz          = rxdata[i,122]
-                mass         = rxdata[i,123]
+                deltaal_pos      = rxdata[i,89]
+                deltaal          = rxdata[i,90]
+                deltae_pos       = rxdata[i,92]
+                deltae           = rxdata[i,93]
+                deltaf_pos_deg   = rxdata[i,94]
+                deltaf           = rxdata[i,96]
+                deltar_pos       = rxdata[i,98]
+                deltar           = rxdata[i,99]
+                deltat           = rxdata[i,100]
+                deltam           = rxdata[i,101]
+                hmac_ft          = rxdata[i,108]
+                Ixx              = rxdata[i,117]
+                Ixy              = rxdata[i,118]
+                Ixz              = rxdata[i,119]
+                Iyy              = rxdata[i,120]
+                Iyz              = rxdata[i,121]
+                Izz              = rxdata[i,122]
+                mass             = rxdata[i,123]
+
                 (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
                 
                 deltaa = 0.5 * (deltaal + deltaar) #deltaa_l = deltaa_r
@@ -2072,8 +2081,6 @@ class ControlModel():
                                             parder_deltaf_dotr_eq,
                                             parder_deltar_dotr_eq
                                             ])
-
-                print(parder_delta_eq)
 
                 A = update_A_alcm(A, parder_x_eq)
                 B = update_B_alcm(B, parder_delta_eq)

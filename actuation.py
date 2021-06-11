@@ -32,12 +32,12 @@ class Actuation():
                         self.simact[i] = random.gauss(mu=0.9, sigma=0.1) #throttle and mixture
                     else:
                         self.simact[i] = random.gauss(mu=0, sigma=0.1)
-                self.csvact[0] = rxdata[0] #add timestamp
+                self.csvact[0]  = rxdata[0] #add timestamp
                 self.csvact[1:] = self.simact
                 self.simactstr = self.simact.astype(str)
                 self.actstr = '\t'.join(self.simactstr)
                 self.actstr += '\n'
-                act2csv_in.send(self.csvact) #send actuation to CSV
                 act2tx_in.send(self.actstr) #send actuation to TX telemetry
+                act2csv_in.send(self.csvact) #send actuation to CSV
             else:
                 pass

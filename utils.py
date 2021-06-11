@@ -287,8 +287,40 @@ def wind_to_stability(beta):
 
 ''' OTHER '''
 def averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad):
-    #Averaged position of ailerons
+    #Averaged ailerons position 
     return 0.5 * (left_aileron_pos_rad - right_aileron_pos_rad)
+
+def deltaa_to_deg(deltaa):
+    #Ailerons position in degrees from normalized ailerons
+    return deltaa * (DELTAA_RANGE[0][1] - DELTAA_RANGE[0][0]) / (DELTAA_RANGE[1][1] - DELTAA_RANGE[1][0])
+
+def deltaa_to_rad(deltaa):
+    #Ailerons position in radians from normalized ailerons
+    return deg_to_rad(deltaa_to_deg)
+
+def deltae_to_deg(deltae):
+    #Elevator position in degrees from normalized aileron
+    return deltae * (DELTAE_RANGE[0][1] - DELTAE_RANGE[0][0]) / (DELTAE_RANGE[1][1] - DELTAE_RANGE[1][0])
+
+def deltae_to_rad(deltae):
+    #Elevators position in radians from normalized elevators
+    return deg_to_rad(deltae_to_deg)
+
+def deltaf_to_deg(deltaf):
+    #Flaps position in degrees from normalized flaps
+    return deltaf * (DELTAF_RANGE[0][1] - DELTAF_RANGE[0][0]) / (DELTAF_RANGE[1][1] - DELTAF_RANGE[1][0])
+
+def deltaf_to_rad(deltaf):
+    #Flaps position in radians from normalized flaps
+    return deg_to_rad(deltaf_to_deg)
+
+def deltar_to_deg(deltar):
+    #Rudder position in degrees from normalized rudder
+    return deltar * (DELTAR_RANGE[0][1] - DELTAR_RANGE[0][0]) / (DELTAR_RANGE[1][1] - DELTAR_RANGE[1][0])
+
+def deltar_to_rad(deltar):
+    #Rudder position in radians from normalized rudder
+    return deg_to_rad(deltar_to_deg)
 
 ''' BAROMETRIC ATMOSPHERE '''
 #https://en.wikipedia.org/wiki/Barometric_formula

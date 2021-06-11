@@ -45,7 +45,7 @@ def initialize():
     #csvkinargs = {'kin2csv_out':kin2csv_out, 'event_start':event_start}
     #CSVKinematicsLog(KIN_LOG_FILENAME, **csvkinargs) #calculated kinematics log
     csvmodargs = {'mod2csv_out':mod2csv_out, 'event_start':event_start}
-    CSVModelLog(MOD_LOG_FILENAME, **csvmodargs) #calculated control model log
+    CSVControlModelLog(CM_LOG_FILENAME, **csvmodargs) #calculated control model log
     csveqargs = {'eq2csv_out':eq2csv_out, 'event_start':event_start}
     CSVEquilibriumLog(EQ_LOG_FILENAME, **csveqargs) #calculated equilibrium point log
 
@@ -59,7 +59,7 @@ def initialize():
     Actuation(ACT_TYPE, act2csv_in, act2tx_in, eq2act_out, mod2act_out, rx2act_out, event_start) #calculate actuation
 
     #Control model
-    ControlModel(MOD_TYPE, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start) #calculate control model
+    ControlModel(CM_TYPE, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start) #calculate control model
 
     #Equilibrium point
     Equilibrium(EQ_TYPE, EQ_POINT_INIT, eq2csv_in, eq2mod_in, rx2eq_out, event_start) #calculate equilibrium point

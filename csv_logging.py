@@ -178,7 +178,7 @@ class CSVKinematicsLog():
                 except:
                     pass
 
-class CSVModelLog():
+class CSVControlModelLog():
     def __init__(self, name, **kwargs):
         for key, value in kwargs.items():
             if key == 'mod2csv_out':
@@ -187,43 +187,32 @@ class CSVModelLog():
                 event_start = value
         self.name = name + '.csv'
         if len(kwargs) > 0:
-            self.proc = mp.Process(target=self.write_log, args=(mod2csv_out, event_start), daemon=True) #process for logging control model 
+            self.proc = mp.Process(target=self.write_log, args=(mod2csv_out, event_start), daemon=True) #process for logging control model
             self.proc.start()
     def read_log(self):
         with open(self.name, 'r', newline='') as csvfile:
             modlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
             rowscount = len(list(modlog))
             csvfile.seek(0) #go to first row
-            moddata = np.zeros((rowscount, STATE_LEN + 1))
+            rxdata = np.zeros((rowscount, STATE_LEN))
             i = 0
             for row in modlog:
-                moddata[i,:] = row
+                rxdata[i,:] = row
                 i += 1
-            return moddata
+            return rxdata
     def write_log(self, mod2csv_out, event_start):
         with open(self.name, 'w', newline='') as csvfile:
             modlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
-            csvdata1 = np.zeros((MODEL_HZ, STATE_LEN + 1)) #array for storing data frames
-            csvdata2 = np.zeros((MODEL_HZ, STATE_LEN + 1)) #backup array for storing overflowed data frames
+            csvdata = np.zeros((CM_HZ, STATE_LEN + 1)) #array for storing data frames
             i = 0
             event_start.wait() #wait for simulation start
             while True:
-                try:
-                    moddata = mod2csv_out.recv() #receive RX telemetry
-                    framescount = moddata.shape[0]
-                    for j in range(framescount):                
-                        if i > (MODEL_HZ - 1):
-                            csvdata2[i-MODEL_HZ,:] = moddata[j,:] 
-                        else:
-                            csvdata1[i,:] = moddata[j,:]
-                        i += 1
-                    if i > (MODEL_HZ - 1):
-                        modlog.writerows((csvdata1[k,:] for k in range(MODEL_HZ))) #write array into CSV 
-                        i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
-                        csvdata1 = csvdata2
-                        csvdata2 = np.empty((MODEL_HZ, (STATE_LEN + 1))) #empty backup array 
-                except:
-                    pass
+                moddata = mod2csv_out.recv()
+                csvdata[i,:] = moddata
+                i += 1
+                if i > (CM_HZ - 1):
+                    modlog.writerows((csvdata[k,:] for k in range(CM_HZ))) #write array into CSV 
+                    i = 0
 
 class CSVEquilibriumLog():
     def __init__(self, name, **kwargs):

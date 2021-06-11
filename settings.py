@@ -4,6 +4,7 @@ FPS = 100 #frames per real time second
 MAX_TIME_PER_FRAME = 1/100 #timestep per video frame
 MODEL_HZ = 100 #model iterations per simulation second
 ACT_HZ = 10 #actuation frequency
+CM_HZ = 10 #control model frequency
 CFG_IP_ADDRESS = 'localhost'
 CFG_PORT = 60003 #config port
 
@@ -11,8 +12,8 @@ CFG_PORT = 60003 #config port
 ACT_TYPE = 'random' #'random'
 
 ''' CONTROL MODEL '''
-MOD_TYPE = 'alm' #'anlm', 'alm'
-MOD_LOG_FILENAME = 'control_model_log'
+CM_TYPE = 'anlm' #'anlm', 'alm'
+CM_LOG_FILENAME = 'control_model_log'
 
 ''' DYNAMICS '''
 DYN_LOG_FILENAME = 'dynamics_log'
