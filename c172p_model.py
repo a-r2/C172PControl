@@ -1439,88 +1439,24 @@ def update_B_alcm(B, parder_delta_eq):
 
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
+
     def __init__(self, mod_type, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
-        self.t         = TELEM_WAIT
-        self.dt        = 1/CM_HZ
-        self.simmod    = np.zeros(STATE_LEN) #array for storing actuation
-        self.csvmod    = np.zeros(STATE_LEN + 1) #array for storing csv actuation
+        self.t          = TELEM_WAIT
+        self.dt         = 1/CM_HZ
+        self.inputs_str = CM_INPUTS
+        self.states_str = CM_STATES
+        self.simmod     = np.zeros(STATE_LEN) #array for storing actuation
+        self.csvmod     = np.zeros(STATE_LEN + 1) #array for storing csv actuation
         if mod_type == 'ANL': #analytic non-linear control model
             self.proc = mp.Process(target=self.non_linear, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic non-linear control model
-        if mod_type == 'ANL_IO': #analytic non-linear input-output control model
-            self.proc = mp.Process(target=self.non_linear_io, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic non-linear control model
         elif mod_type == 'AL': #analytic linear control model
             self.proc = mp.Process(target=self.linear, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic linear control model
         self.proc.start()
+
     def non_linear(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
         #Analytic non-linear control model
-        event_start.wait() #wait for simulation start event
-        while True:
-            rxdata      = rx2mod_out.recv() #receive RX telemetry
-            eqdata      = eq2mod_out.recv() #receive equilibrium point
-            if (np.any(rxdata[:,0] >= self.t)):
-                i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
-                rxdata = rxdata[i,:] #get first frame
-                self.t = self.t + self.dt
-
-                time  = rxdata[0]
-                phi   = rxdata[16]
-                theta = rxdata[18]
-                psi   = rxdata[20]
-                u     = rxdata[30]
-                v     = rxdata[31]
-                w     = rxdata[32]
-                p     = rxdata[42]
-                q     = rxdata[43]
-                r     = rxdata[44]
-                fx    = rxdata[59]
-                fy    = rxdata[64]
-                fz    = rxdata[69]
-                l     = rxdata[74]
-                m     = rxdata[79]
-                n     = rxdata[84]
-                Ixx   = rxdata[117]
-                Ixy   = rxdata[118]
-                Ixz   = rxdata[119]
-                Iyy   = rxdata[120]
-                Iyz   = rxdata[121]
-                Izz   = rxdata[122]
-                mass  = rxdata[123]
-                g     = rxdata[124]
-
-                (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
-            
-                #Moments of inertia
-                Gamma  = mominert_gamma(Ixx, Ixz, Izz)
-                Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
-                Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
-                Gamma3 = mominert_gamma3(Izz, Gamma)
-                Gamma4 = mominert_gamma4(Ixz, Gamma)
-                Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
-                Gamma6 = mominert_gamma6(Ixz, Iyy)
-                Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
-                Gamma8 = mominert_gamma8(Ixx, Gamma)
-
-                #Initialize state space
-                dx = np.zeros(STATE_LEN)
-
-                qbv = body_to_vehicle(phi, theta, psi)
-
-                dx[0:3] = qbv.rotation_matrix @ np.array([u, v, w])
-                dx[3:7] = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) @ np.array([q0, q1, q2, q3])
-                dx[7:10] = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) @ np.array([p, q, r]) + np.array([fx, fy, fz]) / mass
-                dx[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n])
-
-                self.simmod     = dx
-                self.csvmod[0]  = time #add timestamp
-                self.csvmod[1:] = self.simmod
-                mod2csv_in.send(self.csvmod) #send calculated non-linear model to CSV
-
-    def non_linear_io(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
-        #Analytic non-linear input-output control model
-        inputs_str    = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam')
-        states_str    = ('pn', 'pe', 'pd', 'q0', 'q1', 'q2', 'q3', 'u', 'v', 'w', 'p', 'q', 'r')
-        prev_t_anl_io = TELEM_WAIT
-        prev_u_anl_io = np.zeros((INPUT_LEN,1))
+        prev_t_anl = TELEM_WAIT
+        prev_u_anl = np.zeros((INPUT_LEN,1))
         event_start.wait() #wait for simulation start event
         while True:
             rxdata      = rx2mod_out.recv() #receive RX telemetry
@@ -1613,45 +1549,47 @@ class ControlModel():
                 params.update(Gamma8 = Gamma8)
 
                 #State
-                x_anl_io = np.row_stack([
-                                    pn,
-                                    pe,
-                                    pd,
-                                    q0,
-                                    q1,
-                                    q2,
-                                    q3,
-                                    u,
-                                    v,
-                                    w,
-                                    p,
-                                    q,
-                                    r
-                                 ])
+                x_anl = np.row_stack([
+                                            pn,
+                                            pe,
+                                            pd,
+                                            q0,
+                                            q1,
+                                            q2,
+                                            q3,
+                                            u,
+                                            v,
+                                            w,
+                                            p,
+                                            q,
+                                            r
+                                         ])
 
                 #Input
-                u_anl_io = np.row_stack([
-                                    deltaa,
-                                    deltae,
-                                    deltaf,
-                                    deltar,
-                                    deltat,
-                                    deltam
-                                 ])
+                u_anl = np.row_stack([
+                                            deltaa,
+                                            deltae,
+                                            deltaf,
+                                            deltar,
+                                            deltat,
+                                            deltam
+                                         ])
 
-                T = np.array([prev_t_anl_io, self.t])
-                anl_io_sys = control.iosys.NonlinearIOSystem(update_anl_io, inputs=inputs_str, outputs=states_str, states=states_str, params=params, dt=self.dt, name='ANLCM_IO')
-                t_anl_io, y_anl_io = control.input_output_response(anl_io_sys, T, np.concatenate((prev_u_anl_io, u_anl_io),1), x_anl_io)
-                prev_t_anl_io   = t_anl_io[1]
-                prev_u_anl_io   = u_anl_io
-                self.simmod     = y_anl_io[:,1]
+                T = np.array([prev_t_anl, self.t])
+                anl_sys = control.iosys.NonlinearIOSystem(update_anl, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, params=params, dt=self.dt, name='ANL')
+                t_anl, y_anl = control.input_output_response(anl_sys, T, np.concatenate((prev_u_anl, u_anl),1), x_anl)
+                prev_t_anl      = t_anl[1]
+                prev_u_anl      = u_anl
+                self.simmod     = y_anl[:,1]
                 self.csvmod[0]  = time #add timestamp
                 self.csvmod[1:] = self.simmod
                 mod2csv_in.send(self.csvmod) #send calculated non-linear model to CSV
 
     def linear(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
         #Analytic linear control model
-        dx, A, B, C, D, x, u = initialize_alcm() #initialize state space
+        dx_al, A, B, C, D, x_al, u_al = initialize_alcm() #initialize state space
+        prev_t_al = TELEM_WAIT
+        prev_u_al = np.zeros((INPUT_LEN,1))
         event_start.wait() #wait for simulation start event
         while True:
             eqdata      = eq2mod_out.recv() #receive equilibrium point
@@ -1709,33 +1647,6 @@ class ControlModel():
                 deltaa = 0.5 * (deltaal + deltaar) #deltaa_l = deltaa_r
                 deltaf = 1
                 deltam = 1
-
-                #State
-                x = np.array([
-                                pn,
-                                pe,
-                                pd,
-                                q0,
-                                q1,
-                                q2,
-                                q3,
-                                u,
-                                v,
-                                w,
-                                p,
-                                q,
-                                r
-                            ])
-
-                #Input
-                u = np.array([
-                                deltaa,
-                                deltae,
-                                deltaf,
-                                deltar,
-                                deltat,
-                                deltam
-                            ])
 
                 #Moments of inertia
                 Gamma  = mominert_gamma(Ixx, Ixz, Izz)
@@ -2208,24 +2119,50 @@ class ControlModel():
                                             parder_deltar_dotr_eq
                                             ])
 
+                #State
+                x_al = np.row_stack([
+                                        pn,
+                                        pe,
+                                        pd,
+                                        q0,
+                                        q1,
+                                        q2,
+                                        q3,
+                                        u,
+                                        v,
+                                        w,
+                                        p,
+                                        q,
+                                        r
+                                    ])
+
+                #Input
+                u_al = np.row_stack([
+                                        deltaa,
+                                        deltae,
+                                        deltaf,
+                                        deltar,
+                                        deltat,
+                                        deltam
+                                    ])
+
+                T = np.array([prev_t_al, self.t])
                 A = update_A_alcm(A, parder_x_eq)
                 B = update_B_alcm(B, parder_delta_eq)
                 
-                print(A)
-                print(B)
+                dx_al = A @ x_al + B @ u_al
 
-                dx = A @ x + B @ u
-
-                alcm_ss = control.StateSpace(A, B, C, D, 1/CM_HZ)
-                alcm_zeros = alcm_ss.zero()
-                alcm_poles = alcm_ss.pole()
-
-                self.simmod     = dx
+                al_ss = control.StateSpace(A, B, C, D, self.dt)
+                al_sys = control.iosys.LinearIOSystem(al_ss, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, name='AL')
+                t_al, y_al = control.input_output_response(al_sys, T, np.concatenate((prev_u_al, u_al),1), x_al)
+                prev_t_al       = t_al[1]
+                prev_u_al       = u_al
+                self.simmod     = y_al[:,1]
                 self.csvmod[0]  = time #add timestamp
                 self.csvmod[1:] = self.simmod
                 mod2csv_in.send(self.csvmod) #send calculated non-linear model to CSV
 
-def update_anl_io(time, x_anl_io, u_anl_io, params):
+def update_anl(time, x_anl, u_anl, params):
 
     phi            = params['phi']
     theta          = params['theta']
@@ -2252,26 +2189,26 @@ def update_anl_io(time, x_anl_io, u_anl_io, params):
     Gamma7         = params['Gamma7']
     Gamma8         = params['Gamma8']
 
-    pn = x_anl_io[0]
-    pe = x_anl_io[1]
-    pd = x_anl_io[2]
-    q0 = x_anl_io[3]
-    q1 = x_anl_io[4]
-    q2 = x_anl_io[5]
-    q3 = x_anl_io[6]
-    u  = x_anl_io[7]
-    v  = x_anl_io[8]
-    w  = x_anl_io[9]
-    p  = x_anl_io[10]
-    q  = x_anl_io[11]
-    r  = x_anl_io[12]
+    pn = x_anl[0]
+    pe = x_anl[1]
+    pd = x_anl[2]
+    q0 = x_anl[3]
+    q1 = x_anl[4]
+    q2 = x_anl[5]
+    q3 = x_anl[6]
+    u  = x_anl[7]
+    v  = x_anl[8]
+    w  = x_anl[9]
+    p  = x_anl[10]
+    q  = x_anl[11]
+    r  = x_anl[12]
 
-    deltaa = u_anl_io[0]
-    deltae = u_anl_io[1]
-    deltaf = u_anl_io[2]
-    deltar = u_anl_io[3]
-    deltat = u_anl_io[4]
-    deltam = u_anl_io[5]
+    deltaa = u_anl[0]
+    deltae = u_anl[1]
+    deltaf = u_anl[2]
+    deltar = u_anl[3]
+    deltat = u_anl[4]
+    deltam = u_anl[5]
 
     euler = np.array([phi, theta, psi])
     qbv   = body_to_vehicle(phi, theta, psi)
