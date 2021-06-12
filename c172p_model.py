@@ -2,6 +2,7 @@ import multiprocessing as mp
 import numpy as np
 from math import atan2, sin, sqrt
 
+import control
 from scipy import interpolate
 from settings import *
 from utils import *
@@ -1160,10 +1161,12 @@ def initialize_alcm():
     #Initialize state space by constructing dx vector and A and B matrices
     dx = np.zeros(STATE_LEN) #state evolution
     A  = np.zeros((STATE_LEN, STATE_LEN)) #state jacobian
-    x  = dx #state
     B  = np.zeros((STATE_LEN, INPUT_LEN)) #input jacobian
+    C  = np.eye(STATE_LEN)
+    D  = np.zeros((STATE_LEN, INPUT_LEN))
+    x  = dx #state
     u  = np.zeros(INPUT_LEN) #input
-    return dx, A, x, B, u
+    return dx, A, B, C, D, x, u
 
 def update_A_alcm(A, parder_x_eq):
     #Update state jacobian matrix (A)
@@ -1441,9 +1444,11 @@ class ControlModel():
         self.dt        = 1/CM_HZ
         self.simmod    = np.zeros(STATE_LEN) #array for storing actuation
         self.csvmod    = np.zeros(STATE_LEN + 1) #array for storing csv actuation
-        if mod_type == 'anlm': #analytic non-linear control model
+        if mod_type == 'ANL': #analytic non-linear control model
             self.proc = mp.Process(target=self.non_linear, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic non-linear control model
-        elif mod_type == 'alm': #analytic linear control model
+        if mod_type == 'ANL_IO': #analytic non-linear input-output control model
+            self.proc = mp.Process(target=self.non_linear_io, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic non-linear control model
+        elif mod_type == 'AL': #analytic linear control model
             self.proc = mp.Process(target=self.linear, args=(eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start), daemon=True) #process for calculating analytic linear control model
         self.proc.start()
     def non_linear(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
@@ -1495,21 +1500,6 @@ class ControlModel():
                 Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
                 Gamma8 = mominert_gamma8(Ixx, Gamma)
 
-                #Equilibrium point
-                pn_eq    = eqdata[0]
-                pe_eq    = eqdata[1]
-                pd_eq    = eqdata[2]
-                phi_eq   = eqdata[3]
-                theta_eq = eqdata[4]
-                psi_eq   = eqdata[5]
-                u_eq     = eqdata[6]
-                v_eq     = eqdata[7]
-                w_eq     = eqdata[8]
-                p_eq     = eqdata[9]
-                q_eq     = eqdata[10]
-                r_eq     = eqdata[11]
-                (q0_eq, q1_eq, q2_eq, q3_eq) = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
-
                 #Initialize state space
                 dx = np.zeros(STATE_LEN)
 
@@ -1525,58 +1515,194 @@ class ControlModel():
                 self.csvmod[1:] = self.simmod
                 mod2csv_in.send(self.csvmod) #send calculated non-linear model to CSV
 
+    def non_linear_io(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
+        #Analytic non-linear input-output control model
+        inputs_str    = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam')
+        states_str    = ('pn', 'pe', 'pd', 'q0', 'q1', 'q2', 'q3', 'u', 'v', 'w', 'p', 'q', 'r')
+        prev_t_anl_io = TELEM_WAIT
+        prev_u_anl_io = np.zeros((INPUT_LEN,1))
+        event_start.wait() #wait for simulation start event
+        while True:
+            rxdata      = rx2mod_out.recv() #receive RX telemetry
+            eqdata      = eq2mod_out.recv() #receive equilibrium point
+            if (np.any(rxdata[:,0] >= self.t)):
+                i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
+                rxdata = rxdata[i,:] #get first frame
+                self.t = self.t + self.dt
+
+                time           = rxdata[0]
+                pe             = rxdata[2]
+                pn             = rxdata[3]
+                pd             = - ft_to_m(rxdata[9])
+                phi            = rxdata[16]
+                theta          = rxdata[18]
+                psi            = rxdata[20]
+                u              = rxdata[30]
+                v              = rxdata[31]
+                w              = rxdata[32]
+                p              = rxdata[42]
+                q              = rxdata[43]
+                r              = rxdata[44]
+                dotalpha       = rxdata[46]
+                T              = rxdata[58]
+                deltaar_pos    = rxdata[86] 
+                deltaar        = rxdata[87]
+                deltaal_pos    = rxdata[89]
+                deltaal        = rxdata[90]
+                deltae_pos     = rxdata[92]
+                deltae         = rxdata[93]
+                deltaf_pos_deg = rxdata[94]
+                deltaf         = rxdata[96]
+                deltar_pos     = rxdata[98]
+                deltar         = rxdata[99]
+                deltat         = rxdata[100]
+                deltam         = rxdata[101]
+                hmac_ft        = rxdata[108]
+                qbar_psf       = rxdata[109]
+                stall          = rxdata[113]
+                Ixx            = rxdata[117]
+                Ixy            = rxdata[118]
+                Ixz            = rxdata[119]
+                Iyy            = rxdata[120]
+                Iyz            = rxdata[121]
+                Izz            = rxdata[122]
+                mass           = rxdata[123]
+                gravity        = rxdata[124]
+
+                (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
+
+                deltaa = 0.5 * (deltaal + deltaar) #deltaa_l = deltaa_r
+                deltaf = 1
+                deltam = 1
+            
+                #Moments of inertia
+                Gamma  = mominert_gamma(Ixx, Ixz, Izz)
+                Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
+                Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
+                Gamma3 = mominert_gamma3(Izz, Gamma)
+                Gamma4 = mominert_gamma4(Ixz, Gamma)
+                Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
+                Gamma6 = mominert_gamma6(Ixz, Iyy)
+                Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
+                Gamma8 = mominert_gamma8(Ixx, Gamma)
+
+                params = dict()
+                params.update(phi = phi)
+                params.update(theta = theta)
+                params.update(psi = psi)
+                params.update(dotalpha = dotalpha)
+                params.update(deltaar_pos = deltaar_pos)
+                params.update(deltaal_pos = deltaal_pos)
+                params.update(deltae_pos = deltae_pos)
+                params.update(deltaf_pos_deg = deltaf_pos_deg)
+                params.update(deltar_pos = deltar_pos)
+                params.update(hmac_ft = hmac_ft)
+                params.update(qbar_psf = qbar_psf)
+                params.update(stall = stall)
+                params.update(Iyy = Iyy)
+                params.update(mass = mass)
+                params.update(gravity = gravity)
+                params.update(Gamma = Gamma)
+                params.update(Gamma1 = Gamma1)
+                params.update(Gamma2 = Gamma2)
+                params.update(Gamma3 = Gamma3)
+                params.update(Gamma4 = Gamma4)
+                params.update(Gamma5 = Gamma5)
+                params.update(Gamma6 = Gamma6)
+                params.update(Gamma7 = Gamma7)
+                params.update(Gamma8 = Gamma8)
+
+                #State
+                x_anl_io = np.row_stack([
+                                    pn,
+                                    pe,
+                                    pd,
+                                    q0,
+                                    q1,
+                                    q2,
+                                    q3,
+                                    u,
+                                    v,
+                                    w,
+                                    p,
+                                    q,
+                                    r
+                                 ])
+
+                #Input
+                u_anl_io = np.row_stack([
+                                    deltaa,
+                                    deltae,
+                                    deltaf,
+                                    deltar,
+                                    deltat,
+                                    deltam
+                                 ])
+
+                T = np.array([prev_t_anl_io, self.t])
+                anl_io_sys = control.iosys.NonlinearIOSystem(update_anl_io, inputs=inputs_str, outputs=states_str, states=states_str, params=params, dt=self.dt, name='ANLCM_IO')
+                t_anl_io, y_anl_io = control.input_output_response(anl_io_sys, T, np.concatenate((prev_u_anl_io, u_anl_io),1), x_anl_io)
+                prev_t_anl_io   = t_anl_io[1]
+                prev_u_anl_io   = u_anl_io
+                self.simmod     = y_anl_io[:,1]
+                self.csvmod[0]  = time #add timestamp
+                self.csvmod[1:] = self.simmod
+                mod2csv_in.send(self.csvmod) #send calculated non-linear model to CSV
+
     def linear(self, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
         #Analytic linear control model
-        dx, A, x, B, u = initialize_alcm() #initialize state space
+        dx, A, B, C, D, x, u = initialize_alcm() #initialize state space
         event_start.wait() #wait for simulation start event
         while True:
             eqdata      = eq2mod_out.recv() #receive equilibrium point
             rxdata      = rx2mod_out.recv() #receive RX telemetry
-            framescount = rxdata.shape[0]
-            for i in range(framescount):                
-                time             = rxdata[i,0]
-                pe               = rxdata[i,2]
-                pn               = rxdata[i,3]
-                pd               = - ft_to_m(rxdata[i,9])
-                phi              = rxdata[i,16]
-                theta            = rxdata[i,18]
-                psi              = rxdata[i,20]
-                u                = rxdata[i,30]
-                v                = rxdata[i,31]
-                w                = rxdata[i,32]
-                p                = rxdata[i,42]
-                q                = rxdata[i,43]
-                r                = rxdata[i,44]
-                dotalpha         = rxdata[i,46]
-                T                = rxdata[i,58]
-                fx               = rxdata[i,59]
-                fy               = rxdata[i,64]
-                fz               = rxdata[i,69]
-                l                = rxdata[i,74]
-                m                = rxdata[i,79]
-                n                = rxdata[i,84]
-                deltaar_pos_deg  = rxdata[i,85] 
-                deltaar_pos      = rxdata[i,86] 
-                deltaar          = rxdata[i,87]
-                deltaal_pos_deg  = rxdata[i,88] 
-                deltaal_pos      = rxdata[i,89]
-                deltaal          = rxdata[i,90]
-                deltae_pos       = rxdata[i,92]
-                deltae           = rxdata[i,93]
-                deltaf_pos_deg   = rxdata[i,94]
-                deltaf           = rxdata[i,96]
-                deltar_pos       = rxdata[i,98]
-                deltar           = rxdata[i,99]
-                deltat           = rxdata[i,100]
-                deltam           = rxdata[i,101]
-                hmac_ft          = rxdata[i,108]
-                Ixx              = rxdata[i,117]
-                Ixy              = rxdata[i,118]
-                Ixz              = rxdata[i,119]
-                Iyy              = rxdata[i,120]
-                Iyz              = rxdata[i,121]
-                Izz              = rxdata[i,122]
-                mass             = rxdata[i,123]
+            if (np.any(rxdata[:,0] >= self.t)):
+                i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
+                rxdata = rxdata[i,:] #get first frame
+                self.t = self.t + self.dt
+                time            = rxdata[0]
+                pe              = rxdata[2]
+                pn              = rxdata[3]
+                pd              = - ft_to_m(rxdata[9])
+                phi             = rxdata[16]
+                theta           = rxdata[18]
+                psi             = rxdata[20]
+                u               = rxdata[30]
+                v               = rxdata[31]
+                w               = rxdata[32]
+                p               = rxdata[42]
+                q               = rxdata[43]
+                r               = rxdata[44]
+                dotalpha        = rxdata[46]
+                T               = rxdata[58]
+                fx              = rxdata[59]
+                fy              = rxdata[64]
+                fz              = rxdata[69]
+                l               = rxdata[74]
+                m               = rxdata[79]
+                n               = rxdata[84]
+                deltaar_pos_deg = rxdata[85] 
+                deltaar_pos     = rxdata[86] 
+                deltaar         = rxdata[87]
+                deltaal_pos_deg = rxdata[88] 
+                deltaal_pos     = rxdata[89]
+                deltaal         = rxdata[90]
+                deltae_pos      = rxdata[92]
+                deltae          = rxdata[93]
+                deltaf_pos_deg  = rxdata[94]
+                deltaf          = rxdata[96]
+                deltar_pos      = rxdata[98]
+                deltar          = rxdata[99]
+                deltat          = rxdata[100]
+                deltam          = rxdata[101]
+                hmac_ft         = rxdata[108]
+                Ixx             = rxdata[117]
+                Ixy             = rxdata[118]
+                Ixz             = rxdata[119]
+                Iyy             = rxdata[120]
+                Iyz             = rxdata[121]
+                Izz             = rxdata[122]
+                mass            = rxdata[123]
 
                 (q0, q1, q2, q3) = euler_to_attquat(np.array([phi, theta, psi]))
                 
@@ -1659,7 +1785,7 @@ class ControlModel():
                 bi2vel_eq = BW_SI / (2 * Va_eq)
                 ci2vel_eq = CW_SI / (2 * Va_eq)
                 alpha_deg_eq = rad_to_deg(alpha_eq)
-                qbar_psf_eq = qbar_acm(rho_eq, Va_eq)
+                qbar_psf_eq = pa_to_psf(qbar_eq)
 
                 CD1_eq = aerocoeff_CD1()
                 CD2_eq = aerocoeff_CD2(hmac_ft, deltaf_pos_deg)
@@ -2084,10 +2210,142 @@ class ControlModel():
 
                 A = update_A_alcm(A, parder_x_eq)
                 B = update_B_alcm(B, parder_delta_eq)
+                
+                print(A)
+                print(B)
 
                 dx = A @ x + B @ u
 
-                self.csvmod[i,:] = [time, *dx]
+                alcm_ss = control.StateSpace(A, B, C, D, 1/CM_HZ)
+                alcm_zeros = alcm_ss.zero()
+                alcm_poles = alcm_ss.pole()
 
-            mod2csv_in.send(self.csvmod[:framescount,:]) #send calculated linear model to store in CSV
-            self.csvmod = np.empty((MODEL_HZ, STATE_LEN + 1)) #empty array 
+                self.simmod     = dx
+                self.csvmod[0]  = time #add timestamp
+                self.csvmod[1:] = self.simmod
+                mod2csv_in.send(self.csvmod) #send calculated non-linear model to CSV
+
+def update_anl_io(time, x_anl_io, u_anl_io, params):
+
+    phi            = params['phi']
+    theta          = params['theta']
+    psi            = params['psi']
+    dotalpha       = params['dotalpha']
+    deltaar_pos    = params['deltaar_pos']
+    deltaal_pos    = params['deltaal_pos']
+    deltae_pos     = params['deltae_pos']
+    deltaf_pos_deg = params['deltaf_pos_deg']
+    deltar_pos     = params['deltar_pos']
+    hmac_ft        = params['hmac_ft']
+    qbar_psf       = params['qbar_psf']
+    stall          = params['stall']
+    Iyy            = params['Iyy']
+    mass           = params['mass']
+    gravity        = params['gravity']
+    Gamma          = params['Gamma']
+    Gamma1         = params['Gamma1']
+    Gamma2         = params['Gamma2']
+    Gamma3         = params['Gamma3']
+    Gamma4         = params['Gamma4']
+    Gamma5         = params['Gamma5']
+    Gamma6         = params['Gamma6']
+    Gamma7         = params['Gamma7']
+    Gamma8         = params['Gamma8']
+
+    pn = x_anl_io[0]
+    pe = x_anl_io[1]
+    pd = x_anl_io[2]
+    q0 = x_anl_io[3]
+    q1 = x_anl_io[4]
+    q2 = x_anl_io[5]
+    q3 = x_anl_io[6]
+    u  = x_anl_io[7]
+    v  = x_anl_io[8]
+    w  = x_anl_io[9]
+    p  = x_anl_io[10]
+    q  = x_anl_io[11]
+    r  = x_anl_io[12]
+
+    deltaa = u_anl_io[0]
+    deltae = u_anl_io[1]
+    deltaf = u_anl_io[2]
+    deltar = u_anl_io[3]
+    deltat = u_anl_io[4]
+    deltam = u_anl_io[5]
+
+    euler = np.array([phi, theta, psi])
+    qbv   = body_to_vehicle(phi, theta, psi)
+    quat  = euler_to_attquat(euler)
+
+    #Misc variables
+    rho      = barometric_density(pd)
+    Vauw     = Vauw_acm(u, w)
+    Va       = Va_acm(u, v, w)
+    alpha    = alpha_acm(u, w)
+    beta     = beta_acm(v, Vauw)
+    n        = n_acm(deltat, deltam)
+    J        = J_acm(u, n)
+    T        = thrust_eng(J, rho, n)
+    Vind2    = Vind2_acm(u, rho, T)
+    Vind     = Vind_acm(u, rho, T, Vind2)
+    Vprop    = Vprop_acm(u, Vind)
+    qbar     = qbar_acm(rho, Va)
+    qbaruw   = qbaruw_acm(rho, Vauw)
+    qbarind  = qbarind_acm(rho, Vind)
+    qbarprop = qbarprop_acm(rho, Vprop)
+
+    #Tables
+    bi2vel    = BW_SI / (2 * Va)
+    ci2vel    = CW_SI / (2 * Va)
+    alpha_deg = rad_to_deg(alpha)
+
+    CD1 = aerocoeff_CD1()
+    CD2 = aerocoeff_CD2(hmac_ft, deltaf_pos_deg)
+    CD3 = aerocoeff_CD3(hmac_ft, alpha, deltaf_pos_deg)
+    CD4 = aerocoeff_CD4(beta)
+    CC1 = aerocoeff_CC1(beta, deltaf_pos_deg)
+    CC2 = aerocoeff_CC2(deltar_pos)
+    CL1 = aerocoeff_CL1(hmac_ft, alpha, stall)
+    CL2 = aerocoeff_CL2(hmac_ft, deltaf_pos_deg)
+    CL3 = aerocoeff_CL3(deltae_pos)
+    CL4 = aerocoeff_CL4(q, ci2vel)
+    CL5 = aerocoeff_CL5(dotalpha, ci2vel)
+    Cl1 = aerocoeff_Cl1(beta, alpha)
+    Cl2 = aerocoeff_Cl2(bi2vel, p)
+    Cl3 = aerocoeff_Cl3(bi2vel, r, deltaf_pos_deg, alpha, stall)
+    Cl4 = aerocoeff_Cl4(deltaal_pos, deltaar_pos, alpha, stall)
+    Cl5 = aerocoeff_Cl5(deltar_pos)
+    Cm1 = aerocoeff_Cm1(qbar_psf)
+    Cm2 = aerocoeff_Cm2(alpha_deg, alpha)
+    Cm3 = aerocoeff_Cm3(ci2vel, q)
+    Cm4 = aerocoeff_Cm4(deltaf_pos_deg)
+    Cm5 = aerocoeff_Cm5(ci2vel, dotalpha)
+    Cm6 = aerocoeff_Cm6(deltae_pos, alpha_deg)
+    Cn1 = aerocoeff_Cn1(beta)
+    Cn2 = aerocoeff_Cn2(bi2vel, r)
+    Cn3 = aerocoeff_Cn3(bi2vel, r, alpha)
+    Cn4 = aerocoeff_Cn4(deltaal_pos, deltaar_pos, alpha, beta)
+    Cn5 = aerocoeff_Cn5(deltar_pos)
+    Cn6 = aerocoeff_Cn6()
+
+    D = qbar * SW_SI * (CD1 + CD2 + CD3 + CD4) 
+    C = qbar * SW_SI * (CC1 + CC2)
+    L = SW_SI * (qbar * (CL1 + CL2 + CL3 + CL4) + qbaruw * CL5)
+    gx, gy, gz = gravity_body(quat, mass, gravity)
+
+    fx = - D + gx + T
+    fy = C + gy
+    fz = - L + gz
+    l  = qbar * SW_SI * BW_SI * (Cl1 + Cl2 + Cl3 + Cl4 + Cl5)
+    m  = SW_SI * CW_SI * (qbar * (Cm1 + Cm2 + Cm3 + Cm4) + qbaruw * Cm5 + qbarind * Cm6)
+    n  = SW_SI * BW_SI * (qbar * (Cn1 + Cn2 + Cn3 + Cn4) + qbarind * Cn5 + qbarprop * Cn6)
+    
+    dx = np.zeros(STATE_LEN)
+
+    # Compute the discrete updates
+    dx[0:3] = qbv.rotation_matrix @ np.array([u, v, w])
+    dx[3:7] = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) @ np.array([q0, q1, q2, q3])
+    dx[7:10] = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) @ np.array([p, q, r]) + np.array([fx, fy, fz]) / mass
+    dx[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n])
+
+    return dx
