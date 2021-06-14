@@ -1,9 +1,10 @@
+import control
 import multiprocessing as mp
 import numpy as np
+from scipy import interpolate
 from math import atan2, sin, sqrt
 
-import control
-from scipy import interpolate
+from constants import *
 from settings import *
 from utils import *
 
@@ -1443,8 +1444,8 @@ class ControlModel():
     def __init__(self, mod_type, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start):
         self.t          = TELEM_WAIT
         self.dt         = 1/CM_HZ
-        self.inputs_str = CM_INPUTS
-        self.states_str = CM_STATES
+        self.inputs_str = CM_INPUTS_STR
+        self.states_str = CM_STATES_STR
         self.simmod     = np.zeros(STATE_LEN) #array for storing actuation
         self.csvmod     = np.zeros(STATE_LEN + 1) #array for storing csv actuation
         if mod_type == 'ANL': #analytic non-linear control model
