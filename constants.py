@@ -18,7 +18,8 @@
 # 6 | deltaa_trim | Normalized ailerons trim position   | - | -
 # 7 | deltae_trim | Normalized elevators trim position  | - | -
 # 8 | deltar_trim | Normalized rudder trim position     | - | -
-ACT_LEN = 9
+ACT_STR = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam', 'deltaa_trim', 'deltae_trim', 'deltar_trim')
+ACT_LEN = len(ACT_STR)
 
 ''' CONTROL MODEL '''
 # 0 | deltaa | Normalized ailerons position        | - | - 
@@ -28,6 +29,7 @@ ACT_LEN = 9
 # 4 | deltat | Normalized engine throttle position | - | - 
 # 5 | deltam | Normalized engine mixture position  | - | - 
 CM_INPUTS_STR = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam')
+CM_INPUTS_LEN = len(CM_INPUTS_STR)
 
 # 0  | pn | North position                               | NED | m
 # 1  | pe | East position                                | NED | m
@@ -55,7 +57,8 @@ CM_STATES_STR = ('pn', 'pe', 'pd', 'q0', 'q1', 'q2', 'q3', 'u', 'v', 'w', 'p', '
 # 7 | l  | Longitudinal moment              | XYZ | N·m
 # 8 | m  | Transversal moment               | XYZ | N·m
 # 9 | n  | Vertical moment                  | XYZ | N·m
-DYN_LEN = 10
+DYN_STR = ('D', 'C', 'L', 'T', 'gx', 'gy', 'gz', 'l', 'm', 'n')
+DYN_LEN = len(DYN_STR)
 
 ''' RX TELEMETRY '''
 # 0   | t_sim         | Simulation time from start                                    | -    | s
@@ -150,12 +153,12 @@ DYN_LEN = 10
 # 89  | ngear         | Gear yaw moment                                               | XYZ  | lbs·ft
 # 90  | nprop         | Propeller yaw moment                                          | XYZ  | lbs·ft
 # 91  | n             | Total yaw moment                                              | XYZ  | lbs·ft
-# 92  | sigmaa_r_deg  | Right aileron position                                        | -    | deg
-# 93  | sigmaa_r_rad  | Right aileron position                                        | -    | rad
-# 94  | deltaa_r      | Normalized right aileron position                             | -    | -
-# 95  | sigmaa_l_deg  | Left aileron position                                         | -    | deg
-# 96  | sigmaa_l_rad  | Left aileron position                                         | -    | rad
-# 97  | deltaa_l      | Normalized left aileron position                              | -    | -
+# 92  | sigmara_deg   | Right aileron position                                        | -    | deg
+# 93  | sigmara_rad   | Right aileron position                                        | -    | rad
+# 94  | deltara       | Normalized right aileron position                             | -    | -
+# 95  | sigmala_deg   | Left aileron position                                         | -    | deg
+# 96  | sigmala_rad   | Left aileron position                                         | -    | rad
+# 97  | deltala       | Normalized left aileron position                              | -    | -
 # 98  | sigmae_deg    | Elevators position                                            | -    | deg
 # 99  | sigmae_rad    | Elevators position                                            | -    | rad
 # 100 | deltae        | Normalized elevators position                                 | -    | -
@@ -190,7 +193,8 @@ DYN_LEN = 10
 # 129 | Izz           | Moment of inercia Izz                                         | -    | slug/ft^2
 # 130 | mass          | Mass                                                          | -    | slug
 # 131 | g             | Gravitational acceleration                                    | -    | ft/s^2
-TELEM_RX_LEN = 132 #RX telemetry length (DO NOT MODIFY UNLESS FG2PY.XML IS ALSO MODIFIED ACCORDINGLY)
+TELEM_RX_STR = ('t_sim', 'dt_sim', 'long_d', 'lat_d', 'dist_d', 'pn_ecef', 'pe_ecef', 'pd_ecef', 'long_deg', 'long_rad', 'lat_deg', 'lat_rad', 'hgnss_ft', 'hgnss_km', 'hqfe_ft', 'hqfe_km', 'hqnh_ft', 'hqnh_m', 'hterr', 'phi_deg', 'phi_rad', 'theta_deg', 'theta_rad', 'psi_deg', 'psi_rad', 'alpha_deg', 'alpha_rad', 'beta_deg', 'beta_rad', 'gamma_deg', 'gamma_rad', 'vn', 've', 'vd', 'u', 'v', 'w', 'uaero', 'vaero', 'waero', 'wn', 'we', 'wd', 'phidot', 'thetadot', 'psidot', 'p', 'q', 'r', 'paero', 'qaero', 'raero', 'alphadot_degs', 'alphadot_rads', 'betadot_degs', 'betadot_rads', 'udot', 'vdot', 'wdot', 'pdot', 'qdot', 'rdot', 'fxaero', 'fxext', 'fxgear', 'fxprop', 'fx', 'fyaero', 'fyext', 'fygear', 'fyprop', 'fy', 'fzaero', 'fzext', 'fzgear', 'fzprop', 'fz', 'laero', 'lext', 'lgear', 'lprop', 'l', 'maero', 'mext', 'mgear', 'mprop', 'm', 'naero', 'next', 'ngear', 'nprop', 'n', 'sigmara_deg', 'sigmara_rad', 'deltara', 'sigmala_deg', 'sigmala_rad', 'deltala', 'sigmae_deg', 'sigmae_rad', 'deltae', 'sigmaf_deg', 'sigmaf_rad', 'deltaf', 'sigmar_deg', 'sigmar_rad', 'deltar', 'deltat', 'deltam', 'up_down', 'wow1', 'wow2', 'wow3', 'Bw2Va', 'Cw2Va', 'hmacb', 'qbar', 'qbaruw', 'qbarprop', 'qbarind', 'stall', 'rho', 'J', 'rpmprop', 'Ixx', 'Ixy', 'Ixz', 'Iyy', 'Iyz', 'Izz', 'mass', 'g') #RX telemetry str tuple (DO NOT MODIFY UNLESS FG2PY.XML IS ALSO MODIFIED ACCORDINGLY)
+TELEM_RX_LEN = len(TELEM_RX_STR)
 
 ''' TX TELEMETRY '''
 # 0 | deltaa      | Normalized aileron command         | - | -
@@ -202,7 +206,8 @@ TELEM_RX_LEN = 132 #RX telemetry length (DO NOT MODIFY UNLESS FG2PY.XML IS ALSO 
 # 6 | deltaa_trim | Normalized aileron trim command    | - | -
 # 7 | deltae_trim | Normalized elevator trim command   | - | -
 # 8 | deltar_trim | Normalized rudder trim command     | - | -
-TELEM_TX_LEN = 9 #RX telemetry length (DO NOT MODIFY UNLESS PY2FG.XML IS ALSO MODIFIED ACCORDINGLY)
+TELEM_TX_STR = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam', 'deltaa_trim', 'deltae_trim', 'deltar_trim') #TX telemetry str tuple (DO NOT MODIFY UNLESS PY2FG.XML IS ALSO MODIFIED ACCORDINGLY)
+TELEM_TX_LEN = len(TELEM_TX_STR)
 
 ''' PLOT '''
 # 0   | t_sim    | Sim. time              | -    | s

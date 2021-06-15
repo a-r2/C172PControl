@@ -1,8 +1,9 @@
 import numpy as np
-import settings
-
 from math import asin, atan2, cos, exp, pi, sin, sqrt
 from pyquaternion import Quaternion
+
+from constants import *
+import settings
 
 ''' CONVERSIONS '''
 def angles_deg_conversion(rxdata):
@@ -120,12 +121,16 @@ def rad_to_deg_360(radians):
     #Degrees to radians conversion (constrained to [0, 360))
     return np.degrees(radians % (2 * pi))
 
+def pa_to_psf(pascal):
+    #Pascal to pounds per squared foot conversion
+    return pascal / psf_to_pa(1)
+
 def propeller_area(propeller_diameter):
     #Propeller area from propeller diameter
     return pi * (0.5 * propeller_diameter) ** 2
 
 def psf_to_pa(poundspersquaredfoot):
-    #Pounds per squared foot to Pascal conversion
+    #Pounds per squared foot to pascal conversion
     newtonspersquaredfoot = lbs_to_N(poundspersquaredfoot)
     return newtonspersquaredfoot / (ft_to_m(1) ** 2)
 
@@ -321,6 +326,13 @@ def deltar_to_deg(deltar):
 def deltar_to_rad(deltar):
     #Rudder position in radians from normalized rudder
     return deg_to_rad(deltar_to_deg)
+
+def rxdata_to_dict(rxdata):
+    #Create dictionary from tuple
+    outdict = dict()
+    for i in range(TELEM_RX_LEN):
+        outdict[TELEM_RX_STR[i]] = rxdata[i]
+    return outdict
 
 ''' BAROMETRIC ATMOSPHERE '''
 #https://en.wikipedia.org/wiki/Barometric_formula
