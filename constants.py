@@ -45,6 +45,7 @@ CM_INPUTS_LEN = len(CM_INPUTS_STR)
 # 11 | q  | Pitch velocity                               | XYZ | rad/s
 # 12 | r  | Yaw velocity                                 | XYZ | rad/s
 CM_STATES_STR = ('pn', 'pe', 'pd', 'q0', 'q1', 'q2', 'q3', 'u', 'v', 'w', 'p', 'q', 'r')
+CM_STATES_LEN = len(CM_STATES_STR)
 
 ''' DYNAMICS '''
 # 0 | D  | Longitudinal aerodynamic force   | XYZ | N
