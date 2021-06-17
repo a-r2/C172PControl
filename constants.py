@@ -64,9 +64,9 @@ DYN_LEN = len(DYN_STR)
 ''' RX TELEMETRY '''
 # 0   | t_sim         | Simulation time from start                                    | -    | s
 # 1   | dt_sim        | Simulation timestep                                           | -    | s
-# 2   | long_d        | Delta longitude from start                                    | -    | m
-# 3   | lat_d         | Delta latitude from start                                     | -    | m
-# 4   | dist_d        | Distance from start                                           | -    | m
+# 2   | longd         | Delta longitude from start                                    | -    | m
+# 3   | latd          | Delta latitude from start                                     | -    | m
+# 4   | distd         | Distance from start                                           | -    | m
 # 5   | pn_ecef       | North position                                                | ECEF | ft
 # 6   | pe_ecef       | East position                                                 | ECEF | ft
 # 7   | pd_ecef       | Down position                                                 | ECEF | ft
@@ -193,8 +193,8 @@ DYN_LEN = len(DYN_STR)
 # 128 | Iyz           | Moment of inercia Iyz                                         | -    | slug/ft^2
 # 129 | Izz           | Moment of inercia Izz                                         | -    | slug/ft^2
 # 130 | mass          | Mass                                                          | -    | slug
-# 131 | g             | Gravitational acceleration                                    | -    | ft/s^2
-TELEM_RX_STR = ('t_sim', 'dt_sim', 'long_d', 'lat_d', 'dist_d', 'pn_ecef', 'pe_ecef', 'pd_ecef', 'long_deg', 'long_rad', 'lat_deg', 'lat_rad', 'hgnss_ft', 'hgnss_km', 'hqfe_ft', 'hqfe_km', 'hqnh_ft', 'hqnh_m', 'hterr', 'phi_deg', 'phi_rad', 'theta_deg', 'theta_rad', 'psi_deg', 'psi_rad', 'alpha_deg', 'alpha_rad', 'beta_deg', 'beta_rad', 'gamma_deg', 'gamma_rad', 'vn', 've', 'vd', 'u', 'v', 'w', 'uaero', 'vaero', 'waero', 'wn', 'we', 'wd', 'phidot', 'thetadot', 'psidot', 'p', 'q', 'r', 'paero', 'qaero', 'raero', 'alphadot_degs', 'alphadot_rads', 'betadot_degs', 'betadot_rads', 'udot', 'vdot', 'wdot', 'pdot', 'qdot', 'rdot', 'fxaero', 'fxext', 'fxgear', 'fxprop', 'fx', 'fyaero', 'fyext', 'fygear', 'fyprop', 'fy', 'fzaero', 'fzext', 'fzgear', 'fzprop', 'fz', 'laero', 'lext', 'lgear', 'lprop', 'l', 'maero', 'mext', 'mgear', 'mprop', 'm', 'naero', 'next', 'ngear', 'nprop', 'n', 'sigmara_deg', 'sigmara_rad', 'deltara', 'sigmala_deg', 'sigmala_rad', 'deltala', 'sigmae_deg', 'sigmae_rad', 'deltae', 'sigmaf_deg', 'sigmaf_rad', 'deltaf', 'sigmar_deg', 'sigmar_rad', 'deltar', 'deltat', 'deltam', 'up_down', 'wow1', 'wow2', 'wow3', 'Bw2Va', 'Cw2Va', 'hmacb', 'qbar', 'qbaruw', 'qbarprop', 'qbarind', 'stall', 'rho', 'J', 'rpmprop', 'Ixx', 'Ixy', 'Ixz', 'Iyy', 'Iyz', 'Izz', 'mass', 'g') #RX telemetry str tuple (DO NOT MODIFY UNLESS FG2PY.XML IS ALSO MODIFIED ACCORDINGLY)
+# 131 | grav          | Gravitational acceleration                                    | -    | ft/s^2
+TELEM_RX_STR = ('t_sim', 'dt_sim', 'longd', 'latd', 'distd', 'pn_ecef', 'pe_ecef', 'pd_ecef', 'long_deg', 'long_rad', 'lat_deg', 'lat_rad', 'hgnss_ft', 'hgnss_km', 'hqfe_ft', 'hqfe_km', 'hqnh_ft', 'hqnh_m', 'hterr', 'phi_deg', 'phi_rad', 'theta_deg', 'theta_rad', 'psi_deg', 'psi_rad', 'alpha_deg', 'alpha_rad', 'beta_deg', 'beta_rad', 'gamma_deg', 'gamma_rad', 'vn', 've', 'vd', 'u', 'v', 'w', 'uaero', 'vaero', 'waero', 'wn', 'we', 'wd', 'phidot', 'thetadot', 'psidot', 'p', 'q', 'r', 'paero', 'qaero', 'raero', 'alphadot_degs', 'alphadot_rads', 'betadot_degs', 'betadot_rads', 'udot', 'vdot', 'wdot', 'pdot', 'qdot', 'rdot', 'fxaero', 'fxext', 'fxgear', 'fxprop', 'fx', 'fyaero', 'fyext', 'fygear', 'fyprop', 'fy', 'fzaero', 'fzext', 'fzgear', 'fzprop', 'fz', 'laero', 'lext', 'lgear', 'lprop', 'l', 'maero', 'mext', 'mgear', 'mprop', 'm', 'naero', 'next', 'ngear', 'nprop', 'n', 'sigmara_deg', 'sigmara_rad', 'deltara', 'sigmala_deg', 'sigmala_rad', 'deltala', 'sigmae_deg', 'sigmae_rad', 'deltae', 'sigmaf_deg', 'sigmaf_rad', 'deltaf', 'sigmar_deg', 'sigmar_rad', 'deltar', 'deltat', 'deltam', 'up_down', 'wow1', 'wow2', 'wow3', 'Bw2Va', 'Cw2Va', 'hmacb', 'qbar', 'qbaruw', 'qbarprop', 'qbarind', 'stall', 'rho', 'J', 'rpmprop', 'Ixx', 'Ixy', 'Ixz', 'Iyy', 'Iyz', 'Izz', 'mass', 'grav') #RX telemetry str tuple (DO NOT MODIFY UNLESS FG2PY.XML IS ALSO MODIFIED ACCORDINGLY)
 TELEM_RX_LEN = len(TELEM_RX_STR)
 
 ''' TX TELEMETRY '''

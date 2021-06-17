@@ -214,7 +214,7 @@ def slug_to_kg(slugs):
     return 14.593903 * slugs 
 
 def slugft2_to_kgm2(slugssquaredfoot):
-    #Slugs squared foot to kilograms squared metre conversion
+    #Slugs per squared foot to kilograms squared metre conversion
     kilogramssquaredfoot = slug_to_kg(slugssquaredfoot)
     return kilogramssquaredfoot * ft_to_m(1) ** 2
 
@@ -294,6 +294,10 @@ def wind_to_stability(beta):
 def averaged_ailerons(left_aileron_pos_rad, right_aileron_pos_rad):
     #Averaged ailerons position 
     return 0.5 * (left_aileron_pos_rad - right_aileron_pos_rad)
+
+def deltaa_acm(deltala, deltara):
+    #Normalized aileron position from left and righ ailerons position
+    return 0.5 * (deltala + deltara)
 
 def deltaa_to_deg(deltaa):
     #Ailerons position in degrees from normalized ailerons
