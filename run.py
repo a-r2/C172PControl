@@ -3,12 +3,17 @@ import multiprocessing as mp
 from actuation import *
 from csv_logging import *
 from config import *
+from constants import *
 from dynamics import *
 from equilibrium import *
+from scenarios import *
 from settings import *
 from telemetry import *
 
-def initialize():
+def init_flightgear():
+    Scenario(SCENARIO_TYPE) #initialize flightgear scenario
+
+def init_c172p_msc():
     #Events
     event_rxtcp = mp.Event() #RX TCP connection event
     event_txtcp = mp.Event() #TX TCP connection event
@@ -65,6 +70,7 @@ def initialize():
     Equilibrium(EQ_TYPE, EQ_POINT_INIT, eq2csv_in, eq2mod_in, rx2eq_out, event_start) #calculate equilibrium point
 
 if __name__ == "__main__":
-    initialize()
+    init_c172p_msc()
+    init_flightgear()
     while True:
         pass
