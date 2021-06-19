@@ -1,4 +1,6 @@
 ''' SIMULATION '''
+SIM_TYPE = 'recursive' #simulation type: 0 = 'single', 1 = 'recursive'
+SIM_ITER_NUM = 10 #number of simulation iterations(only applicable when SIM_TYPE = 0/'recursive')
 SIM_RATE = 1 #simulation rate with respect to real time (recommended: 0.125, 0.25, 0.5, 1)
 FPS = 100 #frames per real time second
 MAX_TIME_PER_FRAME = 1/100 #timestep per video frame
@@ -84,6 +86,6 @@ U_START               = 100 #[m/s] if --units-meters else [ft/s]
 V_START               = 0.0000 #[m/s] if --units-meters else [ft/s]
 W_START               = 0.0000 #[m/s] if --units-meters else [ft/s]
 
-FG_AIRCRAFT_OPTIONS = "--disable-auto-coordination --disable-fuel-freeze --notrim"
+FG_AIRCRAFT_OPTIONS =  ["--disable-auto-coordination", "--disable-fuel-freeze", "--notrim"]
 
-FG_ENVIRONMENT_OPTIONS = "--disable-ai-models --disable-ai-traffic --disable-clouds --disable-clouds3d --disable-distance-attenuation --disable-fullscreen --disable-horizon-effect --disable-random-buildings --disable-random-objects --disable-random-vegetation --disable-real-weather-fetch --disable-sound --disable-specular-highlight --disable-splash-screen --fog-disable --units-meters"
+FG_ENVIRONMENT_OPTIONS = ["--disable-ai-models", "--disable-ai-traffic", "--disable-clouds", "--disable-clouds3d", "--disable-distance-attenuation", "--disable-fullscreen", "--disable-horizon-effect", "--disable-random-buildings", "--disable-random-objects", "--disable-random-vegetation", "--disable-real-weather-fetch", "--disable-sound", "--disable-specular-highlight", "--disable-splash-screen", "--fog-disable", "--units-meters"]

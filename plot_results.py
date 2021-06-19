@@ -2,6 +2,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import settings
 
+from constants import *
 from utils import *
 
 ''' PLOTTING PARAMETERS '''

@@ -8,12 +8,11 @@ from dynamics import *
 from equilibrium import *
 from scenarios import *
 from settings import *
+from supervisor import *
 from telemetry import *
 
-def init_flightgear():
-    Scenario(SCENARIO_TYPE) #initialize flightgear scenario
+if __name__ == "__main__":
 
-def init_c172p_msc():
     #Events
     event_rxtcp = mp.Event() #RX TCP connection event
     event_txtcp = mp.Event() #TX TCP connection event
@@ -35,42 +34,45 @@ def init_c172p_msc():
     rx2eq_out, rx2eq_in = mp.Pipe() #RX telemetry data pipe to equilibrium point
     #rx2kin_out, rx2kin_in = mp.Pipe() #RX telemetry data pipe to kinematics 
     rx2mod_out, rx2mod_in = mp.Pipe() #RX telemetry data pipe to control model
+    rx2sup_out, rx2sup_in = mp.Pipe() #RX telemetry data pipe to supervisor
 
     #Config
-    Config(CFG_IP_ADDRESS, CFG_PORT, event_rxtcp) #simulator configuration
+    ConfigurationModule = Config(CFG_IP_ADDRESS, CFG_PORT, event_rxtcp) #simulator configuration
 
     #Telemetry
-    Telemetry(TELEM_IP_ADDRESS, TELEM_RX_PORT, TELEM_IP_ADDRESS, TELEM_TX_PORT, act2tx_out, rx2act_in, rx2csv_in, rx2dyn_in, rx2eq_in, rx2mod_in, event_rxtcp, event_txtcp, event_start) #telemetry links
+    TelemetryModule = Telemetry(TELEM_IP_ADDRESS, TELEM_RX_PORT, TELEM_IP_ADDRESS, TELEM_TX_PORT, act2tx_out, rx2act_in, rx2csv_in, rx2dyn_in, rx2eq_in, rx2mod_in, rx2sup_in, event_rxtcp, event_txtcp, event_start) #telemetry links
 
     #CSV logs
     csvtelemargs = {'act2csv_out':act2csv_out, 'rx2csv_out':rx2csv_out, 'event_start':event_start}
-    CSVTelemetryLog(TELEM_LOG_FILENAME, **csvtelemargs) #RX telemetry log
+    CSVTelemetryModule = CSVTelemetryLog(TELEM_LOG_FILENAME, **csvtelemargs) #RX telemetry log
     csvdynargs = {'dyn2csv_out':dyn2csv_out, 'event_start':event_start}
-    CSVDynamicsLog(DYN_LOG_FILENAME, **csvdynargs) #calculated dynamics log
+    CSVDynamicsModule = CSVDynamicsLog(DYN_LOG_FILENAME, **csvdynargs) #calculated dynamics log
     #csvkinargs = {'kin2csv_out':kin2csv_out, 'event_start':event_start}
     #CSVKinematicsLog(KIN_LOG_FILENAME, **csvkinargs) #calculated kinematics log
     csvmodargs = {'mod2csv_out':mod2csv_out, 'event_start':event_start}
-    CSVControlModelLog(CM_LOG_FILENAME, **csvmodargs) #calculated control model log
+    CSVControlModelModule = CSVControlModelLog(CM_LOG_FILENAME, **csvmodargs) #calculated control model log
     csveqargs = {'eq2csv_out':eq2csv_out, 'event_start':event_start}
-    CSVEquilibriumLog(EQ_LOG_FILENAME, **csveqargs) #calculated equilibrium point log
-
+    CSVEquilibriumModule = CSVEquilibriumLog(EQ_LOG_FILENAME, **csveqargs) #calculated equilibrium point log
     #Dynamics
-    Dynamics(dyn2csv_in, rx2dyn_out, event_start) #calculate dynamics 
+    DynamicsModule = Dynamics(dyn2csv_in, rx2dyn_out, event_start) #calculate dynamics 
 
     #Kinematics
     #Kinematics(kin2csv_in, rx2dyn_out, event_start) #calculate kinematics 
 
     #Actuation
-    Actuation(ACT_TYPE, act2csv_in, act2tx_in, eq2act_out, mod2act_out, rx2act_out, event_start) #calculate actuation
+    ActuationModule = Actuation(ACT_TYPE, act2csv_in, act2tx_in, eq2act_out, mod2act_out, rx2act_out, event_start) #calculate actuation
 
     #Control model
-    ControlModel(CM_TYPE, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start) #calculate control model
+    ControlModelModule = ControlModel(CM_TYPE, eq2mod_out, mod2act_in, mod2csv_in, rx2mod_out, event_start) #calculate control model
 
     #Equilibrium point
-    Equilibrium(EQ_TYPE, EQ_POINT_INIT, eq2csv_in, eq2mod_in, rx2eq_out, event_start) #calculate equilibrium point
+    EquilibriumModule = Equilibrium(EQ_TYPE, EQ_POINT_INIT, eq2csv_in, eq2mod_in, rx2eq_out, event_start) #calculate equilibrium point
 
-if __name__ == "__main__":
-    init_c172p_msc()
-    init_flightgear()
+    #Scenarios
+    ScenarioModule = Scenario(SCENARIO_TYPE) #initialize flightgear scenario
+
+    #Supervisor
+    SupervisorModule = Supervisor(ActuationModule, ConfigurationModule, ControlModelModule, DynamicsModule, EquilibriumModule, ScenarioModule, TelemetryModule, CSVControlModelModule , CSVDynamicsModule,  CSVEquilibriumModule, CSVTelemetryModule, rx2sup_out, event_start) 
+    
     while True:
         pass

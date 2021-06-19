@@ -171,30 +171,33 @@ DYN_LEN = len(DYN_STR)
 # 106 | deltar        | Normalized rudder position                                    | -    | -
 # 107 | deltat        | Normalized engine throttle position                           | -    | -
 # 108 | deltam        | Normalized engine mixture position                            | -    | -
-# 109 | up_down       | Upside-down state                                             | -    | -
-# 110 | wow1          | Wheel 1 weight-on-wheel state                                 | -    | -
-# 111 | wow2          | Wheel 2 weight-on-wheel state                                 | -    | -
-# 112 | wow3          | Wheel 3 weight-on-wheel state                                 | -    | -
-# 113 | Bw2Va         | Wing span divided by twice the aerodynamic velocity           | -    | s
-# 114 | Cw2Va         | Wing chord divided by twice the aerodynamic velocity          | -    | s
-# 115 | hmacb         | Altitude of mean aerodynamic chord (MAC) divided by wing span | -    | -
-# 116 | qbar          | Dynamic pressure                                              | -    | psf
-# 117 | qbaruw        | Dynamic pressure (UW plane of wind frame)                     | -    | psf
-# 118 | qbarprop      | Dynamic pressure due to propeller induced velocity            | -    | psf
-# 119 | qbarind       | Dynamic pressure including propulsion induced velocity        | -    | psf
-# 120 | stall         | Normalized stall (aerodynamic) hysteresis                     | -    | -
-# 121 | rho           | Air density in slugs per cubic foot                           | -    | slug/ft^3
-# 122 | J             | Advance ratio                                                 | -    | -
-# 123 | rpmprop       | Propeller revolutions per minute                              | -    | rev/min
-# 124 | Ixx           | Moment of inercia Ixx                                         | -    | slug/ft^2
-# 125 | Ixy           | Moment of inercia Ixy                                         | -    | slug/ft^2
-# 126 | Ixz           | Moment of inercia Ixz                                         | -    | slug/ft^2
-# 127 | Iyy           | Moment of inercia Iyy                                         | -    | slug/ft^2
-# 128 | Iyz           | Moment of inercia Iyz                                         | -    | slug/ft^2
-# 129 | Izz           | Moment of inercia Izz                                         | -    | slug/ft^2
-# 130 | mass          | Mass                                                          | -    | slug
-# 131 | grav          | Gravitational acceleration                                    | -    | ft/s^2
-TELEM_RX_STR = ('t_sim', 'dt_sim', 'longd', 'latd', 'distd', 'pn_ecef', 'pe_ecef', 'pd_ecef', 'long_deg', 'long_rad', 'lat_deg', 'lat_rad', 'hgnss_ft', 'hgnss_km', 'hqfe_ft', 'hqfe_km', 'hqnh_ft', 'hqnh_m', 'hterr', 'phi_deg', 'phi_rad', 'theta_deg', 'theta_rad', 'psi_deg', 'psi_rad', 'alpha_deg', 'alpha_rad', 'beta_deg', 'beta_rad', 'gamma_deg', 'gamma_rad', 'vn', 've', 'vd', 'u', 'v', 'w', 'uaero', 'vaero', 'waero', 'wn', 'we', 'wd', 'phidot', 'thetadot', 'psidot', 'p', 'q', 'r', 'paero', 'qaero', 'raero', 'alphadot_degs', 'alphadot_rads', 'betadot_degs', 'betadot_rads', 'udot', 'vdot', 'wdot', 'pdot', 'qdot', 'rdot', 'fxaero', 'fxext', 'fxgear', 'fxprop', 'fx', 'fyaero', 'fyext', 'fygear', 'fyprop', 'fy', 'fzaero', 'fzext', 'fzgear', 'fzprop', 'fz', 'laero', 'lext', 'lgear', 'lprop', 'l', 'maero', 'mext', 'mgear', 'mprop', 'm', 'naero', 'next', 'ngear', 'nprop', 'n', 'sigmara_deg', 'sigmara_rad', 'deltara', 'sigmala_deg', 'sigmala_rad', 'deltala', 'sigmae_deg', 'sigmae_rad', 'deltae', 'sigmaf_deg', 'sigmaf_rad', 'deltaf', 'sigmar_deg', 'sigmar_rad', 'deltar', 'deltat', 'deltam', 'up_down', 'wow1', 'wow2', 'wow3', 'Bw2Va', 'Cw2Va', 'hmacb', 'qbar', 'qbaruw', 'qbarprop', 'qbarind', 'stall', 'rho', 'J', 'rpmprop', 'Ixx', 'Ixy', 'Ixz', 'Iyy', 'Iyz', 'Izz', 'mass', 'grav') #RX telemetry str tuple (DO NOT MODIFY UNLESS FG2PY.XML IS ALSO MODIFIED ACCORDINGLY)
+# 109 | Bw2Va         | Wing span divided by twice the aerodynamic velocity           | -    | s
+# 110 | Cw2Va         | Wing chord divided by twice the aerodynamic velocity          | -    | s
+# 111 | hmacb         | Altitude of mean aerodynamic chord (MAC) divided by wing span | -    | -
+# 112 | qbar          | Dynamic pressure                                              | -    | psf
+# 113 | qbaruw        | Dynamic pressure (UW plane of wind frame)                     | -    | psf
+# 114 | qbarprop      | Dynamic pressure due to propeller induced velocity            | -    | psf
+# 115 | qbarind       | Dynamic pressure including propulsion induced velocity        | -    | psf
+# 116 | stall         | Normalized stall (aerodynamic) hysteresis                     | -    | -
+# 117 | rho           | Air density in slugs per cubic foot                           | -    | slug/ft^3
+# 118 | J             | Advance ratio                                                 | -    | -
+# 119 | rpmprop       | Propeller revolutions per minute                              | -    | rev/min
+# 120 | Ixx           | Moment of inercia Ixx                                         | -    | slug/ft^2
+# 121 | Ixy           | Moment of inercia Ixy                                         | -    | slug/ft^2
+# 122 | Ixz           | Moment of inercia Ixz                                         | -    | slug/ft^2
+# 123 | Iyy           | Moment of inercia Iyy                                         | -    | slug/ft^2
+# 124 | Iyz           | Moment of inercia Iyz                                         | -    | slug/ft^2
+# 125 | Izz           | Moment of inercia Izz                                         | -    | slug/ft^2
+# 126 | mass          | Mass                                                          | -    | slug
+# 127 | grav          | Gravitational acceleration                                    | -    | ft/s^2
+# 128 | up_down       | Upside-down state                                             | -    | -
+# 129 | wow1          | Wheel 1 weight-on-wheel state                                 | -    | -
+# 130 | wow2          | Wheel 2 weight-on-wheel state                                 | -    | -
+# 131 | wow3          | Wheel 3 weight-on-wheel state                                 | -    | -
+# 132 | contact1      | Wheel 1 contact state                                         | -    | -
+# 133 | contact2      | Wheel 2 contact state                                         | -    | -
+# 134 | contact3      | Wheel 3 contact state                                         | -    | -
+TELEM_RX_STR = ('t_sim', 'dt_sim', 'longd', 'latd', 'distd', 'pn_ecef', 'pe_ecef', 'pd_ecef', 'long_deg', 'long_rad', 'lat_deg', 'lat_rad', 'hgnss_ft', 'hgnss_km', 'hqfe_ft', 'hqfe_km', 'hqnh_ft', 'hqnh_m', 'hterr', 'phi_deg', 'phi_rad', 'theta_deg', 'theta_rad', 'psi_deg', 'psi_rad', 'alpha_deg', 'alpha_rad', 'beta_deg', 'beta_rad', 'gamma_deg', 'gamma_rad', 'vn', 've', 'vd', 'u', 'v', 'w', 'uaero', 'vaero', 'waero', 'wn', 'we', 'wd', 'phidot', 'thetadot', 'psidot', 'p', 'q', 'r', 'paero', 'qaero', 'raero', 'alphadot_degs', 'alphadot_rads', 'betadot_degs', 'betadot_rads', 'udot', 'vdot', 'wdot', 'pdot', 'qdot', 'rdot', 'fxaero', 'fxext', 'fxgear', 'fxprop', 'fx', 'fyaero', 'fyext', 'fygear', 'fyprop', 'fy', 'fzaero', 'fzext', 'fzgear', 'fzprop', 'fz', 'laero', 'lext', 'lgear', 'lprop', 'l', 'maero', 'mext', 'mgear', 'mprop', 'm', 'naero', 'next', 'ngear', 'nprop', 'n', 'sigmara_deg', 'sigmara_rad', 'deltara', 'sigmala_deg', 'sigmala_rad', 'deltala', 'sigmae_deg', 'sigmae_rad', 'deltae', 'sigmaf_deg', 'sigmaf_rad', 'deltaf', 'sigmar_deg', 'sigmar_rad', 'deltar', 'deltat', 'deltam', 'Bw2Va', 'Cw2Va', 'hmacb', 'qbar', 'qbaruw', 'qbarprop', 'qbarind', 'stall', 'rho', 'J', 'rpmprop', 'Ixx', 'Ixy', 'Ixz', 'Iyy', 'Iyz', 'Izz', 'mass', 'grav', 'up_down', 'wow1', 'wow2', 'wow3', 'contact1', 'contact2', 'contact3') #RX telemetry str tuple (DO NOT MODIFY UNLESS FG2PY.XML IS ALSO MODIFIED ACCORDINGLY)
 TELEM_RX_LEN = len(TELEM_RX_STR)
 
 ''' TX TELEMETRY '''

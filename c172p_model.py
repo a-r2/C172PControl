@@ -1660,13 +1660,13 @@ class ControlModel():
                 deltat         = rxdata[107]
                 hmacb          = rxdata[115]
                 qbar           = rxdata[116]
-                Ixx            = rxdata[124]
-                Ixy            = rxdata[125]
-                Ixz            = rxdata[126]
-                Iyy            = rxdata[127]
-                Iyz            = rxdata[128]
-                Izz            = rxdata[129]
-                mass           = rxdata[130]
+                Ixx            = rxdata[120]
+                Ixy            = rxdata[121]
+                Ixz            = rxdata[122]
+                Iyy            = rxdata[123]
+                Iyz            = rxdata[124]
+                Izz            = rxdata[125]
+                mass           = rxdata[126]
 
                 # Conversions
                 pn                    = latd
@@ -1807,15 +1807,14 @@ class ControlModel():
                 sigmar_rad     = rxdata[105]
                 deltar         = rxdata[106]
                 deltat         = rxdata[107]
-                hmacb          = rxdata[115]
-                qbar           = rxdata[116]
-                Ixx            = rxdata[124]
-                Ixy            = rxdata[125]
-                Ixz            = rxdata[126]
-                Iyy            = rxdata[127]
-                Iyz            = rxdata[128]
-                Izz            = rxdata[129]
-                mass           = rxdata[130]
+                hmacb          = rxdata[111]
+                Ixx            = rxdata[120]
+                Ixy            = rxdata[121]
+                Ixz            = rxdata[122]
+                Iyy            = rxdata[123]
+                Iyz            = rxdata[124]
+                Izz            = rxdata[125]
+                mass           = rxdata[126]
 
                 # Conversions
                 pn                    = latd
@@ -1825,7 +1824,6 @@ class ControlModel():
                 v                     = ft_to_m(v)
                 w                     = ft_to_m(w)
                 deltaa                = deltaa_acm(deltala, deltara) 
-                qbar                  = psf_to_pa(qbar) 
                 Ixx                   = slugft2_to_kgm2(Ixx)
                 Ixy                   = slugft2_to_kgm2(Ixy)
                 Ixz                   = slugft2_to_kgm2(Ixz)
