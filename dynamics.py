@@ -6,10 +6,10 @@ from c172p_model import *
 from settings import *
 
 class Dynamics():
-    def __init__(self, dyn2csv_in, rx2dyn_out, event_start):
+
+    def __init__(self):
         self.csvdyn = np.zeros((MODEL_HZ, DYN_LEN + 1)) #array for storing dynamics
-        self.proc   = mp.Process(target=self.forces_moments_body, args=(dyn2csv_in, rx2dyn_out, event_start), daemon=True) #process for calculating dynamics
-        self.proc.start()
+
     def forces_moments_body(self, dyn2csv_in, rx2dyn_out, event_start):
         #Aerodynamic and propulsive forces and moments applied to the aircraft in body frame
         event_start.wait() #wait for simulation start event

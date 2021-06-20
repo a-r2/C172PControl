@@ -181,37 +181,37 @@ class CSVKinematicsLog():
 class CSVControlModelLog():
     def __init__(self, name, **kwargs):
         for key, value in kwargs.items():
-            if key == 'mod2csv_out':
-                mod2csv_out = value
+            if key == 'cm2csv_out':
+                cm2csv_out = value
             elif key == 'event_start':
                 event_start = value
         self.name = name + '.csv'
         if len(kwargs) > 0:
-            self.proc = mp.Process(target=self.write_log, args=(mod2csv_out, event_start), daemon=True) #process for logging control model
+            self.proc = mp.Process(target=self.write_log, args=(cm2csv_out, event_start), daemon=True) #process for logging control model
             self.proc.start()
     def read_log(self):
         with open(self.name, 'r', newline='') as csvfile:
-            modlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
-            rowscount = len(list(modlog))
+            cmlog     = csv.reader(csvfile, delimiter=' ') #CSV reader object
+            rowscount = len(list(cmlog))
             csvfile.seek(0) #go to first row
             rxdata = np.zeros((rowscount, STATE_LEN))
             i = 0
-            for row in modlog:
+            for row in cmlog:
                 rxdata[i,:] = row
                 i += 1
             return rxdata
-    def write_log(self, mod2csv_out, event_start):
+    def write_log(self, cm2csv_out, event_start):
         with open(self.name, 'w', newline='') as csvfile:
-            modlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
+            cmlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
             csvdata = np.zeros((CM_HZ, STATE_LEN + 1)) #array for storing data frames
             i = 0
             event_start.wait() #wait for simulation start
             while True:
-                moddata = mod2csv_out.recv()
-                csvdata[i,:] = moddata
+                cmdata       = cm2csv_out.recv()
+                csvdata[i,:] = cmdata
                 i += 1
                 if i > (CM_HZ - 1):
-                    modlog.writerows((csvdata[k,:] for k in range(CM_HZ))) #write array into CSV 
+                    cmlog.writerows((csvdata[k,:] for k in range(CM_HZ))) #write array into CSV 
                     i = 0
 
 class CSVEquilibriumLog():

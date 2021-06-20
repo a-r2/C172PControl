@@ -8,16 +8,15 @@ from dynamics import *
 from settings import *
 
 class Actuation():
-    def __init__(self, act_type, act2csv_in, act2tx_in, eq2act_out, mod2act_out, rx2act_out, event_start):
+
+    def __init__(self):
         self.t         = TELEM_WAIT
-        self.dt        = 1/ACT_HZ
+        self.dt        = 1 / ACT_HZ
         self.simact    = np.zeros(TELEM_TX_LEN) #array for storing actuation
-        self.csvact    = np.zeros(TELEM_TX_LEN + 1) #array for storing csv actuation
         self.simactstr = np.zeros(TELEM_TX_LEN) #array for storing actuation as string
+        self.csvact    = np.zeros(TELEM_TX_LEN + 1) #array for storing csv actuation
         self.actstr    = str()
-        if act_type == 'random': #random control
-            self.proc = mp.Process(target=self.random_control, args=(act2csv_in, act2tx_in, rx2act_out, event_start), daemon=True) #process for calculating actuation 
-        self.proc.start()
+
     def random_control(self, act2csv_in, act2tx_in, rx2act_out, event_start):
         event_start.wait() #wait for simulation start event
         while True:

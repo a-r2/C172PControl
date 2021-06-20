@@ -31,12 +31,13 @@ KIN_LOG_FILENAME = 'kinematics_log'
 ''' INITIALIZATION '''
 
 ''' TELEMETRY '''
-TELEM_IP_ADDRESS = 'localhost'
-TELEM_LOG_FILENAME = 'telemetry_log'
-TELEM_RX_PORT = 60001 #receiving link port
+TELEM_LOG_FILENAME   = 'telemetry_log'
+TELEM_RX_IP_ADDRESS  = 'localhost'
+TELEM_RX_PORT        = 60001 #receiving link port
 TELEM_RX_BUFFER_SIZE = 10240 #enough to allocate a complete frame
-TELEM_TX_PORT = 60002 #transmitting link port
-TELEM_WAIT = 10 #wait in seconds after FlightGear start before establishing telemetry communication
+TELEM_TX_IP_ADDRESS  = 'localhost'
+TELEM_TX_PORT        = 60002 #transmitting link port
+TELEM_WAIT           = 10 #wait in seconds after FlightGear start before establishing telemetry communication
 
 ''' NAVIGATION MAP '''
 AC_ICON_SIZE = 0.1
