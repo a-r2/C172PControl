@@ -5,7 +5,7 @@ from csv_logging import *
 from config import *
 from constants import *
 from dynamics import *
-from equilibrium import *
+from setpoint import *
 from scenarios import *
 from settings import *
 from supervisor import *
@@ -22,65 +22,39 @@ if __name__ == "__main__":
 
     #Pipes
     act2csv_out, act2csv_in = mp.Pipe() #actuation data pipe to CSV
-    act2tx_out, act2tx_in = mp.Pipe() #actuation data pipe to TX telemetry
+    act2tx_out, act2tx_in   = mp.Pipe() #actuation data pipe to TX telemetry
     dyn2csv_out, dyn2csv_in = mp.Pipe() #dynamics data pipe to CSV
-    eq2act_out, eq2act_in = mp.Pipe() #equilibrium point data pipe to actuation
-    eq2cm_out, eq2cm_in = mp.Pipe() #equilibrium point data pipe to control model
-    eq2csv_out, eq2csv_in = mp.Pipe() #equilibrium point data pipe to CSV
-    #kin2csv_out, kin2csv_in = mp.Pipe() #kinematics data pipe to CSV
-    cm2act_out, cm2act_in = mp.Pipe() #control model data pipe to actuation
-    cm2csv_out, cm2csv_in = mp.Pipe() #control model data pipe to CSV
-    rx2act_out, rx2act_in = mp.Pipe() #RX telemetry data pipe to actuation
-    rx2csv_out, rx2csv_in = mp.Pipe() #RX telemetry data pipe to CSV
-    rx2dyn_out, rx2dyn_in = mp.Pipe() #RX telemetry data pipe to dynamics 
-    rx2eq_out, rx2eq_in = mp.Pipe() #RX telemetry data pipe to equilibrium point
-    #rx2kin_out, rx2kin_in = mp.Pipe() #RX telemetry data pipe to kinematics 
-    rx2cm_out, rx2cm_in = mp.Pipe() #RX telemetry data pipe to control model
-    rx2sup_out, rx2sup_in = mp.Pipe() #RX telemetry data pipe to supervisor
+    sp2act_out, sp2act_in   = mp.Pipe() #setpoint data pipe to actuation
+    sp2cm_out, sp2cm_in     = mp.Pipe() #setpoint data pipe to control model
+    sp2csv_out, sp2csv_in   = mp.Pipe() #setpoint data pipe to CSV
+    cm2act_out, cm2act_in   = mp.Pipe() #control model data pipe to actuation
+    cm2csv_out, cm2csv_in   = mp.Pipe() #control model data pipe to CSV
+    rx2act_out, rx2act_in   = mp.Pipe() #RX telemetry data pipe to actuation
+    rx2csv_out, rx2csv_in   = mp.Pipe() #RX telemetry data pipe to CSV
+    rx2dyn_out, rx2dyn_in   = mp.Pipe() #RX telemetry data pipe to dynamics 
+    rx2sp_out, rx2sp_in     = mp.Pipe() #RX telemetry data pipe to setpoint
+    rx2cm_out, rx2cm_in     = mp.Pipe() #RX telemetry data pipe to control model
+    rx2sup_out, rx2sup_in   = mp.Pipe() #RX telemetry data pipe to supervisor
 
-    pipes_dict = {'act2csv_out':act2csv_out, 'act2csv_in':act2csv_in, 'act2tx_out':act2tx_out, 'act2tx_in':act2tx_in, 'dyn2csv_out':dyn2csv_out, 'dyn2csv_in':dyn2csv_in, 'eq2act_out':eq2act_out, 'eq2act_in':eq2act_in, 'eq2cm_out':eq2cm_out, 'eq2cm_in':eq2cm_in, 'eq2csv_out':eq2csv_out, 'eq2csv_in':eq2csv_in, 'cm2act_out':cm2act_out, 'cm2act_in':cm2act_in, 'cm2csv_out':cm2csv_out, 'cm2csv_in':cm2csv_in, 'rx2act_out':rx2act_out, 'rx2act_in':rx2act_in, 'rx2csv_out':rx2csv_out, 'rx2csv_in':rx2csv_in, 'rx2dyn_out':rx2dyn_out, 'rx2dyn_in':rx2dyn_in, 'rx2eq_out':rx2eq_out, 'rx2eq_in':rx2eq_in, 'rx2cm_out':rx2cm_out, 'rx2cm_in':rx2cm_in, 'rx2sup_out':rx2sup_out, 'rx2sup_in':rx2sup_in}
+    pipes_dict = {'act2csv_out':act2csv_out, 'act2csv_in':act2csv_in, 'act2tx_out':act2tx_out, 'act2tx_in':act2tx_in, 'dyn2csv_out':dyn2csv_out, 'dyn2csv_in':dyn2csv_in, 'sp2act_out':sp2act_out, 'sp2act_in':sp2act_in, 'sp2cm_out':sp2cm_out, 'sp2cm_in':sp2cm_in, 'sp2csv_out':sp2csv_out, 'sp2csv_in':sp2csv_in, 'cm2act_out':cm2act_out, 'cm2act_in':cm2act_in, 'cm2csv_out':cm2csv_out, 'cm2csv_in':cm2csv_in, 'rx2act_out':rx2act_out, 'rx2act_in':rx2act_in, 'rx2csv_out':rx2csv_out, 'rx2csv_in':rx2csv_in, 'rx2dyn_out':rx2dyn_out, 'rx2dyn_in':rx2dyn_in, 'rx2sp_out':rx2sp_out, 'rx2sp_in':rx2sp_in, 'rx2cm_out':rx2cm_out, 'rx2cm_in':rx2cm_in, 'rx2sup_out':rx2sup_out, 'rx2sup_in':rx2sup_in}
 
-    #Config
-    ConfigurationModule = Config() #simulator configuration
+    #Modules
+    ConfigModule       = Config() #FlightGear configuration
+    TelemetryModule    = Telemetry() #RX and TX telemetry links between FlightGear and this project
+    CSVLoggingModule   = CSVLogging() #CSV logging (control model, dynamics, setpoint, RX telemetry, TX telemetry)
+    DynamicsModule     = Dynamics() #dynamics calculation
+    ActuationModule    = Actuation() #actuation calculation based on control model and setpoint
+    ControlModelModule = ControlModel() #control model calculation
+    SetpointModule     = Setpoint() #setpoint calculation
+    ScenarioModule     = Scenario() #FlightGear scenario
 
-    #Telemetry
-    TelemetryModule = Telemetry() #telemetry links
+    mods_dict = {'act_mod':ActuationModule, 'cfg_mod':ConfigModule, 'cm_mod':ControlModelModule, 'dyn_mod':DynamicsModule, 'sp_mod':SetpointModule, 'scen_mod':ScenarioModule, 'telem_mod':TelemetryModule, 'csvlog_mod':CSVLoggingModule}
 
-    #CSV logs
-    csvtelemargs = {'act2csv_out':act2csv_out, 'rx2csv_out':rx2csv_out, 'event_start':event_start}
-    CSVTelemetryModule = CSVTelemetryLog(TELEM_LOG_FILENAME, **csvtelemargs) #RX telemetry log
-    csvdynargs = {'dyn2csv_out':dyn2csv_out, 'event_start':event_start}
-    CSVDynamicsModule = CSVDynamicsLog(DYN_LOG_FILENAME, **csvdynargs) #calculated dynamics log
-    #csvkinargs = {'kin2csv_out':kin2csv_out, 'event_start':event_start}
-    #CSVKinematicsLog(KIN_LOG_FILENAME, **csvkinargs) #calculated kinematics log
-    csvcmargs = {'cm2csv_out':cm2csv_out, 'event_start':event_start}
-    CSVControlModelModule = CSVControlModelLog(CM_LOG_FILENAME, **csvcmargs) #calculated control model log
-    csveqargs = {'eq2csv_out':eq2csv_out, 'event_start':event_start}
-    CSVEquilibriumModule = CSVEquilibriumLog(EQ_LOG_FILENAME, **csveqargs) #calculated equilibrium point log
-    #Dynamics
-    DynamicsModule = Dynamics() #calculate dynamics 
-
-    #Kinematics
-    #Kinematics(kin2csv_in, rx2dyn_out, event_start) #calculate kinematics 
-
-    #Actuation
-    ActuationModule = Actuation()
-
-    #Control model
-    ControlModelModule = ControlModel(eq2cm_out, cm2act_in, cm2csv_in, rx2cm_out, event_start) #calculate control model
-
-    #Equilibrium point
-    EquilibriumModule = Equilibrium() #calculate equilibrium point
-
-    #Scenarios
-    ScenarioModule = Scenario() #initialize flightgear scenario
-
-    mods_dict = {'act_mod':ActuationModule, 'cfg_mod':ConfigurationModule, 'cm_mod':ControlModelModule, 'dyn_mod':DynamicsModule, 'eq_mod':EquilibriumModule, 'scen_mod':ScenarioModule, 'telem_mod':TelemetryModule, 'csv_cm_mod':CSVControlModelModule , 'csv_dyn_mod':CSVDynamicsModule, 'csv_eq_mod':CSVEquilibriumModule, 'csv_telem_mod':CSVTelemetryModule}
-
+    #Construct global dictionary
     global_dict = {**events_dict, **pipes_dict, **mods_dict}
 
     #Supervisor
-    SupervisorModule = Supervisor(**global_dict) 
+    SupervisorModule = Supervisor(**global_dict) #simulations management 
     
     while True:
         pass

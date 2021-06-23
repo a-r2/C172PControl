@@ -12,12 +12,13 @@ class Config():
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set socket reusability
 
     def transmit(self, event_rxtcp):
+        cfgdata = str(SIM_RATE) + '\t' + str(FPS) + '\t' + str(MAX_TIME_PER_FRAME) + '\n'
+        event_rxtcp.wait() #wait for RX TCP connection event
+        print("Configuring FlightGear...")
         try:
-            event_rxtcp.wait() #wait for RX TCP connection event
-            print("Configuring FlightGear...")
             self.sock.connect((self.IP_ADDRESS, self.PORT)) #outgoing TCP connection socket
-            cfgdata = str(SIM_RATE) + '\t' + str(FPS) + '\t' + str(MAX_TIME_PER_FRAME) + '\n'
-            self.sock.sendall(cfgdata.encode()) #sending configuration data
-            print("FlightGear configured!")
         except:
             pass
+        finally:
+            self.sock.sendall(cfgdata.encode()) #sending configuration data
+        print("FlightGear configured!")

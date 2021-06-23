@@ -1609,27 +1609,22 @@ def update_B_alcm(B, parder_delta_eq):
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
 
-    def __init__(self, eq2cm_out, cm2act_in, cm2csv_in, rx2cm_out, event_start):
+    def __init__(self):
         self.t          = TELEM_WAIT
         self.dt         = 1/CM_HZ
         self.inputs_str = CM_INPUTS_STR
         self.states_str = CM_STATES_STR
         self.simcm      = np.zeros(STATE_LEN) #array for storing actuation
         self.csvcm      = np.zeros(STATE_LEN + 1) #array for storing csv actuation
-        if CM_TYPE == 'ANL': #analytic non-linear control model
-            self.proc = mp.Process(target=self.anlcm, args=(eq2cm_out, cm2act_in, cm2csv_in, rx2cm_out, event_start), daemon=True) #process for calculating analytic non-linear control model
-        elif CM_TYPE == 'AL': #analytic linear control model
-            self.proc = mp.Process(target=self.alcm, args=(eq2cm_out, cm2act_in, cm2csv_in, rx2cm_out, event_start), daemon=True) #process for calculating analytic linear control model
-        self.proc.start()
 
-    def anlcm(self, eq2cm_out, cm2act_in, cm2csv_in, rx2cm_out, event_start):
+    def anlcm(self, cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start):
         #Analytic non-linear control model
         prev_t_anl = TELEM_WAIT
         prev_u_anl = np.zeros((INPUT_LEN,1))
         event_start.wait() #wait for simulation start event
         while True:
-            rxdata      = rx2cm_out.recv() #receive RX telemetry
-            eqdata      = eq2cm_out.recv() #receive equilibrium point
+            rxdata = rx2cm_out.recv() #receive RX telemetry
+            spdata = sp2cm_out.recv() #receive equilibrium point
             if (np.any(rxdata[:,0] >= self.t)):
                 i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
                 rxdata = rxdata[i,:] #first frame
@@ -1770,15 +1765,15 @@ class ControlModel():
                 self.csvcm[1:]  = self.simcm
                 cm2csv_in.send(self.csvcm) #send calculated non-linear model to CSV
 
-    def alcm(self, eq2cm_out, cm2act_in, cm2csv_in, rx2cm_out, event_start):
+    def alcm(self, cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start):
         #Analytic linear control model
         dx_al, A, B, C, D, x_al, u_al = initialize_alcm() #initialize state space
         prev_t_al = TELEM_WAIT
         prev_u_al = np.zeros((INPUT_LEN,1))
         event_start.wait() #wait for simulation start event
         while True:
-            eqdata      = eq2cm_out.recv() #receive equilibrium point
-            rxdata      = rx2cm_out.recv() #receive RX telemetry
+            spdata = sp2cm_out.recv() #receive setpoint
+            rxdata = rx2cm_out.recv() #receive RX telemetry
             if (np.any(rxdata[:,0] >= self.t)):
                 i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
                 rxdata = rxdata[i,:] #get first frame
@@ -1846,18 +1841,18 @@ class ControlModel():
                 Gamma8 = mominert_gamma8(Ixx, Gamma)
 
                 #Equilibrium point
-                pn_eq    = eqdata[0]
-                pe_eq    = eqdata[1]
-                pd_eq    = eqdata[2]
-                phi_eq   = eqdata[3]
-                theta_eq = eqdata[4]
-                psi_eq   = eqdata[5]
-                u_eq     = eqdata[6]
-                v_eq     = eqdata[7]
-                w_eq     = eqdata[8]
-                p_eq     = eqdata[9]
-                q_eq     = eqdata[10]
-                r_eq     = eqdata[11]
+                pn_eq    = spdata[0]
+                pe_eq    = spdata[1]
+                pd_eq    = spdata[2]
+                phi_eq   = spdata[3]
+                theta_eq = spdata[4]
+                psi_eq   = spdata[5]
+                u_eq     = spdata[6]
+                v_eq     = spdata[7]
+                w_eq     = spdata[8]
+                p_eq     = spdata[9]
+                q_eq     = spdata[10]
+                r_eq     = spdata[11]
 
                 q0_eq, q1_eq, q2_eq, q3_eq = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
 

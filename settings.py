@@ -20,15 +20,10 @@ CM_LOG_FILENAME = 'control_model_log'
 ''' DYNAMICS '''
 DYN_LOG_FILENAME = 'dynamics_log'
 
-''' EQUILIBRIUM POINT '''
-EQ_TYPE = 'constant'
-EQ_POINT_INIT = (0,0,100,0,0,0,100,0,0,0,0,0) #(pn_eq, pe_eq, pd_eq, phi_eq, theta_eq, psi_eq, u_eq, v_eq, w_eq, p_eq, q_eq, r_eq)
-EQ_LOG_FILENAME = 'eq_point_log'
-
-''' KINEMATICS '''
-KIN_LOG_FILENAME = 'kinematics_log'
-
-''' INITIALIZATION '''
+''' SETPOINT '''
+SP_TYPE = 'constant'
+SP_POINT_INIT = (0,0,100,0,0,0,100,0,0,0,0,0) #(pn_sp, pe_sp, pd_sp, phi_sp, theta_sp, psi_sp, u_sp, v_sp, w_sp, p_sp, q_sp, r_sp)
+SP_LOG_FILENAME = 'setpoint_log'
 
 ''' TELEMETRY '''
 TELEM_LOG_FILENAME   = 'telemetry_log'

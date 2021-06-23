@@ -5,50 +5,46 @@ import numpy as np
 from actuation import *
 from c172p_model import *
 from dynamics import *
-from equilibrium import *
+from setpoint import *
 from settings import *
 
-class CSVTelemetryLog():
-    def __init__(self, name, **kwargs):
-        for key, value in kwargs.items():
-            if key == 'act2csv_out':
-                act2csv_out = value
-            elif key == 'rx2csv_out':
-                rx2csv_out = value
-            elif key == 'event_start':
-                event_start = value
-        self.rxname = 'rx_' + name + '.csv'
-        self.txname = 'tx_' + name + '.csv'
-        if len(kwargs) > 0:
-            self.rxproc = mp.Process(target=self.write_rx_log, args=(rx2csv_out, event_start), daemon=True) #process for logging RX telemetry
-            self.rxproc.start()
-            self.txproc = mp.Process(target=self.write_tx_log, args=(act2csv_out, event_start), daemon=True) #process for logging TX telemetry
-            self.txproc.start()
-    def read_rx_log(self):
-        with open(self.rxname, 'r', newline='') as csvfile:
-            rxtelemlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
-            rowscount = len(list(rxtelemlog))
+class CSVLogging():
+
+    def __init__(self):
+        #CSV filenames
+        self.rxtelem_fn = 'rx_' + TELEM_LOG_FILENAME + '.csv'
+        self.txtelem_fn = 'tx_' + TELEM_LOG_FILENAME + '.csv'
+        self.dyn_fn     = DYN_LOG_FILENAME + '.csv'
+        self.cm_fn      = CM_LOG_FILENAME + '.csv'
+        self.sp_fn      = SP_LOG_FILENAME + '.csv'
+        
+    def read_telemrxlog(self):
+        with open(self.rxtelem_fn, 'r', newline='') as csvfile:
+            telemrxlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
+            rowscount = len(list(telemrxlog))
             csvfile.seek(0) #go to first row
             rxdata = np.zeros((rowscount, TELEM_RX_LEN))
             i = 0
-            for row in rxtelemlog:
+            for row in telemrxlog:
                 rxdata[i,:] = row
                 i += 1
             return rxdata
-    def read_tx_log(self):
-        with open(self.txname, 'r', newline='') as csvfile:
-            txtelemlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
-            rowscount = len(list(txtelemlog))
+
+    def read_telemtxlog(self):
+        with open(self.txtelem_fn, 'r', newline='') as csvfile:
+            telemtxlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
+            rowscount = len(list(telemtxlog))
             csvfile.seek(0) #go to first row
             txdata = np.zeros((rowscount, TELEM_TX_LEN + 1))
             i = 0
-            for row in txtelemlog:
+            for row in telemtxlog:
                 txdata[i,:] = row
                 i += 1
             return txdata
-    def write_rx_log(self, rx2csv_out, event_start):
-        with open(self.rxname, 'w', newline='') as csvfile:
-            rxtelemlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
+
+    def write_telemrxlog(self, rx2csv_out, event_start):
+        with open(self.rxtelem_fn, 'w', newline='') as csvfile:
+            telemrxlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
             csvdata1 = np.zeros((MODEL_HZ, TELEM_RX_LEN)) #array for storing data frames
             csvdata2 = np.zeros((MODEL_HZ, TELEM_RX_LEN)) #backup array for storing overflowed data frames
             i = 0
@@ -64,15 +60,16 @@ class CSVTelemetryLog():
                             csvdata1[i,:] = rxdata[j,:]
                         i += 1
                     if i > (MODEL_HZ - 1):
-                        rxtelemlog.writerows((csvdata1[k,:] for k in range(MODEL_HZ))) #write array into CSV 
+                        telemrxlog.writerows((csvdata1[k,:] for k in range(MODEL_HZ))) #write array into CSV 
                         i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
                         csvdata1 = csvdata2
                         csvdata2 = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty backup array 
                 except:
                     pass
-    def write_tx_log(self, act2csv_out, event_start):
-        with open(self.txname, 'w', newline='') as csvfile:
-            txtelemlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
+
+    def write_telemtxlog(self, act2csv_out, event_start):
+        with open(self.txtelem_fn, 'w', newline='') as csvfile:
+            telemtxlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
             csvdata = np.zeros((ACT_HZ, TELEM_TX_LEN + 1)) #array for storing data frames
             i = 0
             event_start.wait() #wait for simulation start
@@ -81,22 +78,11 @@ class CSVTelemetryLog():
                 csvdata[i,:] = actdata
                 i += 1
                 if i > (ACT_HZ - 1):
-                    txtelemlog.writerows((csvdata[k,:] for k in range(ACT_HZ))) #write array into CSV 
+                    telemtxlog.writerows((csvdata[k,:] for k in range(ACT_HZ))) #write array into CSV 
                     i = 0
 
-class CSVDynamicsLog():
-    def __init__(self, name, **kwargs):
-        for key, value in kwargs.items():
-            if key == 'dyn2csv_out':
-                dyn2csv_out = value
-            elif key == 'event_start':
-                event_start = value
-        self.name = name + '.csv'
-        if len(kwargs) > 0:
-            self.proc = mp.Process(target=self.write_log, args=(dyn2csv_out, event_start), daemon=True) #process for logging dynamics
-            self.proc.start()
-    def read_log(self):
-        with open(self.name, 'r', newline='') as csvfile:
+    def read_dynlog(self):
+        with open(self.dyn_fn, 'r', newline='') as csvfile:
             dynlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
             rowscount = len(list(dynlog))
             csvfile.seek(0) #go to first row
@@ -106,8 +92,9 @@ class CSVDynamicsLog():
                 dyndata[i,:] = row
                 i += 1
             return dyndata
-    def write_log(self, dyn2csv_out, event_start):
-        with open(self.name, 'w', newline='') as csvfile:
+
+    def write_dynlog(self, dyn2csv_out, event_start):
+        with open(self.dyn_fn, 'w', newline='') as csvfile:
             dynlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
             csvdata1 = np.zeros((MODEL_HZ, DYN_LEN + 1)) #array for storing data frames
             csvdata2 = np.zeros((MODEL_HZ, DYN_LEN + 1)) #backup array for storing overflowed data frames
@@ -131,66 +118,8 @@ class CSVDynamicsLog():
                 except:
                     pass
 
-class CSVKinematicsLog():
-    def __init__(self, name, **kwargs):
-        for key, value in kwargs.items():
-            if key == 'kin2csv_out':
-                kin2csv_out = value
-            elif key == 'event_start':
-                event_start = value
-        self.name = name + '.csv'
-        if len(kwargs) > 0:
-            self.proc = mp.Process(target=self.write_log, args=(kin2csv_out, event_start), daemon=True) #process for logging kinematics
-            self.proc.start()
-    def read_log(self):
-        with open(self.name, 'r', newline='') as csvfile:
-            kinlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
-            rowscount = len(list(kinlog))
-            csvfile.seek(0) #go to first row
-            kindata = np.zeros((rowscount, KIN_LEN + 1))
-            i = 0
-            for row in kinlog:
-                kindata[i,:] = row
-                i += 1
-            return kindata
-    def write_log(self, kin2csv_out, event_start):
-        with open(self.name, 'w', newline='') as csvfile:
-            kinlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
-            csvdata1 = np.zeros((MODEL_HZ, KIN_LEN + 1)) #array for storing data frames
-            csvdata2 = np.zeros((MODEL_HZ, KIN_LEN + 1)) #backup array for storing overflowed data frames
-            i = 0
-            event_start.wait() #wait for simulation start
-            while True:
-                try:
-                    kindata = kin2csv_out.recv() #receive RX telemetry
-                    framescount = kindata.shape[0]
-                    for j in range(framescount):                
-                        if i > (MODEL_HZ - 1):
-                            csvdata2[i-MODEL_HZ,:] = kindata[j,:] 
-                        else:
-                            csvdata1[i,:] = kindata[j,:]
-                        i += 1
-                    if i > (MODEL_HZ - 1):
-                        kinlog.writerows((csvdata1[k,:] for k in range(MODEL_HZ))) #write array into CSV 
-                        i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
-                        csvdata1 = csvdata2
-                        csvdata2 = np.empty((MODEL_HZ, (KIN_LEN + 1))) #empty backup array 
-                except:
-                    pass
-
-class CSVControlModelLog():
-    def __init__(self, name, **kwargs):
-        for key, value in kwargs.items():
-            if key == 'cm2csv_out':
-                cm2csv_out = value
-            elif key == 'event_start':
-                event_start = value
-        self.name = name + '.csv'
-        if len(kwargs) > 0:
-            self.proc = mp.Process(target=self.write_log, args=(cm2csv_out, event_start), daemon=True) #process for logging control model
-            self.proc.start()
-    def read_log(self):
-        with open(self.name, 'r', newline='') as csvfile:
+    def read_cmlog(self):
+        with open(self.cm_fn, 'r', newline='') as csvfile:
             cmlog     = csv.reader(csvfile, delimiter=' ') #CSV reader object
             rowscount = len(list(cmlog))
             csvfile.seek(0) #go to first row
@@ -200,8 +129,9 @@ class CSVControlModelLog():
                 rxdata[i,:] = row
                 i += 1
             return rxdata
-    def write_log(self, cm2csv_out, event_start):
-        with open(self.name, 'w', newline='') as csvfile:
+
+    def write_cmlog(self, cm2csv_out, event_start):
+        with open(self.cm_fn, 'w', newline='') as csvfile:
             cmlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
             csvdata = np.zeros((CM_HZ, STATE_LEN + 1)) #array for storing data frames
             i = 0
@@ -214,38 +144,28 @@ class CSVControlModelLog():
                     cmlog.writerows((csvdata[k,:] for k in range(CM_HZ))) #write array into CSV 
                     i = 0
 
-class CSVEquilibriumLog():
-    def __init__(self, name, **kwargs):
-        for key, value in kwargs.items():
-            if key == 'eq2csv_out':
-                eq2csv_out = value
-            elif key == 'event_start':
-                event_start = value
-        self.name = name + '.csv'
-        if len(kwargs) > 0:
-            self.proc = mp.Process(target=self.write_log, args=(eq2csv_out, event_start), daemon=True) #process for logging equilibrium point
-            self.proc.start()
-    def read_log(self):
-        with open(self.name, 'r', newline='') as csvfile:
-            eqlog = csv.reader(csvfile, delimiter=' ') #CSV reader object
-            rowscount = len(list(eqlog))
+    def read_splog(self):
+        with open(self.sp_fn, 'r', newline='') as csvfile:
+            splog = csv.reader(csvfile, delimiter=' ') #CSV reader object
+            rowscount = len(list(splog))
             csvfile.seek(0) #go to first row
-            rxdata = np.zeros((rowscount, EQ_LEN))
+            rxdata = np.zeros((rowscount, SP_LEN))
             i = 0
-            for row in eqlog:
+            for row in splog:
                 rxdata[i,:] = row
                 i += 1
             return rxdata
-    def write_log(self, eq2csv_out, event_start):
-        with open(self.name, 'w', newline='') as csvfile:
-            eqlog = csv.writer(csvfile, delimiter=' ') #CSV writer object
-            csvdata = np.zeros((ACT_HZ, EQ_LEN + 1)) #array for storing data frames
+
+    def write_splog(self, sp2csv_out, event_start):
+        with open(self.sp_fn, 'w', newline='') as csvfile:
+            splog = csv.writer(csvfile, delimiter=' ') #CSV writer object
+            csvdata = np.zeros((ACT_HZ, SP_LEN + 1)) #array for storing data frames
             i = 0
             event_start.wait() #wait for simulation start
             while True:
-                eqdata = eq2csv_out.recv()
-                csvdata[i,:] = eqdata
+                spdata = sp2csv_out.recv()
+                csvdata[i,:] = spdata
                 i += 1
                 if i > (ACT_HZ - 1):
-                    eqlog.writerows((csvdata[k,:] for k in range(ACT_HZ))) #write array into CSV 
+                    splog.writerows((csvdata[k,:] for k in range(ACT_HZ))) #write array into CSV 
                     i = 0

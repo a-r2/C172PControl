@@ -13,10 +13,10 @@ class Telemetry():
         self.TX_PORT       = TELEM_TX_PORT
         self.rx_sock       = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP RX socket
         self.rx_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set RX socket reusability
+        self.rx_sock.bind((self.RX_IP_ADDRESS, self.RX_PORT)) #bind TCP RX socket to ip and port
         self.tx_sock       = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP TX socket
         self.tx_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set TX socket reusability
     def receive(self, rx2act_in, rx2csv_in, rx2dyn_in, rx2eq_in, rx2cm_in, rx2sup_in, event_rxtcp, event_start):
-        self.rx_sock.bind((self.RX_IP_ADDRESS, self.RX_PORT)) #bind TCP RX socket to ip and port
         self.rx_sock.listen(1) #listen to flighgear TCP request
         print("Waiting for RX link with FlightGear...")
         conn, _ = self.rx_sock.accept() #incoming TCP connection
@@ -79,13 +79,17 @@ class Telemetry():
     def transmit(self, act2tx_out, event_rxtcp, event_txtcp, event_start):
         event_rxtcp.wait() #wait for RX TCP connection event
         print("Waiting for TX link with FlightGear...")
-        self.tx_sock.connect((self.TX_IP_ADDRESS, self.TX_PORT)) #outgoing TCP connection
-        print("TX link established!")
-        event_txtcp.set() #wait for TX TCP connection event
-        event_start.wait() #wait for simulation start event
-        while True:
-            try:
-                txdata = act2tx_out.recv()
-                self.tx_sock.sendall(txdata.encode()) #sending TX telemetry data
-            except:
-                pass
+        try:
+            self.tx_sock.connect((self.TX_IP_ADDRESS, self.TX_PORT)) #outgoing TCP connection
+        except:
+            pass
+        finally:
+            print("TX link established!")
+            event_txtcp.set() #wait for TX TCP connection event
+            event_start.wait() #wait for simulation start event
+            while True:
+                try:
+                    txdata = act2tx_out.recv()
+                    self.tx_sock.sendall(txdata.encode()) #sending TX telemetry data
+                except:
+                    pass
