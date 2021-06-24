@@ -2,27 +2,24 @@ import multiprocessing as mp
 import numpy as np
 import socket
 
+from constants import *
 from settings import *
 
 class Telemetry():
-    def __init__(self, rx_ip_address, rx_port, tx_ip_address, tx_port, rx2act_in, rx2csv_in, rx2dyn_in, act2tx_out, event_rxtcp, event_txtcp, event_start):
-        self.RX_IP_ADDRESS = rx_ip_address
-        self.RX_PORT = rx_port
-        self.TX_IP_ADDRESS = tx_ip_address
-        self.TX_PORT = tx_port
-        self.rxsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP RX socket
-        self.rxsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set RX socket reusability
-        self.txsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP TX socket
-        self.txsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set TX socket reusability
-        self.rxproc = mp.Process(target=self.receive, args=(rx2act_in, rx2csv_in, rx2dyn_in, event_rxtcp, event_start), daemon=True) #process for receiving RX telemetry
-        self.rxproc.start()
-        self.txproc = mp.Process(target=self.transmit, args=(act2tx_out, event_rxtcp, event_txtcp, event_start), daemon=True) #process for transmitting TX telemetry
-        self.txproc.start()
-    def receive(self, rx2act_in, rx2csv_in, rx2dyn_in, event_rxtcp, event_start):
-        self.rxsock.bind((self.RX_IP_ADDRESS, self.RX_PORT)) #bind TCP RX socket to ip and port
-        self.rxsock.listen(1) #listen to flighgear TCP request
+    def __init__(self):
+        self.RX_IP_ADDRESS = TELEM_RX_IP_ADDRESS
+        self.RX_PORT       = TELEM_RX_PORT
+        self.TX_IP_ADDRESS = TELEM_TX_IP_ADDRESS
+        self.TX_PORT       = TELEM_TX_PORT
+        self.rx_sock       = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP RX socket
+        self.rx_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set RX socket reusability
+        self.rx_sock.bind((self.RX_IP_ADDRESS, self.RX_PORT)) #bind TCP RX socket to ip and port
+        self.tx_sock       = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP TX socket
+        self.tx_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set TX socket reusability
+    def receive(self, rx2act_in, rx2csv_in, rx2dyn_in, rx2eq_in, rx2cm_in, rx2sup_in, event_rxtcp, event_start):
+        self.rx_sock.listen(1) #listen to flighgear TCP request
         print("Waiting for RX link with FlightGear...")
-        conn, _ = self.rxsock.accept() #incoming TCP connection
+        conn, _ = self.rx_sock.accept() #incoming TCP connection
         print("RX link established!")
         event_rxtcp.set() #set RX TCP connection event
         dataframe = np.zeros(TELEM_RX_LEN) #array for storing one data frame
@@ -45,6 +42,9 @@ class Telemetry():
                     rx2act_in.send(framesarray) #send RX telemetry to calculate actuation 
                     rx2csv_in.send(framesarray) #send RX telemetry to store in CSV
                     rx2dyn_in.send(framesarray) #send RX telemetry to calculate dynamics
+                    rx2eq_in.send(framesarray) #send RX telemetry to calculate equilibrium point 
+                    rx2cm_in.send(framesarray) #send RX telemetry to calculate control model 
+                    rx2sup_in.send(framesarray) #send RX telemetry to calculate supervisor 
                     event_start.set() #set simulation start event
                     framesarray = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty data frames array
                     break
@@ -68,6 +68,9 @@ class Telemetry():
                     rx2act_in.send(framesarray) #send RX telemetry to calculate actuation 
                     rx2csv_in.send(framesarray) #send RX telemetry to store in CSV
                     rx2dyn_in.send(framesarray) #send RX telemetry to calculate dynamics
+                    rx2eq_in.send(framesarray) #send RX telemetry to calculate equilibrium point 
+                    rx2cm_in.send(framesarray) #send RX telemetry to calculate control model 
+                    rx2sup_in.send(framesarray) #send RX telemetry to calculate supervisor 
                     framesarray = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty data frames array
                 else:
                     framesarray = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty data frames array
@@ -76,13 +79,17 @@ class Telemetry():
     def transmit(self, act2tx_out, event_rxtcp, event_txtcp, event_start):
         event_rxtcp.wait() #wait for RX TCP connection event
         print("Waiting for TX link with FlightGear...")
-        self.txsock.connect((self.TX_IP_ADDRESS, self.TX_PORT)) #outgoing TCP connection
-        print("TX link established!")
-        event_txtcp.set() #wait for TX TCP connection event
-        event_start.wait() #wait for simulation start event
-        while True:
-            try:
-                txdata = act2tx_out.recv()
-                self.txsock.sendall(txdata.encode()) #sending TX telemetry data
-            except:
-                pass
+        try:
+            self.tx_sock.connect((self.TX_IP_ADDRESS, self.TX_PORT)) #outgoing TCP connection
+        except:
+            pass
+        finally:
+            print("TX link established!")
+            event_txtcp.set() #wait for TX TCP connection event
+            event_start.wait() #wait for simulation start event
+            while True:
+                try:
+                    txdata = act2tx_out.recv()
+                    self.tx_sock.sendall(txdata.encode()) #sending TX telemetry data
+                except:
+                    pass

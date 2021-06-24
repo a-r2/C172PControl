@@ -1,94 +1,106 @@
 import multiprocessing as mp
 import numpy as np
 
+from constants import *
 from c172p_model import *
 from settings import *
 
-DYN_LEN = 7 #[D, S, L, T, l, m, n]
-
 class Dynamics():
-    def __init__(self, rx2dyn_out, dyn2csv_in, event_start):
+
+    def __init__(self):
         self.csvdyn = np.zeros((MODEL_HZ, DYN_LEN + 1)) #array for storing dynamics
-        self.proc = mp.Process(target=self.forces_moments_body, args=(rx2dyn_out, dyn2csv_in, event_start), daemon=True) #process for calculating actuation 
-        self.proc.start()
-    def forces_moments_body(self, rx2dyn_out, dyn2csv_in, event_start):
+
+    def forces_moments_body(self, dyn2csv_in, rx2dyn_out, event_start):
         #Aerodynamic and propulsive forces and moments applied to the aircraft in body frame
         event_start.wait() #wait for simulation start event
         while True:
             rxdata      = rx2dyn_out.recv() #receive RX telemetry
             framescount = rxdata.shape[0]
             for i in range(framescount):                
-                time                  = rxdata[i,0]
-                alpha_deg             = rxdata[i,21]
-                alpha_rad             = rxdata[i,22]
-                beta_rad              = rxdata[i,24]
-                p_rad_sec             = rxdata[i,42]
-                q_rad_sec             = rxdata[i,43]
-                r_rad_sec             = rxdata[i,44]
-                alphadot_rad_sec      = rxdata[i,46]
-                right_aileron_pos_rad = rxdata[i,86]
-                left_aileron_pos_rad  = rxdata[i,89]
-                elev_pos_rad          = rxdata[i,92]
-                flaps_pos_deg         = rxdata[i,94]
-                rudder_pos_rad        = rxdata[i,98]
-                bi2vel                = rxdata[i,106]
-                ci2vel                = rxdata[i,107]
-                h_b_mac_ft            = rxdata[i,108]
-                qbar_psf              = rxdata[i,109]
-                qbarUW_psf            = rxdata[i,110]
-                qbar_propwash_psf     = rxdata[i,111]
-                qbar_induced_psf      = rxdata[i,112]
-                stall_hyst_norm       = rxdata[i,113]
-                density               = rxdata[i,114]
-                advance_ratio         = rxdata[i,115]
-                rpm_prop              = rxdata[i,116]
 
-                D1 = D0(qbar_psf)
-                D2 = DDf(qbar_psf, h_b_mac_ft, flaps_pos_deg)
-                D3 = Dwbh(qbar_psf, h_b_mac_ft, alpha_rad, flaps_pos_deg)
-                D4 = DDe(qbar_psf, elev_pos_rad)
-                D5 = Dbeta(qbar_psf, beta_rad)
+                t_sim         = rxdata[i,0]
+                phi_rad       = rxdata[i,20]
+                theta_rad     = rxdata[i,22]
+                psi_rad       = rxdata[i,24]
+                alpha_rad     = rxdata[i,26]
+                beta_rad      = rxdata[i,28]
+                p             = rxdata[i,46]
+                q             = rxdata[i,47]
+                r             = rxdata[i,48]
+                alphadot_rads = rxdata[i,53]
+                sigmara_rad   = rxdata[i,93] 
+                sigmala_rad   = rxdata[i,96]
+                sigmae_rad    = rxdata[i,99]
+                sigmaf_rad    = rxdata[i,102]
+                sigmar_rad    = rxdata[i,105]
+                Bw2Va         = rxdata[i,109]
+                Cw2Va         = rxdata[i,110]
+                hmacb         = rxdata[i,111]
+                qbar          = rxdata[i,112]
+                qbaruw        = rxdata[i,113]
+                qbarprop      = rxdata[i,114]
+                qbarind       = rxdata[i,115]
+                stall         = rxdata[i,116]
+                rho           = rxdata[i,117]
+                J             = rxdata[i,118]
+                rpmprop       = rxdata[i,119]
+                mass          = rxdata[i,126]
+                grav          = rxdata[i,127]
 
-                S1 = Yb(qbar_psf, beta_rad, flaps_pos_deg)
-                S2 = Ydr(qbar_psf, rudder_pos_rad)
+                euler = np.array([phi_rad, theta_rad, psi_rad])
+                quat  = euler_to_attquat(euler)
 
-                L1 = Lwbh(qbar_psf, h_b_mac_ft, alpha_rad, stall_hyst_norm)
-                L2 = LDf(qbar_psf, h_b_mac_ft, flaps_pos_deg)
-                L3 = LDe(qbar_psf, elev_pos_rad)
-                L4 = Ladot(qbarUW_psf, alphadot_rad_sec, ci2vel)
-                L5 = Lq(qbar_psf, q_rad_sec, ci2vel)
+                # Conversions
+                qbar     = psf_to_pa(qbar) 
+                qbaruw   = psf_to_pa(qbaruw) 
+                qbarprop = psf_to_pa(qbarprop) 
+                qbarind  = psf_to_pa(qbarind) 
+                rho      = slugft3_to_kgm3(rho)
+                rpsprop  = rpm_to_rps(rpmprop)
+                mass     = slug_to_kg(mass)
+                grav     = ft_to_m(grav)
 
-                T1 = engine_thrust(advance_ratio, density, rpm_prop)
+                CD1 = aerocoeff_CD1()
+                CD2 = aerocoeff_CD2(hmacb, sigmaf_rad)
+                CD3 = aerocoeff_CD3(hmacb, alpha_rad, sigmaf_rad)
+                CD4 = aerocoeff_CD4(beta_rad)
+                CC1 = aerocoeff_CC1(beta_rad, sigmaf_rad)
+                CC2 = aerocoeff_CC2(sigmar_rad)
+                CL1 = aerocoeff_CL1(hmacb, alpha_rad, stall)
+                CL2 = aerocoeff_CL2(hmacb, sigmaf_rad)
+                CL3 = aerocoeff_CL3(sigmae_rad)
+                CL4 = aerocoeff_CL4(Cw2Va, q)
+                CL5 = aerocoeff_CL5(Cw2Va, alphadot_rads)
+                Cl1 = aerocoeff_Cl1(beta_rad, alpha_rad)
+                Cl2 = aerocoeff_Cl2(Bw2Va, p)
+                Cl3 = aerocoeff_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall)
+                Cl4 = aerocoeff_Cl4(sigmala_rad, sigmara_rad, alpha_rad, stall)
+                Cl5 = aerocoeff_Cl5(sigmar_rad)
+                Cm1 = aerocoeff_Cm1(qbar)
+                Cm2 = aerocoeff_Cm2(alpha_rad)
+                Cm3 = aerocoeff_Cm3(Cw2Va, q)
+                Cm4 = aerocoeff_Cm4(sigmaf_rad)
+                Cm5 = aerocoeff_Cm5(Cw2Va, alphadot_rads)
+                Cm6 = aerocoeff_Cm6(sigmae_rad, alpha_rad)
+                Cn1 = aerocoeff_Cn1(beta_rad)
+                Cn2 = aerocoeff_Cn2(Bw2Va, r)
+                Cn3 = aerocoeff_Cn3(Bw2Va, r, alpha_rad)
+                Cn4 = aerocoeff_Cn4(sigmala_rad, sigmara_rad, alpha_rad, beta_rad)
+                Cn5 = aerocoeff_Cn5(sigmar_rad)
+                Cn6 = aerocoeff_Cn6()
 
-                l1 = lb(qbar_psf, beta_rad, alpha_rad)
-                l2 = lp(qbar_psf, beta_rad, bi2vel, p_rad_sec) 
-                l3 = lr(qbar_psf, bi2vel, r_rad_sec, flaps_pos_deg, alpha_rad, stall_hyst_norm)
-                l4 = lDa(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, stall_hyst_norm)
-                l5 = ldr(qbar_psf, rudder_pos_rad)
+                D = qbar * SW_SI * (CD1 + CD2 + CD3 + CD4) 
+                C = qbar * SW_SI * (CC1 + CC2)
+                L = SW_SI * (qbar * (CL1 + CL2 + CL3 + CL4) + qbaruw * CL5)
+                l = qbar * SW_SI * BW_SI * (Cl1 + Cl2 + Cl3 + Cl4 + Cl5)
+                m = SW_SI * CW_SI * (qbar * (Cm1 + Cm2 + Cm3 + Cm4) + qbaruw * Cm5 + qbarind * Cm6)
+                n = SW_SI * BW_SI * (qbar * (Cn1 + Cn2 + Cn3 + Cn4) + qbarind * Cn5 + qbarprop * Cn6)
+                gx, gy, gz = gravity_body(quat, mass, grav)
+                T = thrust_eng(J, rho, rpsprop)
 
-                m1 = m0(qbar_psf)
-                m2 = malpha(qbar_psf, alpha_deg, alpha_rad)
-                m3 = mq(qbar_psf, ci2vel, q_rad_sec)
-                m4 = madot(qbarUW_psf, ci2vel, alphadot_rad_sec)
-                m5 = mde(qbar_induced_psf, elev_pos_rad, alpha_deg)
-                m6 = mdf(qbar_psf, flaps_pos_deg)
+                DCL = wind_to_body(alpha_rad, beta_rad).rotate([-D, C, -L])
 
-                n1 = nb(qbar_psf, beta_rad)
-                n2 = nspw(qbar_propwash_psf)
-                n3 = nr(qbar_psf, bi2vel, r_rad_sec)
-                n4 = nrf(qbar_psf, bi2vel, r_rad_sec, alpha_rad)
-                n5 = nda(qbar_psf, left_aileron_pos_rad, right_aileron_pos_rad, alpha_rad, beta_rad)
-                n6 = ndr(qbar_induced_psf, rudder_pos_rad)
+                self.csvdyn[i,:] = [t_sim, D, C, L, T, gx, gy, gz, l, m, n]
 
-                D = D1 + D2 + D3 + D4 + D5
-                S = S1 + S2
-                L = L1 + L2 + L3 + L4 + L5
-                T = T1
-                l = l1 + l2 + l3 + l4 + l5
-                m = m1 + m2 + m3 + m4 + m5 + m6
-                n = n1 + n2 + n3 + n4 + n5 + n6
-            
-                self.csvdyn[i,:] = [time, D, S, L, T, l, m, n]
-
-            dyn2csv_in.send(self.csvdyn[:framescount,:]) #send calculated dynamics to store in CSV
+            dyn2csv_in.send(self.csvdyn[:framescount,:]) #send dynamics to CSV
             self.csvdyn = np.empty((MODEL_HZ, DYN_LEN + 1)) #empty array 

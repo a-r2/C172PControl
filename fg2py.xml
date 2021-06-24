@@ -42,6 +42,27 @@
             </chunk>
      
             <chunk>
+               <node>/fdm/jsbsim/position/ecef-x-ft</node>
+               <name>North position (ECEF) in feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/ecef-y-ft</node>
+               <name>East position (ECEF) in feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/ecef-z-ft</node>
+               <name>Down position (ECEF) in feet</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
                <node>/fdm/jsbsim/position/long-gc-deg</node>
                <name>Longitude (GNSS) in degrees</name>
                <type>float</type>
@@ -85,28 +106,35 @@
      
             <chunk>
                <node>/fdm/jsbsim/position/h-agl-ft</node>
-               <name>Barometric altitude (QFE) in feet</name>
+               <name>Barometric altitude AGL (QFE) in feet</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
      
             <chunk>
                <node>/fdm/jsbsim/position/h-agl-km</node>
-               <name>Barometric altitude (QFE) in kilometers</name>
+               <name>Barometric altitude AGL (QFE) in kilometers</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
      
             <chunk>
                <node>/fdm/jsbsim/position/h-sl-ft</node>
-               <name>Barometric altitude (QNH) in feet</name>
+               <name>Barometric altitude ASL (QNH) in feet</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
      
             <chunk>
                <node>/fdm/jsbsim/position/h-sl-meters</node>
-               <name>Barometric altitude (QNH) in meters</name>
+               <name>Barometric altitude ASL (QNH) in meters</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/position/terrain-elevation-asl-ft</node>
+               <name>Terrain elevation ASL in feet </name>
                <type>float</type>
                <format>%f</format>
             </chunk>
@@ -239,21 +267,21 @@
      
             <chunk>
                <node>/fdm/jsbsim/velocities/u-aero-fps</node>
-               <name>Longitudinal aerodynamic velocity (wind) in feet per second</name>
+               <name>Aerodynamic longitudinal velocity (body) in feet per second</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
      
             <chunk>
                <node>/fdm/jsbsim/velocities/v-aero-fps</node>
-               <name>Transversal aerodynamic velocity (wind) in feet per second</name>
+               <name>Aerodynamic transversal velocity (body) in feet per second</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
      
             <chunk>
                <node>/fdm/jsbsim/velocities/w-aero-fps</node>
-               <name>Vertical aerodynamic velocity (wind) in feet per second</name>
+               <name>Aerodynamic vertical velocity (body) in feet per second</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
@@ -296,6 +324,27 @@
             <chunk>
                <node>/fdm/jsbsim/velocities/psidot-rad_sec</node>
                <name>Rate of change of yaw angle in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/p-rad_sec</node>
+               <name>Aerodynamic roll velocity (body) in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/q-rad_sec</node>
+               <name>Aerodynamic pitch velocity (body) in radians per second</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/velocities/r-rad_sec</node>
+               <name>Aerodynamic yaw velocity (body) in radians per second</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
@@ -721,34 +770,6 @@
             </chunk>
      
             <chunk>
-               <node>/fdm/jsbsim/orientation/upside-down</node>
-               <name>Upside-down state</name>
-               <type>float</type>
-               <format>%f</format>
-            </chunk>
-     
-            <chunk>
-                <node>/fdm/jsbsim/gear/unit/WOW</node>
-               <name>Wheel 1 weight-on-wheel state</name>
-               <type>float</type>
-               <format>%f</format>
-            </chunk>
-     
-            <chunk>
-                <node>/fdm/jsbsim/gear/unit[1]/WOW</node>
-               <name>Wheel 2 weight-on-wheel state</name>
-               <type>float</type>
-               <format>%f</format>
-            </chunk>
-     
-            <chunk>
-                <node>/fdm/jsbsim/gear/unit[2]/WOW</node>
-               <name>Wheel 3 weight-on-wheel state</name>
-               <type>float</type>
-               <format>%f</format>
-            </chunk>
-     
-            <chunk>
                <node>/fdm/jsbsim/aero/bi2vel</node>
                <name>Wing span divided by twice the velocity</name>
                <type>float</type>
@@ -778,7 +799,7 @@
      
             <chunk>
                <node>/fdm/jsbsim/aero/qbarUW-psf</node>
-               <name>Dynamic pressure (XZ plane of wind frame)</name>
+               <name>Dynamic pressure (UW plane of wind frame)</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
@@ -825,6 +846,111 @@
                <format>%f</format>
             </chunk>
 
+            <chunk>
+               <node>/fdm/jsbsim/inertia/ixx-slugs_ft2</node>
+               <name>Moment of inercia Ixx</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/ixy-slugs_ft2</node>
+               <name>Moment of inercia Ixy</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/ixz-slugs_ft2</node>
+               <name>Moment of inercia Ixz</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/iyy-slugs_ft2</node>
+               <name>Moment of inercia Iyy</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/iyz-slugs_ft2</node>
+               <name>Moment of inercia Iyz</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/izz-slugs_ft2</node>
+               <name>Moment of inercia Izz</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/inertia/mass-slugs</node>
+               <name>Mass</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/accelerations/gravity-ft_sec2</node>
+               <name>Gravitational acceleration</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+
+            <chunk>
+               <node>/fdm/jsbsim/orientation/upside-down</node>
+               <name>Upside-down state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+                <node>/fdm/jsbsim/gear/unit/WOW</node>
+               <name>Wheel 1 weight-on-wheel state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+                <node>/fdm/jsbsim/gear/unit[1]/WOW</node>
+               <name>Wheel 2 weight-on-wheel state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+                <node>/fdm/jsbsim/gear/unit[2]/WOW</node>
+               <name>Wheel 3 weight-on-wheel state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/contact/unit[3]/WOW</node>
+               <name>Wheel 1 contact state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/contact/unit[4]/WOW</node>
+               <name>Wheel 2 contact state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
+            <chunk>
+               <node>/fdm/jsbsim/contact/unit[11]/WOW</node>
+               <name>Wheel 3 contact state</name>
+               <type>float</type>
+               <format>%f</format>
+            </chunk>
+     
         </output>
     </generic>
  </PropertyList>

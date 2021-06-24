@@ -50,21 +50,21 @@
 
             <chunk>
                <node>/controls/flight/aileron-trim</node>
-               <name>Normalized roll trim</name>
+               <name>Normalized aileron trim</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
 
             <chunk>
                <node>/controls/flight/elevator-trim</node>
-               <name>Normalized pitch trim</name>
+               <name>Normalized elevator trim</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
 
             <chunk>
                <node>/controls/flight/rudder-trim</node>
-               <name>Normalized yaw trim</name>
+               <name>Normalized rudder trim</name>
                <type>float</type>
                <format>%f</format>
             </chunk>
