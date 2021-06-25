@@ -1,3 +1,8 @@
+''' PROTOCOLS FILES '''
+CFG_PROTOCOL_FILENAME = 'py2fg_cfg' #DO NOT MODIFY UNLESS PY2FG_CFG.XML IS ALSO RENAMED ACCORDINGLY
+RX_PROTOCOL_FILENAME  = 'fg2py' #DO NOT MODIFY UNLESS FG2PY.XML IS ALSO RENAMED ACCORDINGLY
+TX_PROTOCOL_FILENAME  = 'py2fg_act' #DO NOT MODIFY UNLESS PY2FG_ACT.XML IS ALSO RENAMED ACCORDINGLY
+
 # VARIABLE DEFINITION FORMAT
 #
 # 0 | 1 | 2 | 3 | 4
@@ -28,8 +33,8 @@ ACT_LEN = len(ACT_STR)
 # 3 | deltar | Normalized rudder position          | - | - 
 # 4 | deltat | Normalized engine throttle position | - | - 
 # 5 | deltam | Normalized engine mixture position  | - | - 
-CM_INPUTS_STR = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam')
-CM_INPUTS_LEN = len(CM_INPUTS_STR)
+CM_INPUT_STR = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam')
+CM_INPUT_LEN = len(CM_INPUT_STR)
 
 # 0  | pn | North position                               | NED | m
 # 1  | pe | East position                                | NED | m
@@ -44,8 +49,8 @@ CM_INPUTS_LEN = len(CM_INPUTS_STR)
 # 10 | p  | Roll velocity                                | XYZ | rad/s
 # 11 | q  | Pitch velocity                               | XYZ | rad/s
 # 12 | r  | Yaw velocity                                 | XYZ | rad/s
-CM_STATES_STR = ('pn', 'pe', 'pd', 'q0', 'q1', 'q2', 'q3', 'u', 'v', 'w', 'p', 'q', 'r')
-CM_STATES_LEN = len(CM_STATES_STR)
+CM_STATE_STR = ('pn', 'pe', 'pd', 'q0', 'q1', 'q2', 'q3', 'u', 'v', 'w', 'p', 'q', 'r')
+CM_STATE_LEN = len(CM_STATE_STR)
 
 ''' DYNAMICS '''
 # 0 | D  | Longitudinal aerodynamic force   | XYZ | N
@@ -210,7 +215,7 @@ TELEM_RX_LEN = len(TELEM_RX_STR)
 # 6 | deltaa_trim | Normalized aileron trim command    | - | -
 # 7 | deltae_trim | Normalized elevator trim command   | - | -
 # 8 | deltar_trim | Normalized rudder trim command     | - | -
-TELEM_TX_STR = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam', 'deltaa_trim', 'deltae_trim', 'deltar_trim') #TX telemetry str tuple (DO NOT MODIFY UNLESS PY2FG.XML IS ALSO MODIFIED ACCORDINGLY)
+TELEM_TX_STR = ('deltaa', 'deltae', 'deltaf', 'deltar', 'deltat', 'deltam', 'deltaa_trim', 'deltae_trim', 'deltar_trim') #TX telemetry str tuple (DO NOT MODIFY UNLESS PY2FG_ACT.XML IS ALSO MODIFIED ACCORDINGLY)
 TELEM_TX_LEN = len(TELEM_TX_STR)
 
 ''' PLOT '''
