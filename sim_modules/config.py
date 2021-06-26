@@ -13,10 +13,10 @@ class Config():
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set socket reusability
         cfgdata = str(SIM_RATE) + '\t' + str(FPS) + '\t' + str(MAX_TIME_PER_FRAME) + '\n'
         event_rxtcp.wait() #wait for RX TCP connection event
-        print("Configuring FlightGear...")
+        print('Configuring FlightGear...')
         sock.connect((self.IP_ADDRESS, self.PORT)) #outgoing TCP connection socket
         sock.sendall(cfgdata.encode()) #sending configuration data
-        print("FlightGear configured!")
+        print('FlightGear configured!')
         #Close socket
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()

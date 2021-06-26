@@ -8,12 +8,13 @@ class Setpoint():
     def __init__(self):
         self.t        = TELEM_WAIT
         self.dt       = 1 / CM_HZ
-        self.simsp    = np.zeros(CM_STATE_LEN) #array for storing setpoint point 
-        self.csvsp    = np.zeros(CM_STATE_LEN + 1) #array for storing csv setpoint point 
-        self.simspstr = np.zeros(CM_STATE_LEN) #array for storing setpoint point as string
+        self.simsp    = np.zeros(CM_STATE_LEN) #array for storing setpoint
+        self.simspstr = np.zeros(CM_STATE_LEN) #array for storing setpoint as string
+        self.csvsp    = np.zeros(CM_STATE_LEN + 1) #array for storing csv setpoint 
         self.spstr    = str()
 
     def constant(self, rx2sp_out, sp2cm_in, sp2csv_in, event_start, event_end):
+        self.simsp = SP_INIT
         event_start.wait() #wait for simulation start event
         while True:
             if event_end.is_set():
@@ -28,10 +29,9 @@ class Setpoint():
                     i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
                     rxdata = rxdata[i,:] #get first frame
                     self.t = self.t + self.dt
-                    self.simsp     = SP_POINT_INIT
                     self.csvsp[0]  = rxdata[0] #add timestamp
-                    self.csvsp[1:] = self.simsp
+                    self.csvsp[1:] = SP_INIT
                     sp2csv_in.send(self.csvsp) #send setpoint to CSV
                 else:
                     pass
-                sp2cm_in.send(SP_POINT_INIT) #send setpoint point to control model
+                sp2cm_in.send(SP_INIT) #send setpoint point to control model

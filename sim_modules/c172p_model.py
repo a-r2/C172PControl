@@ -129,7 +129,7 @@ def parder_table_2d(table_2d):
     
 ''' DYNAMIC COEFFICIENTS TABLES '''
 #Drag coefficient due to ground effect
-#Column 0: hmacb
+#Column 0: hmacb [-]
 kCDge_FG = np.array(   
                     [
                      [0.0000, 0.4800],
@@ -151,7 +151,7 @@ kCDge        = kCDge_FG.copy()
 kCDge_interp = interp_table_1d(kCDge)
 
 #Drag coefficient due to flaps position
-#Column 0: sigmaf_deg
+#Column 0: sigmaf_deg [deg]
 TD2_FG = np.array(
                   [
                    [0.0000, 0.0000],
@@ -166,7 +166,7 @@ TD2_interp               = interp_table_1d(TD2)
 parder_deltaf_TD2_interp = parder_table_1d(TD2)
 
 #Drag coefficient due to angle of attack and flaps position
-#Column 0: alpha_rad | Row 0: sigmaf_deg
+#Column 0: alpha_rad [rad] | Row 0: sigmaf_deg [deg]
 TD3_FG = np.array(   
                   [
                    [np.NaN, 0.0000, 10.0000, 20.0000, 30.0000],
@@ -206,7 +206,7 @@ TD3_interp                                        = interp_table_2d(TD3)
 parder_alpha_TD3_interp, parder_deltaf_TD3_interp = parder_table_2d(TD3)
 
 #Side force coefficient due to side-slip angle and flaps position
-#Column 0: beta_rad | Row 0: sigmaf_deg
+#Column 0: beta_rad [rad] | Row 0: sigmaf_deg [deg]
 TC1_FG = np.array(
                   [
                    [np.NaN, 0.0000, 30.0000],
@@ -221,7 +221,7 @@ TC1_interp                                       = interp_table_2d(TC1)
 parder_beta_TC1_interp, parder_deltaf_TC1_interp = parder_table_2d(TC1)
 
 #Lift coefficient due to ground effect
-#Column 0: hmacb
+#Column 0: hmacb [-]
 kCLge_FG = np.array(   
                     [
                      [0.0000, 1.2030],
@@ -243,7 +243,7 @@ kCLge        = kCLge_FG.copy()
 kCLge_interp = interp_table_1d(kCLge)
 
 #Lift coefficient due to alpha and aerodynamic hysteresis
-#Column 0: alpha_rad | Row 0: stall
+#Column 0: alpha_rad [rad] | Row 0: stall [-]
 TL1_FG = np.array(   
                   [
                    [np.NaN, 0.0000, 1.0000],
@@ -276,7 +276,7 @@ TL1_interp                 = interp_table_2d(TL1)
 parder_alpha_TL1_interp, _ = parder_table_2d(TL1)
 
 #Lift coefficient due to flaps position
-#Column 0: sigmaf_deg
+#Column 0: sigmaf_deg [deg]
 TL2_FG = np.array(
                   [
                    [0.0000, 0.0000],
@@ -291,7 +291,7 @@ TL2_interp               = interp_table_1d(TL2)
 parder_deltaf_TL2_interp = parder_table_1d(TL2)
 
 #Roll moment coefficient due to alpha wing
-#Column 0: alpha_rad
+#Column 0: alpha_rad [rad]
 Tl1_FG = np.array(
                   [
                    [0.2790, 1.0000],
@@ -303,7 +303,7 @@ Tl1_interp              = interp_table_1d(Tl1)
 parder_alpha_Tl1_interp = parder_table_1d(Tl1)
 
 #Roll moment coefficient due to flaps position
-#Column 0: sigmaf_deg
+#Column 0: sigmaf_deg [deg]
 Tl31_FG = np.array(
                    [
                     [0.0000, 0.0798],
@@ -316,7 +316,7 @@ Tl31_interp               = interp_table_1d(Tl31)
 parder_deltaf_Tl31_interp = parder_table_1d(Tl31)
 
 #Roll moment coefficient due to flaps position (stall)
-#Column 0: alpha_rad | Row 0: r
+#Column 0: alpha_rad [rad] | Row 0: r [rad/s]
 Tl32_FG = np.array(
                    [
                     [np.NaN, -0.1500, -0.1000, 0.0000, 0.1000, 0.1500],
@@ -329,7 +329,7 @@ Tl32_interp                                    = interp_table_2d(Tl32)
 parder_alpha_Tl32_interp, parder_r_Tl32_interp = parder_table_2d(Tl32)
 
 #Roll moment coefficient due to flaps position
-#Column 0: alpha_rad | Row 0: r
+#Column 0: alpha_rad [rad] | Row 0: r [rad/s]
 Tl33_FG = np.array(
                    [
                     [np.NaN, -0.1500, -0.1000, 0.0000, 0.1000, 0.1500],
@@ -343,7 +343,7 @@ Tl33_interp                                    = interp_table_2d(Tl33)
 parder_alpha_Tl33_interp, parder_r_Tl33_interp = parder_table_2d(Tl33)
 
 #Roll moment coefficient due to flaps position
-#Column 0: alpha_rad | Row 0: stall 
+#Column 0: alpha_rad [rad] | Row 0: stall [-]
 Tl4_FG = np.array(
                   [
                    [np.NaN, 0.0000, 1.0000],
@@ -357,7 +357,7 @@ Tl4_interp                 = interp_table_2d(Tl4)
 parder_alpha_Tl4_interp, _ = parder_table_2d(Tl4)
 
 #Pitch moment coefficient due to qbar_psf
-#Column 0: qbar_psf 
+#Column 0: qbar_psf [psf]
 Tm1_FG = np.array(
                   [
                    [13.6000, 0.0900],
@@ -370,7 +370,7 @@ Tm1_interp             = interp_table_1d(Tm1)
 parder_qbar_Tm1_interp = parder_table_1d(Tm1)
 
 #Pitch moment coefficient due to alpha_deg
-#Column 0: alpha_deg 
+#Column 0: alpha_deg [deg]
 Tm2_FG = np.array(
                   [
                    [20.0000, 1.0000],
@@ -388,7 +388,7 @@ Tm2_interp              = interp_table_1d(Tm2)
 parder_alpha_Tm2_interp = parder_table_1d(Tm2)
 
 #Pitch moment coefficient due to sigmaf_deg
-#Column 0: sigmaf_deg
+#Column 0: sigmaf_deg [deg]
 Tm4_FG = np.array(
                   [
                    [0.0000, 0.0000],
@@ -403,7 +403,7 @@ Tm4_interp               = interp_table_1d(Tm4)
 parder_deltaf_Tm4_interp = parder_table_1d(Tm4)
 
 #Pitch moment coefficient due to sigmae_rad and alpha_deg
-#Column 0: sigmae_rad | Row 0: alpha_deg
+#Column 0: sigmae_rad [rad] | Row 0: alpha_deg [deg]
 Tm5_FG = np.array(
                   [
                    [np.NaN, 18.0000, 25.0000, 35.0000, 45.0000, 55.0000, 65.0000, 90.0000],
@@ -418,7 +418,7 @@ Tm5_interp                                        = interp_table_2d(Tm5)
 parder_deltae_Tm5_interp, parder_alpha_Tm5_interp = parder_table_2d(Tm5)
 
 #Yaw moment coefficient due to beta_rad 
-#Column 0: beta_rad 
+#Column 0: beta_rad [rad]
 Tn1_FG = np.array(
                   [
                    [-0.3490, -0.0205],
@@ -431,7 +431,7 @@ Tn1_interp             = interp_table_1d(Tn1)
 parder_beta_Tn1_interp = parder_table_1d(Tn1)
 
 #Yaw moment coefficient due to r
-#Column 0: r | Row 0: alpha_rad 
+#Column 0: r [rad/s] | Row 0: alpha_rad [rad]
 Tn3_FG = np.array(
                   [
                    [np.NaN, 0.2790, 0.4000],
@@ -451,7 +451,7 @@ Tn3_interp                                   = interp_table_2d(Tn3)
 parder_r_Tn3_interp, parder_alpha_Tn3_interp = parder_table_2d(Tn3)
 
 #Yaw moment coefficient due to alpha_rad and beta_rad
-#Column 0: alpha_rad | Row 0: beta_rad 
+#Column 0: alpha_rad [rad] | Row 0: beta_rad [rad]
 Tn4_FG = np.array(
                   [
                    [np.NaN, -0.3500, 0.0000, 0.3500],
@@ -465,7 +465,7 @@ Tn4_interp                                      = interp_table_2d(Tn4)
 parder_alpha_Tn4_interp, parder_beta_Tn4_interp = parder_table_2d(Tn4)
 
 #Multiplier of thrust coefficient due to J
-#Column 0: J
+#Column 0: J [-]
 CT_FG = np.array(
                  [
                   [0.0000, 0.0680],
@@ -500,7 +500,7 @@ CT_interp          = interp_table_1d(CT)
 parder_J_CT_interp = parder_table_1d(CT)
 
 #Multiplier of power coefficient due to J
-#Column 0: J
+#Column 0: J [-]
 CP_FG = np.array(
                  [
                   [0.0000, 0.0580],
@@ -1631,38 +1631,38 @@ class ControlModel():
                     rxdata = rxdata[i,:] #first frame
                     self.t = self.t + self.dt
 
-                    t_sim          = rxdata[0]
-                    longd          = rxdata[2]
-                    latd           = rxdata[3]
-                    hqfe_km        = rxdata[15]
-                    phi_rad        = rxdata[20]
-                    theta_rad      = rxdata[22]
-                    psi_rad        = rxdata[24]
-                    u              = rxdata[34]
-                    v              = rxdata[35]
-                    w              = rxdata[36]
-                    p              = rxdata[46]
-                    q              = rxdata[47]
-                    r              = rxdata[48]
-                    alphadot_rads  = rxdata[53]
-                    sigmara_rad    = rxdata[93] 
-                    deltara        = rxdata[94]
-                    sigmala_rad    = rxdata[96]
-                    deltala        = rxdata[97]
-                    sigmae_rad     = rxdata[99]
-                    deltae         = rxdata[100]
-                    sigmar_rad     = rxdata[105]
-                    deltar         = rxdata[106]
-                    deltat         = rxdata[107]
-                    hmacb          = rxdata[115]
-                    qbar           = rxdata[116]
-                    Ixx            = rxdata[120]
-                    Ixy            = rxdata[121]
-                    Ixz            = rxdata[122]
-                    Iyy            = rxdata[123]
-                    Iyz            = rxdata[124]
-                    Izz            = rxdata[125]
-                    mass           = rxdata[126]
+                    t_sim         = rxdata[0]
+                    longd         = rxdata[2]
+                    latd          = rxdata[3]
+                    hqfe_km       = rxdata[15]
+                    phi_rad       = rxdata[20]
+                    theta_rad     = rxdata[22]
+                    psi_rad       = rxdata[24]
+                    u             = rxdata[34]
+                    v             = rxdata[35]
+                    w             = rxdata[36]
+                    p             = rxdata[46]
+                    q             = rxdata[47]
+                    r             = rxdata[48]
+                    alphadot_rads = rxdata[53]
+                    sigmara_rad   = rxdata[93] 
+                    deltara       = rxdata[94]
+                    sigmala_rad   = rxdata[96]
+                    deltala       = rxdata[97]
+                    sigmae_rad    = rxdata[99]
+                    deltae        = rxdata[100]
+                    sigmar_rad    = rxdata[105]
+                    deltar        = rxdata[106]
+                    deltat        = rxdata[107]
+                    hmacb         = rxdata[111]
+                    qbar          = rxdata[112]
+                    Ixx           = rxdata[120]
+                    Ixy           = rxdata[121]
+                    Ixz           = rxdata[122]
+                    Iyy           = rxdata[123]
+                    Iyz           = rxdata[124]
+                    Izz           = rxdata[125]
+                    mass          = rxdata[126]
 
                     # Conversions
                     pn                    = latd
@@ -1788,37 +1788,37 @@ class ControlModel():
                     rxdata = rxdata[i,:] #get first frame
                     self.t = self.t + self.dt
 
-                    t_sim          = rxdata[0]
-                    longd          = rxdata[2]
-                    latd           = rxdata[3]
-                    hqfe_km        = rxdata[15]
-                    phi_rad        = rxdata[20]
-                    theta_rad      = rxdata[22]
-                    psi_rad        = rxdata[24]
-                    u              = rxdata[34]
-                    v              = rxdata[35]
-                    w              = rxdata[36]
-                    p              = rxdata[46]
-                    q              = rxdata[47]
-                    r              = rxdata[48]
-                    alphadot_rads  = rxdata[53]
-                    sigmara_rad    = rxdata[93] 
-                    deltara        = rxdata[94]
-                    sigmala_rad    = rxdata[96]
-                    deltala        = rxdata[97]
-                    sigmae_rad     = rxdata[99]
-                    deltae         = rxdata[100]
-                    sigmar_rad     = rxdata[105]
-                    deltar         = rxdata[106]
-                    deltat         = rxdata[107]
-                    hmacb          = rxdata[111]
-                    Ixx            = rxdata[120]
-                    Ixy            = rxdata[121]
-                    Ixz            = rxdata[122]
-                    Iyy            = rxdata[123]
-                    Iyz            = rxdata[124]
-                    Izz            = rxdata[125]
-                    mass           = rxdata[126]
+                    t_sim         = rxdata[0]
+                    longd         = rxdata[2]
+                    latd          = rxdata[3]
+                    hqfe_km       = rxdata[15]
+                    phi_rad       = rxdata[20]
+                    theta_rad     = rxdata[22]
+                    psi_rad       = rxdata[24]
+                    u             = rxdata[34]
+                    v             = rxdata[35]
+                    w             = rxdata[36]
+                    p             = rxdata[46]
+                    q             = rxdata[47]
+                    r             = rxdata[48]
+                    alphadot_rads = rxdata[53]
+                    sigmara_rad   = rxdata[93] 
+                    deltara       = rxdata[94]
+                    sigmala_rad   = rxdata[96]
+                    deltala       = rxdata[97]
+                    sigmae_rad    = rxdata[99]
+                    deltae        = rxdata[100]
+                    sigmar_rad    = rxdata[105]
+                    deltar        = rxdata[106]
+                    deltat        = rxdata[107]
+                    hmacb         = rxdata[111]
+                    Ixx           = rxdata[120]
+                    Ixy           = rxdata[121]
+                    Ixz           = rxdata[122]
+                    Iyy           = rxdata[123]
+                    Iyz           = rxdata[124]
+                    Izz           = rxdata[125]
+                    mass          = rxdata[126]
 
                     # Conversions
                     pn                    = latd

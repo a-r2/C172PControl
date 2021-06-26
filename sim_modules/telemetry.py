@@ -15,9 +15,9 @@ class Telemetry():
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set RX socket reusability
         sock.bind((self.RX_IP_ADDRESS, self.RX_PORT)) #bind TCP RX socket to ip and port
         sock.listen(1) #listen to flighgear TCP request
-        print("Waiting for RX link with FlightGear...")
+        print('Waiting for RX link with FlightGear...')
         conn, _ = sock.accept() #incoming TCP connection
-        print("RX link established!")
+        print('RX link established!')
         event_rxtcp.set() #set RX TCP connection event
         dataframe = np.zeros(TELEM_RX_LEN) #array for storing one data frame
         framesarray = np.zeros((MODEL_HZ, TELEM_RX_LEN)) #array for storing data frames
@@ -91,9 +91,9 @@ class Telemetry():
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP TX socket
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set TX socket reusability
         event_rxtcp.wait() #wait for RX TCP connection event
-        print("Waiting for TX link with FlightGear...")
+        print('Waiting for TX link with FlightGear...')
         sock.connect((self.TX_IP_ADDRESS, self.TX_PORT)) #outgoing TCP connection
-        print("TX link established!")
+        print('TX link established!')
         event_txtcp.set() #wait for TX TCP connection event
         event_start.wait() #wait for simulation start event
         while True:
