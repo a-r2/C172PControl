@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import os
 import socket
 import subprocess
 import time
@@ -36,8 +37,10 @@ class Supervisor():
         #Define global dictionary
         self.global_dict = {**events_dict, **pipes_dict, **mods_dict}
         #Select type of simulation
-        if (SIM_TYPE == 1) or (SIM_TYPE == 'recursive'):
-            self.recursive_sim()
+        if (SIM_TYPE == 0) or (SIM_TYPE == 'single'):
+            self.single_sim()
+        elif (SIM_TYPE == 1) or (SIM_TYPE == 'multiple'):
+            self.multiple_sim()
 
     def start_processes(self):
         #Instantiate processes
@@ -61,7 +64,7 @@ class Supervisor():
         splog_proc.start()
         telemrxlog_proc.start()
         telemtxlog_proc.start()
-        time.sleep(0.1)
+        time.sleep(1)
         scen_proc = self.scenario_process() #scenario subprocess automatically starts when called
         #Update global dictionary with new processes
         self.global_dict.update(act_proc = act_proc)
@@ -95,7 +98,7 @@ class Supervisor():
         telemtxlog_proc = self.global_dict['telemtxlog_proc']
         #Terminate processes (order is important)
         scen_proc.terminate()
-        time.sleep(0.1)
+        time.sleep(1)
         act_proc.terminate()
         cm_proc.terminate()
         dyn_proc.terminate()
@@ -279,6 +282,7 @@ class Supervisor():
     def csvlogging_processes(self):
         #Get process arguments
         csvlog_mod      = self.global_dict['csvlog_mod']
+        log_dir         = self.global_dict['log_dir']
         act2csv_out     = self.global_dict['act2csv_out']
         cm2csv_out      = self.global_dict['cm2csv_out']
         dyn2csv_out     = self.global_dict['dyn2csv_out']
@@ -287,11 +291,11 @@ class Supervisor():
         event_start     = self.global_dict['event_start']
         event_end       = self.global_dict['event_end']
         #Instantiate CSV logging processes
-        cmlog_proc      = mp.Process(target=csvlog_mod.write_cmlog, args=(cm2csv_out, event_start, event_end), daemon=True) #logging control model
-        dynlog_proc     = mp.Process(target=csvlog_mod.write_dynlog, args=(dyn2csv_out, event_start, event_end), daemon=True) #logging dynamics
-        splog_proc      = mp.Process(target=csvlog_mod.write_splog, args=(sp2csv_out, event_start, event_end), daemon=True) #logging setpoint
-        telemrxlog_proc = mp.Process(target=csvlog_mod.write_telemrxlog, args=(rx2csv_out, event_start, event_end), daemon=True) #logging RX telemetry
-        telemtxlog_proc = mp.Process(target=csvlog_mod.write_telemtxlog, args=(act2csv_out, event_start, event_end), daemon=True) #logging TX telemetry
+        cmlog_proc      = mp.Process(target=csvlog_mod.write_cmlog, args=(log_dir, cm2csv_out, event_start, event_end), daemon=True) #logging control model
+        dynlog_proc     = mp.Process(target=csvlog_mod.write_dynlog, args=(log_dir, dyn2csv_out, event_start, event_end), daemon=True) #logging dynamics
+        splog_proc      = mp.Process(target=csvlog_mod.write_splog, args=(log_dir, sp2csv_out, event_start, event_end), daemon=True) #logging setpoint
+        telemrxlog_proc = mp.Process(target=csvlog_mod.write_telemrxlog, args=(log_dir, rx2csv_out, event_start, event_end), daemon=True) #logging RX telemetry
+        telemtxlog_proc = mp.Process(target=csvlog_mod.write_telemtxlog, args=(log_dir, act2csv_out, event_start, event_end), daemon=True) #logging TX telemetry
         return cmlog_proc, dynlog_proc, splog_proc, telemrxlog_proc, telemtxlog_proc
 
     def scenario_process(self):
@@ -322,7 +326,27 @@ class Supervisor():
         telemtx_proc = mp.Process(target=telem_mod.transmit, args=(act2tx_out, event_rxtcp, event_txtcp, event_start, event_end), daemon=True) #TX telemetry
         return telemrx_proc, telemtx_proc
 
-    def recursive_sim(self):
+    def single_sim(self):
+        log_dir = make_log_dir()
+        self.global_dict.update(log_dir = log_dir)
+        self.start_processes() #start simulation processes
+        rx2sup_out  = self.global_dict['rx2sup_out']
+        event_start = self.global_dict['event_start']
+        event_end   = self.global_dict['event_end']
+        event_start.wait() #wait for simulation start event
+        #Single simulation run loop
+        while True:
+            rxdata    = rx2sup_out.recv() #receive RX telemetry
+            lastframe = rxdata[-1] #get last RX telemetry frame
+            terminate_run = self.simulation_watchdog(lastframe) #check if simulation run is over
+            if terminate_run:
+                self.terminate_processes() #terminate simulation processes
+                terminate_run = False
+                break
+        quit() #quit program
+    def multiple_sim(self):
+        log_dir = make_log_dir()
+        self.global_dict.update(log_dir = log_dir)
         #Multiple simulations runs loop
         for _ in range(SIM_ITER_NUM):
             self.start_processes() #start simulation processes
@@ -338,7 +362,7 @@ class Supervisor():
                 if terminate_run:
                     event_end.set() #set simulation end event
                     self.global_dict.update(event_end = event_end)
-                    time.sleep(0.1)
+                    time.sleep(1)
                     self.terminate_processes() #terminate simulation processes
                     self.clear_events() #clear events flags
                     self.restore_pipes() #restore broken pipes
@@ -356,3 +380,29 @@ class Supervisor():
         contact2 = lastframe[133]
         contact3 = lastframe[134]
         return True if (up_down == 1) or (wow1 == 1) or (wow2 == 1) or (wow3 == 1) or (contact1 == 1) or (contact2 == 1) or (contact3 == 1) else False
+
+def make_log_dir():
+    #Make directories for saving logs
+
+    #List directories in csv log path or create csv log dir
+    try:
+        dir_list = os.listdir(CSV_LOG_DIR)
+    except:
+        dir_list = []
+        os.makedirs(CSV_LOG_DIR, exist_ok=True)
+    #List log directories named as integer
+    int_log_dir_list = []
+    for possible_log_dir in dir_list:
+        try:
+            int_log_dir_list.append(int(possible_log_dir))
+        except:
+            continue
+    int_log_dir_list = sorted(int_log_dir_list)
+    #Create new log directory
+    if len(int_log_dir_list) == 0:
+        new_log_dir = os.path.join(CSV_LOG_DIR, '1')
+    else:
+        last_int    = int_log_dir_list[-1]
+        new_log_dir = os.path.join(CSV_LOG_DIR, str(last_int + 1))
+    os.makedirs(new_log_dir)
+    return new_log_dir

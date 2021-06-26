@@ -9,7 +9,7 @@ from sim_modules.setpoint import *
 from sim_modules.telemetry import *
 from supervisor import *
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     #Modules instantiation
     ActuationModule    = Actuation() #actuation calculation based on control model and setpoint
     ConfigModule       = Config() #FlightGear configuration
