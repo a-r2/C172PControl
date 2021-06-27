@@ -223,12 +223,15 @@ class Supervisor():
         act_mod     = self.global_dict['act_mod']
         act2csv_in  = self.global_dict['act2csv_in']
         act2tx_in   = self.global_dict['act2tx_in']
+        cm2act_out  = self.global_dict['cm2act_out']
         rx2act_out  = self.global_dict['rx2act_out']
         event_start = self.global_dict['event_start']
         event_end   = self.global_dict['event_end']
         #Instantiate actuation process
         if (ACT_TYPE == 0) or (ACT_TYPE == 'random'): #random actuation
             act_proc = mp.Process(target=act_mod.random_control, args=(act2csv_in, act2tx_in, rx2act_out, event_start, event_end), daemon=True)
+        elif (ACT_TYPE == 1) or (ACT_TYPE == 'acker'): #Ackermann actuation
+            act_proc = mp.Process(target=act_mod.acker_control, args=(act2csv_in, act2tx_in, cm2act_out, event_start, event_end), daemon=True)
         return act_proc
 
     def control_model_process(self):
@@ -241,10 +244,10 @@ class Supervisor():
         event_start = self.global_dict['event_start']
         event_end   = self.global_dict['event_end']
         #Instantiate control model process
-        if (CM_TYPE == 0) or (CM_TYPE == 'ANL'): #analytic non-linear control model
-            cm_proc = mp.Process(target=cm_mod.anlcm, args=(cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end), daemon=True)
-        elif (CM_TYPE == 1) or (CM_TYPE == 'AL'): #analytic linear control model
+        if (CM_TYPE == 0) or (CM_TYPE == 'AL'): #analytic linear control model
             cm_proc = mp.Process(target=cm_mod.alcm, args=(cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end), daemon=True)
+        elif (CM_TYPE == 1) or (CM_TYPE == 'ANL'): #analytic non-linear control model
+            cm_proc = mp.Process(target=cm_mod.anlcm, args=(cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end), daemon=True)
         return cm_proc
 
     def configuration_process(self):
@@ -282,7 +285,7 @@ class Supervisor():
     def csvlogging_processes(self):
         #Get process arguments
         csvlog_mod      = self.global_dict['csvlog_mod']
-        log_dir         = self.global_dict['log_dir']
+        csvlog_dir      = self.global_dict['csvlog_dir']
         act2csv_out     = self.global_dict['act2csv_out']
         cm2csv_out      = self.global_dict['cm2csv_out']
         dyn2csv_out     = self.global_dict['dyn2csv_out']
@@ -291,11 +294,11 @@ class Supervisor():
         event_start     = self.global_dict['event_start']
         event_end       = self.global_dict['event_end']
         #Instantiate CSV logging processes
-        cmlog_proc      = mp.Process(target=csvlog_mod.write_cmlog, args=(log_dir, cm2csv_out, event_start, event_end), daemon=True) #logging control model
-        dynlog_proc     = mp.Process(target=csvlog_mod.write_dynlog, args=(log_dir, dyn2csv_out, event_start, event_end), daemon=True) #logging dynamics
-        splog_proc      = mp.Process(target=csvlog_mod.write_splog, args=(log_dir, sp2csv_out, event_start, event_end), daemon=True) #logging setpoint
-        telemrxlog_proc = mp.Process(target=csvlog_mod.write_telemrxlog, args=(log_dir, rx2csv_out, event_start, event_end), daemon=True) #logging RX telemetry
-        telemtxlog_proc = mp.Process(target=csvlog_mod.write_telemtxlog, args=(log_dir, act2csv_out, event_start, event_end), daemon=True) #logging TX telemetry
+        cmlog_proc      = mp.Process(target=csvlog_mod.write_cmlog, args=(csvlog_dir, cm2csv_out, event_start, event_end), daemon=True) #logging control model
+        dynlog_proc     = mp.Process(target=csvlog_mod.write_dynlog, args=(csvlog_dir, dyn2csv_out, event_start, event_end), daemon=True) #logging dynamics
+        splog_proc      = mp.Process(target=csvlog_mod.write_splog, args=(csvlog_dir, sp2csv_out, event_start, event_end), daemon=True) #logging setpoint
+        telemrxlog_proc = mp.Process(target=csvlog_mod.write_telemrxlog, args=(csvlog_dir, rx2csv_out, event_start, event_end), daemon=True) #logging RX telemetry
+        telemtxlog_proc = mp.Process(target=csvlog_mod.write_telemtxlog, args=(csvlog_dir, act2csv_out, event_start, event_end), daemon=True) #logging TX telemetry
         return cmlog_proc, dynlog_proc, splog_proc, telemrxlog_proc, telemtxlog_proc
 
     def scenario_process(self):
@@ -327,8 +330,8 @@ class Supervisor():
         return telemrx_proc, telemtx_proc
 
     def single_sim(self):
-        log_dir = make_log_dir()
-        self.global_dict.update(log_dir = log_dir)
+        self.make_log_dir() #create CSV log directory
+        self.csvlog_headers() #write CSV log headers
         self.start_processes() #start simulation processes
         rx2sup_out  = self.global_dict['rx2sup_out']
         event_start = self.global_dict['event_start']
@@ -345,8 +348,8 @@ class Supervisor():
                 break
         quit() #quit program
     def multiple_sim(self):
-        log_dir = make_log_dir()
-        self.global_dict.update(log_dir = log_dir)
+        self.make_log_dir() #create CSV log directory
+        self.csvlog_headers() #write CSV log headers
         #Multiple simulations runs loop
         for _ in range(SIM_ITER_NUM):
             self.start_processes() #start simulation processes
@@ -381,28 +384,38 @@ class Supervisor():
         contact3 = lastframe[134]
         return True if (up_down == 1) or (wow1 == 1) or (wow2 == 1) or (wow3 == 1) or (contact1 == 1) or (contact2 == 1) or (contact3 == 1) else False
 
-def make_log_dir():
-    #Make directories for saving logs
+    def make_log_dir(self):
+        #Make directories for saving logs
 
-    #List directories in csv log path or create csv log dir
-    try:
-        dir_list = os.listdir(CSV_LOG_DIR)
-    except:
-        dir_list = []
-        os.makedirs(CSV_LOG_DIR, exist_ok=True)
-    #List log directories named as integer
-    int_log_dir_list = []
-    for possible_log_dir in dir_list:
+        #List directories in csv log path or create csv log dir
         try:
-            int_log_dir_list.append(int(possible_log_dir))
+            dir_list = os.listdir(CSV_LOG_DIR)
         except:
-            continue
-    int_log_dir_list = sorted(int_log_dir_list)
-    #Create new log directory
-    if len(int_log_dir_list) == 0:
-        new_log_dir = os.path.join(CSV_LOG_DIR, '1')
-    else:
-        last_int    = int_log_dir_list[-1]
-        new_log_dir = os.path.join(CSV_LOG_DIR, str(last_int + 1))
-    os.makedirs(new_log_dir)
-    return new_log_dir
+            dir_list = []
+            os.makedirs(CSV_LOG_DIR, exist_ok=True)
+        #List log directories named as integer
+        int_log_dir_list = []
+        for possible_log_dir in dir_list:
+            try:
+                int_log_dir_list.append(int(possible_log_dir))
+            except:
+                continue
+        int_log_dir_list = sorted(int_log_dir_list)
+        #Create new log directory
+        if len(int_log_dir_list) == 0:
+            csvlog_dir = os.path.join(CSV_LOG_DIR, '1')
+        else:
+            last_int   = int_log_dir_list[-1]
+            csvlog_dir = os.path.join(CSV_LOG_DIR, str(last_int + 1))
+        os.makedirs(csvlog_dir)
+
+        self.global_dict.update(csvlog_dir = csvlog_dir)
+
+    def csvlog_headers(self):
+        csvlog_mod = self.global_dict['csvlog_mod']
+        csvlog_dir = self.global_dict['csvlog_dir']
+        csvlog_mod.header_cmlog(csvlog_dir)
+        csvlog_mod.header_dynlog(csvlog_dir)
+        csvlog_mod.header_splog(csvlog_dir)
+        csvlog_mod.header_telemrxlog(csvlog_dir)
+        csvlog_mod.header_telemtxlog(csvlog_dir)

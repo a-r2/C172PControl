@@ -1,24 +1,29 @@
 ''' ACTUATION '''
-ACT_TYPE = 'random' #0 = 'random'
+# 0 / 'random' | 'AL', 'ANL'
+# 1 / 'acker'  | 'AL' (https://en.wikipedia.org/wiki/Ackermann%27s_formula)
+ACT_TYPE = 'acker'
 
 ''' CONFIG '''
 CFG_IP_ADDRESS = 'localhost'
 CFG_PORT       = 60000 #config port
 
 ''' CONTROL MODEL '''
-CM_TYPE = 'ANL' #0 = 'ANL', 1 = 'AL'
+# 0 / 'AL'  | Analytic linear control model
+# 1 / 'ANL' | Analytic non-linear control model
+CM_TYPE = 'AL'
 
 ''' CSV LOGGING '''
-CM_LOG_FILENAME    = 'control_model_log'
-DYN_LOG_FILENAME   = 'dynamics_log'
-SP_LOG_FILENAME    = 'setpoint_log'
-TELEM_LOG_FILENAME = 'telemetry_log'
-CSV_LOG_DIR        = 'sim_logs'
+CM_LOG_FILENAME       = 'control_model_log'
+DYN_LOG_FILENAME      = 'dynamics_log'
+SP_LOG_FILENAME       = 'setpoint_log'
+TELEM_RX_LOG_FILENAME = 'telemetry_rx_log'
+TELEM_TX_LOG_FILENAME = 'telemetry_tx_log'
+CSV_LOG_DIR           = 'sim_logs'
 
 ''' PLOTTING '''
 ANGLES_CONVERSION   = False #from radians to degrees
 IMPERIAL_CONVERSION = True #from SI to imperial
-PLOTS               = [16, 19, 21] #list(range(1,39))
+PLOTS               = (16, 19, 21) #list(range(1,39))
 
 ''' SETPOINT '''
 SP_TYPE = 'constant' #0 = 'constant'
