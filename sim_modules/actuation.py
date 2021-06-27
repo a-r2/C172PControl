@@ -1,3 +1,4 @@
+import control
 import numpy as np
 import random
 
@@ -42,4 +43,36 @@ class Actuation():
                     act2csv_in.send(self.csvact) #send actuation to CSV
                 else:
                     pass
+                act2tx_in.send(self.actstr) #send actuation to TX telemetry
+
+    def acker_control(self, act2csv_in, act2tx_in, cm2act_out, event_start, event_end):
+        event_start.wait() #wait for simulation start event
+        while True:
+            if event_end.is_set():
+                #Close pipes
+                act2csv_in.close()
+                act2tx_in.close()
+                cm2act_out.close()
+                break
+            else:
+                lcm_sys = cm2act_out.recv() #receive control model
+                self.t = self.t + self.dt
+                sys_poles = lcm_sys.pole()
+                print(control.ctrb(lcm_sys.A, lcm_sys.B))
+                print(control.obsv(lcm_sys.A, lcm_sys.C))
+                print(sys_poles)
+                new_poles = sys_poles
+                for i in range(len(new_poles)):
+                    if new_poles[i].real > 0:
+                        new_poles[i] = - new_poles[i].real + 1j * new_poles[i].imag
+                    elif new_poles[i].real == 0:
+                        new_poles[i] = -1 + 1j * new_poles[i].imag
+                print(new_poles)
+                self.simact = control.acker(lcm_sys.A, lcm_sys.B, new_poles)
+                self.csvact[0]  = rxdata[0] #add timestamp
+                self.csvact[1:] = self.simact
+                self.simactstr = self.simact.astype(str)
+                self.actstr = '\t'.join(self.simactstr)
+                self.actstr += '\n'
+                act2csv_in.send(self.csvact) #send actuation to CSV
                 act2tx_in.send(self.actstr) #send actuation to TX telemetry
