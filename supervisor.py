@@ -2,6 +2,7 @@ import multiprocessing as mp
 import os
 import socket
 import subprocess
+import sys
 import time
 
 from settings import *
@@ -228,10 +229,10 @@ class Supervisor():
         event_start = self.global_dict['event_start']
         event_end   = self.global_dict['event_end']
         #Instantiate actuation process
-        if (ACT_TYPE == 0) or (ACT_TYPE == 'random'): #random actuation
-            act_proc = mp.Process(target=act_mod.random_control, args=(act2csv_in, act2tx_in, rx2act_out, event_start, event_end), daemon=True)
-        elif (ACT_TYPE == 1) or (ACT_TYPE == 'acker'): #Ackermann actuation
-            act_proc = mp.Process(target=act_mod.acker_control, args=(act2csv_in, act2tx_in, cm2act_out, event_start, event_end), daemon=True)
+        if (ACT_TYPE == 0) or (ACT_TYPE == 'random'): #random control
+            act_proc = mp.Process(target=act_mod.random, args=(act2csv_in, act2tx_in, rx2act_out, event_start, event_end), daemon=True)
+        elif (ACT_TYPE == 1) or (ACT_TYPE == 'fsf'): #full-state feedback control
+            act_proc = mp.Process(target=act_mod.fsf, args=(act2csv_in, act2tx_in, cm2act_out, rx2act_out, event_start, event_end), daemon=True)
         return act_proc
 
     def control_model_process(self):
@@ -248,6 +249,8 @@ class Supervisor():
             cm_proc = mp.Process(target=cm_mod.alcm, args=(cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end), daemon=True)
         elif (CM_TYPE == 1) or (CM_TYPE == 'ANL'): #analytic non-linear control model
             cm_proc = mp.Process(target=cm_mod.anlcm, args=(cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end), daemon=True)
+        elif (CM_TYPE == 2) or (CM_TYPE == 'LANL'): #linearized analytic non-linear control model
+            cm_proc = mp.Process(target=cm_mod.lanlcm, args=(cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end), daemon=True)
         return cm_proc
 
     def configuration_process(self):
@@ -339,13 +342,16 @@ class Supervisor():
         event_start.wait() #wait for simulation start event
         #Single simulation run loop
         while True:
-            rxdata    = rx2sup_out.recv() #receive RX telemetry
-            lastframe = rxdata[-1] #get last RX telemetry frame
-            terminate_run = self.simulation_watchdog(lastframe) #check if simulation run is over
-            if terminate_run:
-                self.terminate_processes() #terminate simulation processes
-                terminate_run = False
-                break
+            try:
+                rxdata    = rx2sup_out.recv() #receive RX telemetry
+                lastframe = rxdata[-1] #get last RX telemetry frame
+                terminate_run = self.simulation_watchdog(lastframe) #check if simulation run is over
+                if terminate_run:
+                    self.terminate_processes() #terminate simulation processes
+                    terminate_run = False
+                    break
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
         quit() #quit program
     def multiple_sim(self):
         self.make_log_dir() #create CSV log directory
@@ -359,18 +365,21 @@ class Supervisor():
             event_start.wait() #wait for simulation start event
             #Single simulation run loop
             while True:
-                rxdata    = rx2sup_out.recv() #receive RX telemetry
-                lastframe = rxdata[-1] #get last RX telemetry frame
-                terminate_run = self.simulation_watchdog(lastframe) #check if simulation run is over
-                if terminate_run:
-                    event_end.set() #set simulation end event
-                    self.global_dict.update(event_end = event_end)
-                    time.sleep(1)
-                    self.terminate_processes() #terminate simulation processes
-                    self.clear_events() #clear events flags
-                    self.restore_pipes() #restore broken pipes
-                    terminate_run = False
-                    break
+                try:
+                    rxdata    = rx2sup_out.recv() #receive RX telemetry
+                    lastframe = rxdata[-1] #get last RX telemetry frame
+                    terminate_run = self.simulation_watchdog(lastframe) #check if simulation run is over
+                    if terminate_run:
+                        event_end.set() #set simulation end event
+                        self.global_dict.update(event_end = event_end)
+                        time.sleep(1)
+                        self.terminate_processes() #terminate simulation processes
+                        self.clear_events() #clear events flags
+                        self.restore_pipes() #restore broken pipes
+                        terminate_run = False
+                        break
+                except:
+                    raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
         quit() #quit program
 
     def simulation_watchdog(self, lastframe):

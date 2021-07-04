@@ -1,15 +1,16 @@
 ''' ACTUATION '''
 # 0 / 'random' | 'AL', 'ANL'
-# 1 / 'acker'  | 'AL' (https://en.wikipedia.org/wiki/Ackermann%27s_formula)
-ACT_TYPE = 'acker'
+# 1 / 'fsf'    | 'AL' (https://en.wikipedia.org/wiki/Full_state_feedback)
+ACT_TYPE = 'fsf'
 
 ''' CONFIG '''
 CFG_IP_ADDRESS = 'localhost'
 CFG_PORT       = 60000 #config port
 
 ''' CONTROL MODEL '''
-# 0 / 'AL'  | Analytic linear control model
-# 1 / 'ANL' | Analytic non-linear control model
+# 0 / 'AL'   | Analytic linear control model
+# 1 / 'ANL'  | Analytic non-linear control model
+# 2 / 'LANL' | Linearized analytic non-linear control model
 CM_TYPE = 'AL'
 
 ''' CSV LOGGING '''
@@ -24,10 +25,6 @@ CSV_LOG_DIR           = 'sim_logs'
 ANGLES_CONVERSION   = False #from radians to degrees
 IMPERIAL_CONVERSION = True #from SI to imperial
 PLOTS               = (16, 19, 21) #list(range(1,39))
-
-''' SETPOINT '''
-SP_TYPE = 'constant' #0 = 'constant'
-SP_INIT = (0, 0, 100, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0) #(pn_sp, pe_sp, pd_sp, q0_sp, q1_sp, q2_sp, q3_sp, u_sp, v_sp, w_sp, p_sp, q_sp, r_sp)
 
 ''' SCENARIO '''
 #https://wiki.flightgear.org/Command_line_options
@@ -51,13 +48,18 @@ VISIBILITY             = 10000 #[m]
 W_START                = 0.0000 #[ft/s]
 WIND                   = '0@0' #direction [deg] @ speed [knots]
 
+''' SETPOINT '''
+# 0 / 'constant' | Constant setpoint
+SP_TYPE = 'constant'
+SP_INIT = (0, 0, -100, 1, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1) #(pn_sp, pe_sp, pd_sp, q0_sp, q1_sp, q2_sp, q3_sp, u_sp, v_sp, w_sp, p_sp, q_sp, r_sp, deltaa, deltae, deltaf, deltar, deltat, deltam)
+
 ''' SIMULATION '''
 ACT_HZ             = 10 #actuation frequency
 CM_HZ              = 10 #control model frequency
 FPS                = 100 #frames per real time second
 MAX_TIME_PER_FRAME = 1 / 100 #timestep per video frame
 MODEL_HZ           = 100 #model iterations per simulation second
-SIM_ITER_NUM       = 2 #number of simulation iterations(only applicable when SIM_TYPE = 0/'recursive')
+SIM_ITER_NUM       = 2 #number of simulation iterations(only applicable when SIM_TYPE = 1 / 'multiple')
 SIM_RATE           = 1 #simulation rate with respect to real time (recommended: 0.125, 0.25, 0.5, 1)
 SIM_TYPE           = 'multiple' #simulation type: 0 = 'single', 1 = 'multiple'
 
