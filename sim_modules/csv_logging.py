@@ -2,6 +2,7 @@ import csv
 import numpy as np
 import os
 import time
+import sys
 
 from constants import *
 from settings import *
@@ -48,7 +49,7 @@ class CSVLogging():
             splog.writerow(timestamp) #write timestamp into CSV 
             splog.writerow('actuation={}|control_model={}|scenario={}|setpoint={}'.format(ACT_TYPE, CM_TYPE, SCEN_TYPE, SCEN_TYPE)) #write simulation information into CSV 
             del splog
-            fieldnames = ('t_sim', *CM_STATE_STR)
+            fieldnames = ('t_sim', *CM_STATE_STR, *CM_INPUT_STR)
             splog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV dictionary writer object
             splog.writeheader()
 
@@ -81,7 +82,7 @@ class CSVLogging():
             cmlog     = csv.reader(csvfile, delimiter=' ') #CSV reader object
             rowscount = len(list(cmlog))
             csvfile.seek(0) #go to first row
-            cmdata = np.zeros((rowscount, CM_STATE_LEN))
+            cmdata = np.zeros((rowscount, CM_STATE_LEN + 1))
             i = 2 #avoid reading CSV log header
             for row in cmlog:
                 cmdata[i,:] = row
@@ -105,7 +106,7 @@ class CSVLogging():
             splog = csv.reader(csvfile, delimiter=' ') #CSV reader object
             rowscount = len(list(splog))
             csvfile.seek(0) #go to first row
-            spdata = np.zeros((rowscount, CM_STATE_LEN))
+            spdata = np.zeros((rowscount, CM_STATE_LEN + CM_INPUT_LEN + 1))
             i = 2 #avoid reading CSV log header
             for row in splog:
                 spdata[i,:] = row
@@ -138,13 +139,12 @@ class CSVLogging():
 
     def write_cmlog(self, log_dir, cm2csv_out, event_start, event_end):
         cmpath = os.path.join(log_dir, self.cmfn)
-        with open(cmpath, 'a+', newline='') as csvfile:
-            fieldnames = ('time', *CM_STATE_STR)
-            cmlog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
-            csvdata = np.zeros((CM_HZ, CM_STATE_LEN + 1)) #array for storing data frames
-            i = 0
-            event_start.wait() #wait for simulation start
-            while True:
+        fieldnames = ('time', *CM_STATE_STR)
+        csvdata = np.zeros((CM_HZ, CM_STATE_LEN + 1)) #array for storing data frames
+        i = 0
+        event_start.wait() #wait for simulation start
+        while True:
+            try:
                 if event_end.is_set():
                     #Close pipe
                     cm2csv_out.close()
@@ -154,50 +154,53 @@ class CSVLogging():
                     csvdata[i,:] = cmdata
                     i += 1
                     if i > (CM_HZ - 1):
-                        cmlog.writerows((dict(zip(fieldnames, csvdata[k,:])) for k in range(CM_HZ))) #write array into CSV 
+                        with open(cmpath, 'a+', newline='') as csvfile:
+                            cmlog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
+                            cmlog.writerows((dict(zip(fieldnames, csvdata[k,:])) for k in range(CM_HZ))) #write array into CSV 
                         i = 0
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
 
     def write_dynlog(self, log_dir, dyn2csv_out, event_start, event_end):
         dynpath = os.path.join(log_dir, self.dynfn)
-        with open(dynpath, 'a+', newline='') as csvfile:
-            fieldnames = ('time', *DYN_STR)
-            dynlog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
-            csvdata1 = np.zeros((MODEL_HZ, DYN_LEN + 1)) #array for storing data frames
-            csvdata2 = np.zeros((MODEL_HZ, DYN_LEN + 1)) #backup array for storing overflowed data frames
-            i = 0
-            event_start.wait() #wait for simulation start
-            while True:
+        fieldnames = ('time', *DYN_STR)
+        csvdata1 = np.zeros((MODEL_HZ, DYN_LEN + 1)) #array for storing data frames
+        csvdata2 = np.zeros((MODEL_HZ, DYN_LEN + 1)) #backup array for storing overflowed data frames
+        i = 0
+        event_start.wait() #wait for simulation start
+        while True:
+            try:
                 if event_end.is_set():
                     #Close pipe
                     dyn2csv_out.close()
                     break
                 else:
-                    try:
-                        dyndata = dyn2csv_out.recv() #receive RX telemetry
-                        framescount = dyndata.shape[0]
-                        for j in range(framescount):                
-                            if i > (MODEL_HZ - 1):
-                                csvdata2[i-MODEL_HZ,:] = dyndata[j,:] 
-                            else:
-                                csvdata1[i,:] = dyndata[j,:]
-                            i += 1
+                    dyndata = dyn2csv_out.recv() #receive RX telemetry
+                    framescount = dyndata.shape[0]
+                    for j in range(framescount):                
                         if i > (MODEL_HZ - 1):
+                            csvdata2[i-MODEL_HZ,:] = dyndata[j,:] 
+                        else:
+                            csvdata1[i,:] = dyndata[j,:]
+                        i += 1
+                    if i > (MODEL_HZ - 1):
+                        with open(dynpath, 'a+', newline='') as csvfile:
+                            dynlog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
                             dynlog.writerows((dict(zip(fieldnames, csvdata1[k,:])) for k in range(MODEL_HZ))) #write array into CSV 
-                            i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
-                            csvdata1 = csvdata2
-                            csvdata2 = np.empty((MODEL_HZ, (DYN_LEN + 1))) #empty backup array 
-                    except:
-                        pass
+                        i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
+                        csvdata1 = csvdata2
+                        csvdata2 = np.empty((MODEL_HZ, (DYN_LEN + 1))) #empty backup array 
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
 
     def write_splog(self, log_dir, sp2csv_out, event_start, event_end):
         sppath = os.path.join(log_dir, self.spfn)
-        with open(sppath, 'a+', newline='') as csvfile:
-            fieldnames = ('time', *CM_STATE_STR)
-            splog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
-            csvdata = np.zeros((CM_HZ, CM_STATE_LEN + 1)) #array for storing data frames
-            i = 0
-            event_start.wait() #wait for simulation start
-            while True:
+        fieldnames = ('time', *CM_STATE_STR, *CM_INPUT_STR)
+        csvdata = np.zeros((CM_HZ, CM_STATE_LEN + CM_INPUT_LEN + 1)) #array for storing data frames
+        i = 0
+        event_start.wait() #wait for simulation start
+        while True:
+            try:
                 if event_end.is_set():
                     #Close pipe
                     sp2csv_out.close()
@@ -207,50 +210,53 @@ class CSVLogging():
                     csvdata[i,:] = spdata
                     i += 1
                     if i > (CM_HZ - 1):
-                        splog.writerows((dict(zip(fieldnames, csvdata[k,:])) for k in range(CM_HZ))) #write array into CSV 
+                        with open(sppath, 'a+', newline='') as csvfile:
+                            splog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
+                            splog.writerows((dict(zip(fieldnames, csvdata[k,:])) for k in range(CM_HZ))) #write array into CSV 
                         i = 0
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
 
     def write_telemrxlog(self, log_dir, rx2csv_out, event_start, event_end):
         telemrxpath = os.path.join(log_dir, self.telemrxfn)
-        with open(telemrxpath, 'a+', newline='') as csvfile:
-            fieldnames = TELEM_RX_STR
-            telemrxlog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
-            csvdata1 = np.zeros((MODEL_HZ, TELEM_RX_LEN)) #array for storing data frames
-            csvdata2 = np.zeros((MODEL_HZ, TELEM_RX_LEN)) #backup array for storing overflowed data frames
-            i = 0
-            event_start.wait() #wait for simulation start
-            while True:
+        fieldnames = TELEM_RX_STR
+        csvdata1 = np.zeros((MODEL_HZ, TELEM_RX_LEN)) #array for storing data frames
+        csvdata2 = np.zeros((MODEL_HZ, TELEM_RX_LEN)) #backup array for storing overflowed data frames
+        i = 0
+        event_start.wait() #wait for simulation start
+        while True:
+            try:
                 if event_end.is_set():
                     #Close pipe
                     rx2csv_out.close()
                     break
                 else:
-                    try:
-                        rxdata = rx2csv_out.recv() #receive RX telemetry
-                        framescount = rxdata.shape[0]
-                        for j in range(framescount):                
-                            if i > (MODEL_HZ - 1):
-                                csvdata2[i-MODEL_HZ,:] = rxdata[j,:] 
-                            else:
-                                csvdata1[i,:] = rxdata[j,:]
-                            i += 1
+                    rxdata = rx2csv_out.recv() #receive RX telemetry
+                    framescount = rxdata.shape[0]
+                    for j in range(framescount):                
                         if i > (MODEL_HZ - 1):
+                            csvdata2[i-MODEL_HZ,:] = rxdata[j,:] 
+                        else:
+                            csvdata1[i,:] = rxdata[j,:]
+                        i += 1
+                    if i > (MODEL_HZ - 1):
+                        with open(telemrxpath, 'a+', newline='') as csvfile:
+                            telemrxlog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
                             telemrxlog.writerows((dict(zip(fieldnames, csvdata1[k,:])) for k in range(MODEL_HZ))) #write array into CSV 
-                            i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
-                            csvdata1 = csvdata2
-                            csvdata2 = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty backup array 
-                    except:
-                        pass
+                        i = (i - MODEL_HZ) if (i - MODEL_HZ) > 0 else 0
+                        csvdata1 = csvdata2
+                        csvdata2 = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty backup array 
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
 
     def write_telemtxlog(self, log_dir, act2csv_out, event_start, event_end):
         telemtxpath = os.path.join(log_dir, self.telemtxfn)
-        with open(telemtxpath, 'a+', newline='') as csvfile:
-            fieldnames = ('time', *TELEM_TX_STR)
-            telemtxlog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
-            csvdata = np.zeros((ACT_HZ, TELEM_TX_LEN + 1)) #array for storing data frames
-            i = 0
-            event_start.wait() #wait for simulation start
-            while True:
+        fieldnames = ('time', *TELEM_TX_STR)
+        csvdata = np.zeros((ACT_HZ, TELEM_TX_LEN + 1)) #array for storing data frames
+        i = 0
+        event_start.wait() #wait for simulation start
+        while True:
+            try:
                 if event_end.is_set():
                     #Close pipe
                     act2csv_out.close()
@@ -260,5 +266,9 @@ class CSVLogging():
                     csvdata[i,:] = actdata
                     i += 1
                     if i > (ACT_HZ - 1):
-                        telemtxlog.writerows((dict(zip(fieldnames, csvdata[k,:])) for k in range(ACT_HZ))) #write array into CSV 
+                        with open(telemtxpath, 'a+', newline='') as csvfile:
+                            telemtxlog = csv.DictWriter(csvfile, fieldnames=fieldnames) #CSV writer object
+                            telemtxlog.writerows((dict(zip(fieldnames, csvdata[k,:])) for k in range(ACT_HZ))) #write array into CSV 
                         i = 0
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))

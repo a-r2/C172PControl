@@ -1,7 +1,9 @@
 import control
 import numpy as np
 from math import atan2, sin, sqrt
+from operator import itemgetter
 from scipy import interpolate
+import sys
 
 from constants import *
 from settings import *
@@ -9,15 +11,15 @@ from utils import *
 
 ''' FLIGHTGEAR MODEL PARAMETERS '''
 BW_IMP       = 35.8000 #wing span [ft]
+C_SPIRALPROP = 0.2500 #coefficient due to the induced velocity by the propeller spiral
 CW_IMP       = 4.9000 #wing chord [ft]
+D_PROP_IMP   = 75.0000 #propeller diameter [in]
+DELTAM_MIN   = 0.1000 #minimum delta_m to maintain the engine running [-]
 N_RPM_MAX    = 2700.0000 #maximum propeller revolutions per minute [RPM]
 N_RPM_MIN    = 600.0000 #minimum propeller revolutions per minute [RPM]
-D_PROP_IMP   = 75.0000 #propeller diameter [in]
 STH_IMP      = 21.9000 #horizontal tail area [ft^2]
 STV_IMP      = 16.5000 #vertical tail area [ft^2]
 SW_IMP       = 174.0000 #wing area [ft^2]
-C_SPIRALPROP = 0.2500 #coefficient due to the induced velocity by the propeller spiral
-DELTAM_MIN   = 0.1000 #minimum delta_m to maintain the engine running [-]
 
 ''' AERODYNAMIC ACTUATORS DEFLECTION '''
 # ((Min. deflect. [deg], Max. deflec. [deg]), (Min. norm. deflect. [-], Max. norm. deflect. [-]))
@@ -29,10 +31,10 @@ DELTAR_RANGE = ((-16, 16), (-1, 1))
 ''' MODEL PARAMETERS CONVERSION '''
 BW_SI      = ft_to_m(BW_IMP) #wing span [m]
 CW_SI      = ft_to_m(CW_IMP) #chord span [m]
+D_PROP_IMP = in_to_ft(D_PROP_IMP) #propeller diameter [ft]
+D_PROP_SI  = ft_to_m(D_PROP_IMP) #propeller diameter [m]
 N_RPS_MAX  = rpm_to_rps(N_RPM_MAX) #maximum propeller revolutions per second [RPS]
 N_RPS_MIN  = rpm_to_rps(N_RPM_MIN) #minimum propeller revolutions per second [RPS]
-D_PROP_IMP = in_to_ft(D_PROP_IMP) #propeller diameter [ft]
-D_PROP_SI  = in_to_m(D_PROP_IMP) #propeller diameter [m]
 STH_SI     = ft_to_m(sqrt(STH_IMP)) ** 2 #horizontal tail area [m^2]
 STV_SI     = ft_to_m(sqrt(STV_IMP)) ** 2 #vertical tail area [m^2]
 SW_SI      = ft_to_m(sqrt(SW_IMP)) ** 2 #wing area [m^2]
@@ -729,7 +731,7 @@ def qbaruw_acm(rho, Vauw):
     return 0.5 * rho * (Vauw ** 2)
 
 def qbarind_acm(rho, Vind):
-    #Propulsion induced dynamic pressure (qbarind_eq) as defined in the analytic control models
+    #Propulsion induced dynamic pressure (qbarind_sp) as defined in the analytic control models
     return 0.5 * rho * (Vind ** 2)
 
 def qbarprop_acm(rho, Vprop):
@@ -745,283 +747,267 @@ def n_acm(deltat, deltam):
 
 ''' PARTIAL DERIVATIVES FOR ALCM'''
 def parder_deltat_n_alcm():
-    #Partial derivative of n with respect to deltat
+    #Partial derivative of n respect to deltat
     return N_RPS_MAX - N_RPS_MIN
 
 def parder_pd_rho_alcm(pd):
-    #Partial derivative of rho with respect to pd
+    #Partial derivative of rho respect to pd
     return parder_pd_barometric_density(pd)
 
 def parder_u_Va_alcm(u, Va):
-    #Partial derivative of Va with respect to u
+    #Partial derivative of Va respect to u
     return u / (Va + 1e-6)
 
 def parder_v_Va_alcm(v, Va):
-    #Partial derivative of Va with respect to v
+    #Partial derivative of Va respect to v
     return v / (Va + 1e-6)
 
 def parder_w_Va_alcm(w, Va):
-    #Partial derivative of Va with respect to w
+    #Partial derivative of Va respect to w
     return w / (Va + 1e-6)
 
 def parder_u_Bw2Va_alcm(u, Va, parder_u_Va):
-    #Partial derivative of Va with respect to u
+    #Partial derivative of Va respect to u
     return - 0.5000 * BW_SI * parder_u_Va / ((Va ** 3) + 1e-6)
 
 def parder_v_Bw2Va_alcm(v, Va, parder_v_Va):
-    #Partial derivative of Va with respect to v
+    #Partial derivative of Va respect to v
     return - 0.5000 * BW_SI * parder_v_Va / ((Va ** 3) + 1e-6)
 
 def parder_w_Bw2Va_alcm(w, Va, parder_w_Va):
-    #Partial derivative of Va with respect to w
+    #Partial derivative of Va respect to w
     return - 0.5000 * BW_SI * parder_w_Va / ((Va ** 3) + 1e-6)
 
 def parder_u_Cw2Va_alcm(u, Va, parder_u_Va):
-    #Partial derivative of Va with respect to u
+    #Partial derivative of Va respect to u
     return - 0.5000 * CW_SI * parder_u_Va / ((Va ** 3) + 1e-6)
 
 def parder_v_Cw2Va_alcm(v, Va, parder_v_Va):
-    #Partial derivative of Va with respect to v
+    #Partial derivative of Va respect to v
     return - 0.5000 * CW_SI * parder_v_Va / ((Va ** 3) + 1e-6)
 
 def parder_w_Cw2Va_alcm(w, Va, parder_w_Va):
-    #Partial derivative of Va with respect to w
+    #Partial derivative of Va respect to w
     return - 0.5000 * CW_SI * parder_w_Va / ((Va ** 3) + 1e-6)
 
 def parder_pd_Vind_alcm(u, rho, T, Vind2, parder_pd_rho):
-    #Partial derivative of Vind with respect to pd
+    #Partial derivative of Vind respect to pd
     Vind2_sign = float(np.sign(Vind2) >= 0)
     return - Vind2_sign * parder_pd_rho * ((T * (rho * A_PROP_SI * u * abs(u) + 2 * T)) / ((rho ** 3) * (A_PROP_SI ** 2) * (sqrt(Vind2) ** 3) + 1e-6))
 
 def parder_u_Vind_alcm(u, rho, T, Vind2):
-    #Partial derivative of Vind with respect to u
+    #Partial derivative of Vind respect to u
     Vind2_sign = float(np.sign(Vind2) >= 0)
     return Vind2_sign * (u ** 2) * (rho * A_PROP_SI * u * abs(u) + 2 * T) / (rho * A_PROP_SI * abs(u) * (sqrt(Vind2) ** 3) + 1e-6)
 
 def parder_deltat_Vind_alcm(u, rho, T, Vind2, parder_deltat_T):
-    #Partial derivative of Vind with respect to deltat
+    #Partial derivative of Vind respect to deltat
     Vind2_sign = float(np.sign(Vind2) >= 0)
     return Vind2_sign * parder_deltat_T * (rho * A_PROP_SI * u * abs(u) + 2 * T) / ((rho ** 2) * (A_PROP_SI ** 2) * (sqrt(Vind2) ** 3) + 1e-6)
 
 def parder_pd_Vprop(parder_pd_Vind):
-    #Partial derivative of Vprop with respect to pd
+    #Partial derivative of Vprop respect to pd
     return parder_pd_Vind
 
 def parder_u_Vprop_alcm(parder_u_Vind):
-    #Partial derivative of Vprop with respect to u
+    #Partial derivative of Vprop respect to u
     return parder_u_Vind - 1
 
 def parder_deltat_Vprop_alcm(parder_deltat_Vind):
-    #Partial derivative of Vprop with respect to deltat
+    #Partial derivative of Vprop respect to deltat
     return parder_deltat_Vind
 
 def parder_u_alpha_alcm(w, Vauw):
-    #Partial derivative of alpha with respect to u
+    #Partial derivative of alpha respect to u
     return - w / ((Vauw ** 2) + 1e-6)
 
 def parder_w_alpha_alcm(u, Vauw):
-    #Partial derivative of alpha with respect to w
+    #Partial derivative of alpha respect to w
     return u / ((Vauw ** 2) + 1e-6)
 
 def parder_u_beta_alcm(u, v, Va, Vauw):
-    #Partial derivative of beta with respect to u
+    #Partial derivative of beta respect to u
     return - (u * v) / (Vauw * (Va ** 2) + 1e-6)
 
 def parder_v_beta_alcm(Va, Vauw):
-    #Partial derivative of beta with respect to v
+    #Partial derivative of beta respect to v
     return Vauw / ((Va ** 2) + 1e-6)
 
 def parder_w_beta_alcm(v, w, Va, Vauw):
-    #Partial derivative of beta with respect to w
+    #Partial derivative of beta respect to w
     return - (v * w) / (Vauw * (Va ** 2) + 1e-6)
 
 def parder_pd_qbar_alcm(Va, parder_pd_rho):
-    #Partial derivative of qbar with respect to pd
+    #Partial derivative of qbar respect to pd
     return 0.5 * parder_pd_rho * (Va ** 2)
 
 def parder_u_qbar_alcm(u, rho):
-    #Partial derivative of qbar with respect to u
+    #Partial derivative of qbar respect to u
     return rho * u
 
 def parder_v_qbar_alcm(v, rho):
-    #Partial derivative of qbar with respect to v
+    #Partial derivative of qbar respect to v
     return rho * v
 
 def parder_w_qbar_alcm(w, rho):
-    #Partial derivative of qbar with respect to w
+    #Partial derivative of qbar respect to w
     return rho * w
 
 def parder_pd_qbaruw_alcm(Vauw, parder_pd_rho):
-    #Partial derivative of qbaruw with respect to pd
+    #Partial derivative of qbaruw respect to pd
     return 0.5 * parder_pd_rho * (Vauw ** 2)
 
 def parder_u_qbaruw_alcm(parder_u_qbar):
-    #Partial derivative of qbaruw with respect to u
+    #Partial derivative of qbaruw respect to u
     return parder_u_qbar
 
 def parder_w_qbaruw_alcm(parder_w_qbar):
-    #Partial derivative of qbaruw with respect to w
+    #Partial derivative of qbaruw respect to w
     return parder_w_qbar
 
 def parder_pd_qbarind_alcm(rho, Vind, parder_pd_rho, parder_pd_Vind):
-    #Partial derivative of qbarind_eq with respect to pd
+    #Partial derivative of qbarind_sp respect to pd
     return 0.5 * Vind * (parder_pd_rho * Vind + 2 * rho * parder_pd_Vind)
 
 def parder_u_qbarind_alcm(rho, Vind, parder_u_Vind):
-    #Partial derivative of qbarind_eq with respect to u
+    #Partial derivative of qbarind_sp respect to u
     return rho * Vind * parder_u_Vind
 
 def parder_deltat_qbarind_alcm(rho, Vind, parder_deltat_Vind):
-    #Partial derivative of qbarind_eq with respect to deltat
+    #Partial derivative of qbarind_sp respect to deltat
     return rho * Vind * parder_deltat_Vind
 
 def parder_pd_qbarprop_alcm(rho, Vprop, parder_pd_rho, parder_pd_Vprop):
-    #Partial derivative of qbarprop with respect to pd
+    #Partial derivative of qbarprop respect to pd
     return 0.5 * Vprop * (parder_pd_rho * Vprop + 2 * rho * parder_pd_Vprop)
 
 def parder_u_qbarprop_alcm(rho, Vprop, parder_u_Vprop):
-    #Partial derivative of qbarprop with respect to u
+    #Partial derivative of qbarprop respect to u
     return rho * Vprop * parder_u_Vprop
 
 def parder_deltat_qbarprop_alcm(rho, Vprop, parder_deltat_Vprop):
-    #Partial derivative of qbarprop with respect to deltat
+    #Partial derivative of qbarprop respect to deltat
     return rho * Vprop * parder_deltat_Vprop
 
 def parder_pd_T_alcm(J, n, parder_pd_rho):
-    #Partial derivative of T with respect to pd
+    #Partial derivative of T respect to pd
     return CT_interp(J) * (n ** 2) * (D_PROP_SI ** 4) * parder_pd_rho
 
 def parder_u_T_alcm(rho, J, n, parder_J_CT):
-    #Partial derivative of T with respect to u
+    #Partial derivative of T respect to u
     return rho * n * (D_PROP_SI ** 3) * parder_J_CT_interp(J)
 
 def parder_deltat_T_alcm(u, rho, J, n, parder_J_CT, parder_deltat_n):
-    #Partial derivative of T with respect to deltat
+    #Partial derivative of T respect to deltat
     return rho * (D_PROP_SI ** 3) * (2 * CT_interp(J) * n * D_PROP_SI - u * parder_J_CT_interp(J)) * parder_deltat_n
 
 ''' DYNAMIC COEFFICIENTS PARTIAL DERIVATIVES'''
-def parder_deltaf_CD2_alcm(hmacb, parder_deltaf_TD2_eq):
-    #Partial derivative of CD2 with respect to deltaf
-    return kCDge_interp(hmacb) * parder_deltaf_TD2_eq
-
 def parder_u_CD3_alcm(hmacb, parder_alpha_TD3, parder_u_alpha):
-    #Partial derivative of CD3 with respect to u
+    #Partial derivative of CD3 respect to u
     return kCDge_interp(hmacb) * parder_alpha_TD3 * parder_u_alpha
 
 def parder_w_CD3_alcm(hmacb, parder_alpha_TD3, parder_w_alpha):
-    #Partial derivative of CD3 with respect to w
+    #Partial derivative of CD3 respect to w
     return kCDge_interp(hmacb) * parder_alpha_TD3 * parder_w_alpha
 
-def parder_deltaf_CD3_alcm(hmacb, parder_deltaf_TD3_eq):
-    #Partial derivative of CD3 with respect to deltaf
-    return kCDge_interp(hmacb) * parder_deltaf_TD3_eq
-
 def parder_u_CD4_alcm(beta_rad, parder_u_beta):
-    #Partial derivative of CD4 with respect to u
+    #Partial derivative of CD4 respect to u
     return 0 if beta_rad == 0 else 0.1500 * (beta_rad / abs(beta_rad)) * parder_u_beta
 
 def parder_v_CD4_alcm(beta_rad, parder_v_beta):
-    #Partial derivative of CD4 with respect to v
+    #Partial derivative of CD4 respect to v
     return 0 if beta_rad == 0 else 0.1500 * (beta_rad / abs(beta_rad)) * parder_v_beta
 
 def parder_w_CD4_alcm(beta_rad, parder_w_beta):
-    #Partial derivative of CD4 with respect to w
+    #Partial derivative of CD4 respect to w
     return 0 if beta_rad == 0 else 0.1500 * (beta_rad / abs(beta_rad)) * parder_w_beta
 
 def parder_u_CC1_alcm(parder_beta_TC1, parder_u_beta):
-    #Partial derivative of CC1 with respect to u
+    #Partial derivative of CC1 respect to u
     return parder_beta_TC1 * parder_u_beta
 
 def parder_v_CC1_alcm(parder_beta_TC1, parder_v_beta):
-    #Partial derivative of CC1 with respect to v
+    #Partial derivative of CC1 respect to v
     return parder_beta_TC1 * parder_v_beta
 
 def parder_w_CC1_alcm(parder_beta_TC1, parder_w_beta):
-    #Partial derivative of CC1 with respect to w
+    #Partial derivative of CC1 respect to w
     return parder_beta_TC1 * parder_w_beta
 
-def parder_deltaf_CC1_alcm(parder_deltaf_TC1):
-    #Partial derivative of CC1 with respect to deltaf
-    return parder_deltaf_TC1
-
 def parder_deltar_CC2_alcm():
-    #Partial derivative of CC2 with respect to deltar
+    #Partial derivative of CC2 respect to deltar
     return 0.1500
 
 def parder_u_CL1_alcm(hmacb, parder_alpha_TL1, parder_u_alpha):
-    #Partial derivative of CL1 with respect to u
+    #Partial derivative of CL1 respect to u
     return kCLge_interp(hmacb) * parder_alpha_TL1 * parder_u_alpha
 
 def parder_w_CL1_alcm(hmacb, parder_alpha_TL1, parder_w_alpha):
-    #Partial derivative of CL1 with respect to w
+    #Partial derivative of CL1 respect to w
     return kCLge_interp(hmacb) * parder_alpha_TL1 * parder_w_alpha
 
-def parder_deltaf_CL2_alcm(hmacb, parder_deltaf_TL2):
-    #Partial derivative of CL2 with respect to deltaf
-    return kCLge_interp(hmacb) * parder_deltaf_TL2
-
 def parder_deltae_CL3_alcm():
-    #Partial derivative of CL3 with respect to deltae
+    #Partial derivative of CL3 respect to deltae
     return 0.4300
 
 def parder_u_CL4_alcm(q, parder_u_Cw2Va):
-    #Partial derivative of CL4 with respect to u
+    #Partial derivative of CL4 respect to u
     return  3.9000 * q * parder_u_Cw2Va
 
 def parder_v_CL4_alcm(q, parder_v_Cw2Va):
-    #Partial derivative of CL4 with respect to v
+    #Partial derivative of CL4 respect to v
     return  3.9000 * q * parder_v_Cw2Va
 
 def parder_w_CL4_alcm(q, parder_w_Cw2Va):
-    #Partial derivative of CL4 with respect to w
+    #Partial derivative of CL4 respect to w
     return  3.9000 * q * parder_w_Cw2Va
 
 def parder_q_CL4_alcm(Cw2Va):
-    #Partial derivative of CL4 with respect to q
+    #Partial derivative of CL4 respect to q
     return 3.9000 * Cw2Va
 
 def parder_u_CL5_alcm(alphadot_rads, parder_u_Cw2Va):
-    #Partial derivative of CL5 with respect to u
+    #Partial derivative of CL5 respect to u
     return  1.7000 * alphadot_rads  * parder_u_Cw2Va
 
 def parder_v_CL5_alcm(alphadot_rads, parder_v_Cw2Va):
-    #Partial derivative of CL5 with respect to v
+    #Partial derivative of CL5 respect to v
     return  1.7000 * alphadot_rads  * parder_v_Cw2Va
 
 def parder_w_CL5_alcm(alphadot_rads, parder_w_Cw2Va):
-    #Partial derivative of CL5 with respect to w
+    #Partial derivative of CL5 respect to w
     return  1.7000 * alphadot_rads  * parder_w_Cw2Va
 
 def parder_u_Cl1_alcm(beta_rad, alpha_rad, parder_u_beta, parder_alpha_Tl1, parder_u_alpha):
-    #Partial derivative of Cl1 with respect to u
+    #Partial derivative of Cl1 respect to u
     return - 0.0920 * (parder_u_beta * Tl1_interp(alpha_rad) + beta_rad * parder_alpha_Tl1 * parder_u_alpha)
 
 def parder_v_Cl1_alcm(beta_rad, alpha_rad, parder_v_beta):
-    #Partial derivative of Cl1 with respect to v
+    #Partial derivative of Cl1 respect to v
     return - 0.0920 * (parder_v_beta * Tl1_interp(alpha_rad))
 
 def parder_w_Cl1_alcm(beta_rad, alpha_rad, parder_w_beta, parder_alpha_Tl1, parder_w_alpha):
-    #Partial derivative of Cl1 with respect to w
+    #Partial derivative of Cl1 respect to w
     return - 0.0920 * (parder_w_beta * Tl1_interp(alpha_rad) + beta_rad * parder_alpha_Tl1 * parder_w_alpha)
 
 def parder_u_Cl2_alcm(p, parder_u_Bw2Va):
-    #Partial derivative of Cl2 with respect to u
+    #Partial derivative of Cl2 respect to u
     return - 0.4840 * parder_u_Bw2Va * p
 
 def parder_v_Cl2_alcm(p, parder_v_Bw2Va):
-    #Partial derivative of Cl2 with respect to v
+    #Partial derivative of Cl2 respect to v
     return - 0.4840 * parder_v_Bw2Va * p
 
 def parder_w_Cl2(p, parder_w_Bw2Va):
-    #Partial derivative of Cl2 with respect to w
+    #Partial derivative of Cl2 respect to w
     return - 0.4840 * parder_w_Bw2Va * p
 
 def parder_p_Cl2(Bw2Va):
-    #Partial derivative of Cl2 with respect to w
+    #Partial derivative of Cl2 respect to w
     return - 0.4840 * Bw2Va
 
 def parder_u_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall, parder_u_Bw2Va, parder_alpha_Tl32, parder_alpha_Tl33, parder_u_alpha):
-    #Partial derivative of Cl3 with respect to u
+    #Partial derivative of Cl3 respect to u
     if stall:
         return r * Tl31_interp(sigmaf_rad) * (parder_u_Bw2Va * Tl32_interp(alpha_rad, r) + Bw2Va * parder_alpha_Tl32 * parder_u_alpha)
 
@@ -1029,7 +1015,7 @@ def parder_u_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall, parder_u_Bw2Va, parder_
         return r * Tl31_interp(sigmaf_rad) * (parder_u_Bw2Va * Tl33_interp(alpha_rad, r) + Bw2Va * parder_alpha_Tl33 * parder_u_alpha)
 
 def parder_v_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall, parder_v_Bw2Va, parder_alpha_Tl32, parder_alpha_Tl33):
-    #Partial derivative of Cl3 with respect to v
+    #Partial derivative of Cl3 respect to v
     if stall:
         return r * Tl31_interp(sigmaf_rad) * parder_v_Bw2Va * Tl32_interp(alpha_rad, r)
 
@@ -1037,567 +1023,151 @@ def parder_v_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall, parder_v_Bw2Va, parder_
         return r * Tl31_interp(sigmaf_rad) * parder_v_Bw2Va * Tl33_interp(alpha_rad, r)
 
 def parder_w_Cl3_alcm(Bw2Va, r, sigmaf_rad, alpha_rad, stall, parder_w_Bw2Va, parder_alpha_Tl32, parder_alpha_Tl33, parder_w_alpha):
-    #Partial derivative of Cl3 with respect to w
+    #Partial derivative of Cl3 respect to w
     if stall:
         return r * Tl31_interp(sigmaf_rad) * (parder_w_Bw2Va * Tl32_interp(alpha_rad, r) + Bw2Va * parder_alpha_Tl32 * parder_w_alpha)
 
     else:
         return r * Tl31_interp(sigmaf_rad) * (parder_w_Bw2Va * Tl33_interp(alpha_rad, r) + Bw2Va * parder_alpha_Tl33 * parder_w_alpha)
 
-def parder_deltaf_Cl3_alcm(Bw2Va, r, alpha_rad, stall, parder_deltaf_Tl31):
-    #Partial derivative of Cl3 with respect to deltaf
-    if stall:
-        return Bw2Va * r * parder_deltaf_Tl31 * Tl32_interp(alpha_rad, r)
-    else:
-        return Bw2Va * r * parder_deltaf_Tl31  * Tl33_interp(alpha_rad, r)
-
 def parder_r_Cl3_alcm(Bw2Va, r, sigmaf_rad, alpha_rad, stall, parder_r_Tl32, parder_r_Tl33):
-    #Partial derivative of Cl3 with respect to r
+    #Partial derivative of Cl3 respect to r
     if stall:
         return Bw2Va * Tl31_interp(sigmaf_rad) * (Tl32_interp(alpha_rad, r) + r * parder_r_Tl32)
     else:
         return Bw2Va * Tl31_interp(sigmaf_rad) * (Tl32_interp(alpha_rad, r) + r * parder_r_Tl33)
 
 def parder_u_Cl4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tl4, parder_u_alpha):
-    #Partial derivative of Cl4 with respect to u
+    #Partial derivative of Cl4 respect to u
     return 0.2290 * averaged_ailerons(sigmala_rad, sigmara_rad) * parder_alpha_Tl4 * parder_u_alpha
 
-def parder_w_Cl4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tl4_eq, parder_w_alpha_eq):
-    #Partial derivative of Cl4 with respect to w
-    return 0.2290 * averaged_ailerons(sigmala_rad, sigmara_rad) * parder_alpha_Tl4_eq * parder_w_alpha_eq
+def parder_w_Cl4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tl4_sp, parder_w_alpha_sp):
+    #Partial derivative of Cl4 respect to w
+    return 0.2290 * averaged_ailerons(sigmala_rad, sigmara_rad) * parder_alpha_Tl4_sp * parder_w_alpha_sp
 
 def parder_deltaa_Cl4_alcm(alpha_rad, stall):
-    #Partial derivative of Cl4 with respect to deltaa
+    #Partial derivative of Cl4 respect to deltaa
     return 0.2290 * deg_to_rad(0.5 * (DELTAA_RANGE[0][1] - DELTAA_RANGE[0][0])) * Tl4_interp(alpha_rad, stall)
 
 def parder_deltar_Cl5_alcm():
-    #Partial derivative of Cl5 with respect to deltar
+    #Partial derivative of Cl5 respect to deltar
     return 0.0147
 
 def parder_pd_Cm1_alcm(parder_qbar_Tm1, parder_pd_qbar):
-    #Partial derivative of Cm1 with respect to pd
+    #Partial derivative of Cm1 respect to pd
     return  parder_qbar_Tm1 * parder_pd_qbar
 
 def parder_u_Cm2_alcm(alpha_rad, parder_alpha_Tm2, parder_u_alpha):
-    #Partial derivative of Cm2 with respect to u
+    #Partial derivative of Cm2 respect to u
     return - 1.8000 * (cos(alpha_rad) * Tm2_interp(alpha_rad) + sin(alpha_rad) * parder_alpha_Tm2 * parder_u_alpha)
 
 def parder_w_Cm2_alcm(alpha_rad, parder_alpha_Tm2, parder_w_alpha):
-    #Partial derivative of Cm2 with respect to w
+    #Partial derivative of Cm2 respect to w
     return - 1.8000 * (cos(alpha_rad) * Tm2_interp(alpha_rad) + sin(alpha_rad) * parder_alpha_Tm2 * parder_w_alpha)
 
 def parder_u_Cm3_alcm(q, parder_u_Cw2Va):
-    #Partial derivative of Cm3 with respect to u
+    #Partial derivative of Cm3 respect to u
     return - 12.4000 * q * parder_u_Cw2Va  
 
 def parder_v_Cm3_alcm(q, parder_v_Cw2Va):
-    #Partial derivative of Cm3 with respect to v
+    #Partial derivative of Cm3 respect to v
     return - 12.4000 * q * parder_v_Cw2Va  
 
 def parder_w_Cm3_alcm(q, parder_w_Cw2Va):
-    #Partial derivative of Cm3 with respect to w
+    #Partial derivative of Cm3 respect to w
     return - 12.4000 * q * parder_w_Cw2Va  
 
 def parder_q_Cm3_alcm(q, Cw2Va):
-    #Partial derivative of Cm3 with respect to q
+    #Partial derivative of Cm3 respect to q
     return - 12.4000 * Cw2Va
 
-def parder_deltaf_Cm4_alcm(parder_deltaf_Tm4):
-    #Partial derivative of Cm4 with respect to deltaf
-    return 0.7000 * parder_deltaf_Tm4
-
 def parder_u_Cm5_alcm(alphadot_rads, parder_u_Cw2Va):
-    #Partial derivative of Cm5 with respect to u
+    #Partial derivative of Cm5 respect to u
     return - 7.2700 * alphadot_rads  * parder_u_Cw2Va  
 
 def parder_v_Cm5_alcm(alphadot_rads, parder_v_Cw2Va):
-    #Partial derivative of Cm5 with respect to v
+    #Partial derivative of Cm5 respect to v
     return - 7.2700 * alphadot_rads * parder_v_Cw2Va  
 
 def parder_w_Cm5_alcm(alphadot_rads, parder_w_Cw2Va):
-    #Partial derivative of Cm5 with respect to w
+    #Partial derivative of Cm5 respect to w
     return - 7.2700  * alphadot_rads * parder_w_Cw2Va  
 
 def parder_u_Cm6_alcm(sigmae_rad, parder_alpha_Tm5, parder_u_alpha):
-    #Partial derivative of Cm6 with respect to u
+    #Partial derivative of Cm6 respect to u
     return - 1.2800 * sigmae_rad * parder_alpha_Tm5 * parder_u_alpha
 
 def parder_w_Cm6_alcm(sigmae_rad, parder_alpha_Tm5, parder_w_alpha):
-    #Partial derivative of Cm6 with respect to w
+    #Partial derivative of Cm6 respect to w
     return - 1.2800 * sigmae_rad * parder_alpha_Tm5 * parder_w_alpha
 
 def parder_deltae_Cm6_alcm(alpha_rad, sigmae_rad, parder_deltae_Tm5):
-    #Partial derivative of Cm6 with respect to deltae
+    #Partial derivative of Cm6 respect to deltae
     return - 1.2800 * (Tm5_interp(sigmae_rad, alpha_rad) + parder_deltae_Tm5)
 
 def parder_u_Cn1_alcm(parder_beta_Tn1, parder_u_beta):
-    #Partial derivative of Cn1 with respect to u 
+    #Partial derivative of Cn1 respect to u 
     return parder_beta_Tn1 * parder_u_beta
 
 def parder_v_Cn1_alcm(parder_beta_Tn1, parder_v_beta):
-    #Partial derivative of Cn1 with respect to v 
+    #Partial derivative of Cn1 respect to v 
     return parder_beta_Tn1 * parder_v_beta
 
 def parder_w_Cn1_alcm(parder_beta_Tn1, parder_w_beta):
-    #Partial derivative of Cn1 with respect to w 
+    #Partial derivative of Cn1 respect to w 
     return parder_beta_Tn1 * parder_w_beta
 
 def parder_u_Cn2_alcm(r, parder_u_Bw2Va):
-    #Partial derivative of Cn2 with respect to u
+    #Partial derivative of Cn2 respect to u
     return - 0.0937 * r * parder_u_Bw2Va  
 
 def parder_v_Cn2_alcm(r, parder_v_Bw2Va):
-    #Partial derivative of Cn2 with respect to v
+    #Partial derivative of Cn2 respect to v
     return - 0.0937 * r * parder_v_Bw2Va  
 
 def parder_w_Cn2_alcm(r, parder_w_Bw2Va):
-    #Partial derivative of Cn2 with respect to w
+    #Partial derivative of Cn2 respect to w
     return - 0.0937  * r * parder_w_Bw2Va  
 
 def parder_r_Cn2_alcm(Bw2Va):
-    #Partial derivative of Cn2 with respect to w
+    #Partial derivative of Cn2 respect to w
     return - 0.0937  * Bw2Va  
 
 def parder_u_Cn3_alcm(Bw2Va, r, alpha_rad, parder_u_Bw2Va, parder_alpha_Tn3, parder_u_alpha):
-    #Partial derivative of Cn3 with respect to u
+    #Partial derivative of Cn3 respect to u
     return parder_u_Bw2Va * Tn3_interp(r, alpha_rad) + Bw2Va * parder_alpha_Tn3 * parder_u_alpha
 
 def parder_v_Cn3_alcm(Bw2Va, r, alpha_rad, parder_v_Bw2Va):
-    #Partial derivative of Cn3 with respect to v
+    #Partial derivative of Cn3 respect to v
     return parder_v_Bw2Va * Tn3_interp(r, alpha_rad)
 
 def parder_w_Cn3_alcm(Bw2Va, r, alpha_rad, parder_w_Bw2Va, parder_alpha_Tn3, parder_w_alpha):
-    #Partial derivative of Cn3 with respect to w
+    #Partial derivative of Cn3 respect to w
     return parder_w_Bw2Va * Tn3_interp(r, alpha_rad) + Bw2Va * parder_alpha_Tn3 * parder_w_alpha
 
 def parder_r_Cn3_alcm(Bw2Va, parder_r_Tn3):
-    #Partial derivative of Cn3 with respect to r
+    #Partial derivative of Cn3 respect to r
     return Bw2Va * parder_r_Tn3
 
 def parder_u_Cn4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tn4, parder_beta_Tn4, parder_u_alpha, parder_u_beta):
-    #Partial derivative of Cn4 with respect to u
+    #Partial derivative of Cn4 respect to u
     return averaged_ailerons(sigmala_rad, sigmara_rad) * (parder_alpha_Tn4 * parder_u_alpha + parder_beta_Tn4 * parder_u_beta)
 
 def parder_v_Cn4_alcm(sigmala_rad, sigmara_rad, parder_beta_Tn4, parder_v_beta):
-    #Partial derivative of Cn4 with respect to v
+    #Partial derivative of Cn4 respect to v
     return averaged_ailerons(sigmala_rad, sigmara_rad) * parder_beta_Tn4 * parder_v_beta
 
 def parder_w_Cn4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tn4, parder_beta_Tn4, parder_w_alpha, parder_w_beta):
-    #Partial derivative of Cn4 with respect to w
+    #Partial derivative of Cn4 respect to w
     return averaged_ailerons(sigmala_rad, sigmara_rad) * (parder_alpha_Tn4 * parder_w_alpha + parder_beta_Tn4 * parder_w_beta)
 
 def parder_deltaa_Cn4_alcm(alpha_rad, beta_rad):
-    #Partial derivative of Cn4 with respect to deltaa
+    #Partial derivative of Cn4 respect to deltaa
     return deg_to_rad(0.5 * (DELTAA_RANGE[0][1] - DELTAA_RANGE[0][0])) * Tn4_interp(alpha_rad, beta_rad)
 
 def parder_deltar_Cn5_alcm():
-    #Partial derivative of Cn5 with respect to deltar
+    #Partial derivative of Cn5 respect to deltar
     return - 0.0645 
-
-def update_anl(time, x_anl, u_anl, params):
-
-    phi_rad       = params['phi_rad']
-    theta_rad     = params['theta_rad']
-    psi_rad       = params['psi_rad']
-    alphadot_rads = params['alphadot_rads']
-    sigmara_rad   = params['sigmara_rad']
-    sigmala_rad   = params['sigmala_rad']
-    sigmae_rad    = params['sigmae_rad']
-    sigmaf_rad    = params['sigmaf_rad']
-    sigmar_rad    = params['sigmar_rad']
-    hmacb         = params['hmacb']
-    qbar          = params['qbar']
-    stall         = params['stall']
-    Iyy           = params['Iyy']
-    mass          = params['mass']
-    grav          = params['grav']
-    rho           = params['rho']
-    n             = params['n']
-    Gamma         = params['Gamma']
-    Gamma1        = params['Gamma1']
-    Gamma2        = params['Gamma2']
-    Gamma3        = params['Gamma3']
-    Gamma4        = params['Gamma4']
-    Gamma5        = params['Gamma5']
-    Gamma6        = params['Gamma6']
-    Gamma7        = params['Gamma7']
-    Gamma8        = params['Gamma8']
-
-    pn = x_anl[0]
-    pe = x_anl[1]
-    pd = x_anl[2]
-    q0 = x_anl[3]
-    q1 = x_anl[4]
-    q2 = x_anl[5]
-    q3 = x_anl[6]
-    u  = x_anl[7]
-    v  = x_anl[8]
-    w  = x_anl[9]
-    p  = x_anl[10]
-    q  = x_anl[11]
-    r  = x_anl[12]
-
-    deltaa = u_anl[0]
-    deltae = u_anl[1]
-    deltaf = u_anl[2]
-    deltar = u_anl[3]
-    deltat = u_anl[4]
-    deltam = u_anl[5]
-
-    euler = np.array([phi_rad, theta_rad, psi_rad])
-    qbv   = body_to_vehicle(phi_rad, theta_rad, psi_rad)
-    quat  = euler_to_attquat(euler)
-
-    #Misc variables
-    Vauw      = Vauw_acm(u, w)
-    Va        = Va_acm(u, v, w)
-    alpha_rad = alpha_acm(u, w)
-    beta      = beta_acm(v, Vauw)
-    J         = J_acm(u, n)
-    T         = thrust_eng(J, rho, n)
-    Vind2     = Vind2_acm(u, rho, T)
-    Vind      = Vind_acm(u, rho, T, Vind2)
-    Vprop     = Vprop_acm(u, Vind)
-    qbar      = qbar_acm(rho, Va)
-    qbaruw    = qbaruw_acm(rho, Vauw)
-    qbarind   = qbarind_acm(rho, Vind)
-    qbarprop  = qbarprop_acm(rho, Vprop)
-
-    #Conversions
-    Bw2Va     = BW_SI / (2 * Va)
-    Cw2Va     = CW_SI / (2 * Va)
-
-    #Tables
-    CD1 = aerocoeff_CD1()
-    CD2 = aerocoeff_CD2(hmacb, sigmaf_rad)
-    CD3 = aerocoeff_CD3(hmacb, alpha_rad, sigmaf_rad)
-    CD4 = aerocoeff_CD4(beta)
-    CC1 = aerocoeff_CC1(beta, sigmaf_rad)
-    CC2 = aerocoeff_CC2(sigmar_rad)
-    CL1 = aerocoeff_CL1(hmacb, alpha_rad, stall)
-    CL2 = aerocoeff_CL2(hmacb, sigmaf_rad)
-    CL3 = aerocoeff_CL3(sigmae_rad)
-    CL4 = aerocoeff_CL4(Cw2Va, q)
-    CL5 = aerocoeff_CL5(Cw2Va, alphadot_rads)
-    Cl1 = aerocoeff_Cl1(beta, alpha_rad)
-    Cl2 = aerocoeff_Cl2(Bw2Va, p)
-    Cl3 = aerocoeff_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall)
-    Cl4 = aerocoeff_Cl4(sigmala_rad, sigmara_rad, alpha_rad, stall)
-    Cl5 = aerocoeff_Cl5(sigmar_rad)
-    Cm1 = aerocoeff_Cm1(qbar)
-    Cm2 = aerocoeff_Cm2(alpha_rad)
-    Cm3 = aerocoeff_Cm3(Cw2Va, q)
-    Cm4 = aerocoeff_Cm4(sigmaf_rad)
-    Cm5 = aerocoeff_Cm5(Cw2Va, alphadot_rads)
-    Cm6 = aerocoeff_Cm6(sigmae_rad, alpha_rad)
-    Cn1 = aerocoeff_Cn1(beta)
-    Cn2 = aerocoeff_Cn2(Bw2Va, r)
-    Cn3 = aerocoeff_Cn3(Bw2Va, r, alpha_rad)
-    Cn4 = aerocoeff_Cn4(sigmala_rad, sigmara_rad, alpha_rad, beta)
-    Cn5 = aerocoeff_Cn5(sigmar_rad)
-    Cn6 = aerocoeff_Cn6()
-
-    D = qbar * SW_SI * (CD1 + CD2 + CD3 + CD4) 
-    C = qbar * SW_SI * (CC1 + CC2)
-    L = SW_SI * (qbar * (CL1 + CL2 + CL3 + CL4) + qbaruw * CL5)
-    gx, gy, gz = gravity_body(quat, mass, grav)
-
-    fx = - D + gx + T
-    fy = C + gy
-    fz = - L + gz
-    l  = qbar * SW_SI * BW_SI * (Cl1 + Cl2 + Cl3 + Cl4 + Cl5)
-    m  = SW_SI * CW_SI * (qbar * (Cm1 + Cm2 + Cm3 + Cm4) + qbaruw * Cm5 + qbarind * Cm6)
-    n  = SW_SI * BW_SI * (qbar * (Cn1 + Cn2 + Cn3 + Cn4) + qbarind * Cn5 + qbarprop * Cn6)
-    
-    dx = np.zeros(CM_STATE_LEN)
-
-    # Compute the discrete updates
-    dx[0:3]   = qbv.rotation_matrix @ np.array([u, v, w])
-    dx[3:7]   = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) @ np.array([q0, q1, q2, q3])
-    dx[7:10]  = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) @ np.array([p, q, r]) + np.array([fx, fy, fz]) / mass
-    dx[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n])
-
-    return dx
-
-def init_alcm():
-    #Initialize state space by constructing dx vector and A and B matrices
-    dx = np.zeros(CM_STATE_LEN) #state evolution
-    A  = np.zeros((CM_STATE_LEN, CM_STATE_LEN)) #state jacobian
-    B  = np.zeros((CM_STATE_LEN, CM_INPUT_LEN)) #input jacobian
-    C  = np.eye(CM_STATE_LEN)
-    D  = np.zeros((CM_STATE_LEN, CM_INPUT_LEN))
-    x  = dx #state
-    u  = np.zeros(CM_INPUT_LEN) #input
-    return dx, A, B, C, D, x, u
-
-def update_A_alcm(A, parder_x_eq):
-    #Update state jacobian matrix (A)
-
-    parder_q0_pndot_eq = parder_x_eq[0]
-    parder_q1_pndot_eq = parder_x_eq[1]
-    parder_q2_pndot_eq = parder_x_eq[2]
-    parder_q3_pndot_eq = parder_x_eq[3]
-    parder_u_pndot_eq  = parder_x_eq[4]
-    parder_v_pndot_eq  = parder_x_eq[5]
-    parder_w_pndot_eq  = parder_x_eq[6]
-    parder_q0_pedot_eq = parder_x_eq[7]
-    parder_q1_pedot_eq = parder_x_eq[8]
-    parder_q2_pedot_eq = parder_x_eq[9]
-    parder_q3_pedot_eq = parder_x_eq[10]
-    parder_u_pedot_eq  = parder_x_eq[11]
-    parder_v_pedot_eq  = parder_x_eq[12]
-    parder_w_pedot_eq  = parder_x_eq[13]
-    parder_q0_pddot_eq = parder_x_eq[14]
-    parder_q1_pddot_eq = parder_x_eq[15]
-    parder_q2_pddot_eq = parder_x_eq[16]
-    parder_q3_pddot_eq = parder_x_eq[17]
-    parder_u_pddot_eq  = parder_x_eq[18]
-    parder_v_pddot_eq  = parder_x_eq[19]
-    parder_w_pddot_eq  = parder_x_eq[20]
-    parder_q1_q0dot_eq = parder_x_eq[21]
-    parder_q2_q0dot_eq = parder_x_eq[22]
-    parder_q3_q0dot_eq = parder_x_eq[23]
-    parder_p_q0dot_eq  = parder_x_eq[24]
-    parder_q_q0dot_eq  = parder_x_eq[25]
-    parder_r_q0dot_eq  = parder_x_eq[26]
-    parder_q0_q1dot_eq = parder_x_eq[27]
-    parder_q2_q1dot_eq = parder_x_eq[28]
-    parder_q3_q1dot_eq = parder_x_eq[29]
-    parder_p_q1dot_eq  = parder_x_eq[30]
-    parder_q_q1dot_eq  = parder_x_eq[31]
-    parder_r_q1dot_eq  = parder_x_eq[32]
-    parder_q0_q2dot_eq = parder_x_eq[33]
-    parder_q1_q2dot_eq = parder_x_eq[34]
-    parder_q3_q2dot_eq = parder_x_eq[35]
-    parder_p_q2dot_eq  = parder_x_eq[36]
-    parder_q_q2dot_eq  = parder_x_eq[37]
-    parder_r_q2dot_eq  = parder_x_eq[38]
-    parder_q0_q3dot_eq = parder_x_eq[39]
-    parder_q1_q3dot_eq = parder_x_eq[40]
-    parder_q2_q3dot_eq = parder_x_eq[41]
-    parder_p_q3dot_eq  = parder_x_eq[42]
-    parder_q_q3dot_eq  = parder_x_eq[43]
-    parder_r_q3dot_eq  = parder_x_eq[44]
-    parder_pd_udot_eq  = parder_x_eq[45]
-    parder_q0_udot_eq  = parder_x_eq[46]
-    parder_q1_udot_eq  = parder_x_eq[47]
-    parder_q2_udot_eq  = parder_x_eq[48]
-    parder_q3_udot_eq  = parder_x_eq[49]
-    parder_u_udot_eq   = parder_x_eq[50]
-    parder_v_udot_eq   = parder_x_eq[51]
-    parder_w_udot_eq   = parder_x_eq[52]
-    parder_q_udot_eq   = parder_x_eq[53]
-    parder_r_udot_eq   = parder_x_eq[54]
-    parder_pd_vdot_eq  = parder_x_eq[55]
-    parder_q0_vdot_eq  = parder_x_eq[56]
-    parder_q1_vdot_eq  = parder_x_eq[57]
-    parder_q2_vdot_eq  = parder_x_eq[58]
-    parder_q3_vdot_eq  = parder_x_eq[59]
-    parder_u_vdot_eq   = parder_x_eq[60]
-    parder_v_vdot_eq   = parder_x_eq[61]
-    parder_w_vdot_eq   = parder_x_eq[62]
-    parder_p_vdot_eq   = parder_x_eq[63]
-    parder_r_vdot_eq   = parder_x_eq[64]
-    parder_pd_wdot_eq  = parder_x_eq[65]
-    parder_q0_wdot_eq  = parder_x_eq[66]
-    parder_q1_wdot_eq  = parder_x_eq[67]
-    parder_q2_wdot_eq  = parder_x_eq[68]
-    parder_q3_wdot_eq  = parder_x_eq[69]
-    parder_u_wdot_eq   = parder_x_eq[70]
-    parder_v_wdot_eq   = parder_x_eq[71]
-    parder_w_wdot_eq   = parder_x_eq[72]
-    parder_p_wdot_eq   = parder_x_eq[73]
-    parder_q_wdot_eq   = parder_x_eq[74]
-    parder_pd_pdot_eq  = parder_x_eq[75]
-    parder_u_pdot_eq   = parder_x_eq[76]
-    parder_v_pdot_eq   = parder_x_eq[77]
-    parder_w_pdot_eq   = parder_x_eq[78]
-    parder_p_pdot_eq   = parder_x_eq[79]
-    parder_q_pdot_eq   = parder_x_eq[80]
-    parder_r_pdot_eq   = parder_x_eq[81]
-    parder_pd_qdot_eq  = parder_x_eq[82]
-    parder_u_qdot_eq   = parder_x_eq[83]
-    parder_v_qdot_eq   = parder_x_eq[84]
-    parder_w_qdot_eq   = parder_x_eq[85]
-    parder_p_qdot_eq   = parder_x_eq[86]
-    parder_q_qdot_eq   = parder_x_eq[87]
-    parder_r_qdot_eq   = parder_x_eq[88]
-    parder_pd_rdot_eq  = parder_x_eq[89]
-    parder_u_rdot_eq   = parder_x_eq[90]
-    parder_v_rdot_eq   = parder_x_eq[91]
-    parder_w_rdot_eq   = parder_x_eq[92]
-    parder_p_rdot_eq   = parder_x_eq[93]
-    parder_q_rdot_eq   = parder_x_eq[94]
-    parder_r_rdot_eq   = parder_x_eq[95]
-
-    #Update partial derivatives of \dot{p_n}
-    A[0,3] = parder_q0_pndot_eq
-    A[0,4] = parder_q1_pndot_eq
-    A[0,5] = parder_q2_pndot_eq
-    A[0,6] = parder_q3_pndot_eq
-    A[0,7] = parder_u_pndot_eq
-    A[0,8] = parder_v_pndot_eq
-    A[0,9] = parder_w_pndot_eq
-
-    #Update partial derivatives of \dot{p_e}
-    A[1,3] = parder_q0_pedot_eq
-    A[1,4] = parder_q1_pedot_eq
-    A[1,5] = parder_q2_pedot_eq
-    A[1,6] = parder_q3_pedot_eq
-    A[1,7] = parder_u_pedot_eq
-    A[1,8] = parder_v_pedot_eq
-    A[1,9] = parder_w_pedot_eq
-
-    #Update partial derivatives of \dot{p_d}
-    A[2,3] = parder_q0_pddot_eq
-    A[2,4] = parder_q1_pddot_eq
-    A[2,5] = parder_q2_pddot_eq
-    A[2,6] = parder_q3_pddot_eq
-    A[2,7] = parder_u_pddot_eq
-    A[2,8] = parder_v_pddot_eq
-    A[2,9] = parder_w_pddot_eq
-
-    #Update partial derivatives of \dot{q_0}
-    A[3,4]  = parder_q1_q0dot_eq
-    A[3,5]  = parder_q2_q0dot_eq
-    A[3,6]  = parder_q3_q0dot_eq
-    A[3,10] = parder_p_q0dot_eq
-    A[3,11] = parder_q_q0dot_eq
-    A[3,12] = parder_r_q0dot_eq
-
-    #Update partial derivatives of \dot{q_1}
-    A[4,3]  = parder_q0_q1dot_eq
-    A[4,5]  = parder_q2_q1dot_eq
-    A[4,6]  = parder_q3_q1dot_eq
-    A[4,10] = parder_p_q1dot_eq
-    A[4,11] = parder_q_q1dot_eq
-    A[4,12] = parder_r_q1dot_eq
-
-    #Update partial derivatives of \dot{q_2}
-    A[5,3]  = parder_q0_q2dot_eq
-    A[5,4]  = parder_q1_q2dot_eq
-    A[5,6]  = parder_q3_q2dot_eq
-    A[5,10] = parder_p_q2dot_eq
-    A[5,11] = parder_q_q2dot_eq
-    A[5,12] = parder_r_q2dot_eq
-
-    #Update partial derivatives of \dot{q_3}
-    A[6,3]  = parder_q0_q3dot_eq
-    A[6,4]  = parder_q1_q3dot_eq
-    A[6,6]  = parder_q2_q3dot_eq
-    A[6,10] = parder_p_q3dot_eq
-    A[6,11] = parder_q_q3dot_eq
-    A[6,12] = parder_r_q3dot_eq
-
-    #Update partial derivatives of \dot{u}
-    A[7,2]  = parder_pd_udot_eq
-    A[7,3]  = parder_q0_udot_eq
-    A[7,4]  = parder_q1_udot_eq
-    A[7,5]  = parder_q2_udot_eq
-    A[7,6]  = parder_q3_udot_eq
-    A[7,7]  = parder_u_udot_eq
-    A[7,8]  = parder_v_udot_eq
-    A[7,9]  = parder_w_udot_eq
-    A[7,11] = parder_q_udot_eq
-    A[7,12] = parder_r_udot_eq
-
-    #Update partial derivatives of \dot{v}
-    A[8,2]  = parder_pd_vdot_eq
-    A[8,3]  = parder_q0_vdot_eq
-    A[8,4]  = parder_q1_vdot_eq
-    A[8,5]  = parder_q2_vdot_eq
-    A[8,6]  = parder_q3_vdot_eq
-    A[8,7]  = parder_u_vdot_eq
-    A[8,8]  = parder_v_vdot_eq
-    A[8,9]  = parder_w_vdot_eq
-    A[8,10] = parder_p_vdot_eq
-    A[8,12] = parder_r_vdot_eq
-
-    #Update partial derivatives of \dot{w}
-    A[9,2]  = parder_pd_wdot_eq
-    A[9,3]  = parder_q0_wdot_eq
-    A[9,4]  = parder_q1_wdot_eq
-    A[9,5]  = parder_q2_wdot_eq
-    A[9,6]  = parder_q3_wdot_eq
-    A[9,7]  = parder_u_wdot_eq
-    A[9,8]  = parder_v_wdot_eq
-    A[9,9]  = parder_w_wdot_eq
-    A[9,10] = parder_p_wdot_eq
-    A[9,11] = parder_q_wdot_eq
-
-    #Update partial derivatives of \dot{p}
-    A[10,2]  = parder_pd_pdot_eq
-    A[10,7]  = parder_u_pdot_eq
-    A[10,8]  = parder_v_pdot_eq
-    A[10,9]  = parder_w_pdot_eq
-    A[10,10] = parder_p_pdot_eq
-    A[10,11] = parder_q_pdot_eq
-    A[10,12] = parder_r_pdot_eq
-
-    #Update partial derivatives of \dot{q}
-    A[11,2]  = parder_pd_qdot_eq
-    A[11,7]  = parder_u_qdot_eq
-    A[11,8]  = parder_v_qdot_eq
-    A[11,9]  = parder_w_qdot_eq
-    A[11,10] = parder_p_qdot_eq
-    A[11,11] = parder_q_qdot_eq
-    A[11,12] = parder_r_qdot_eq
-
-    #Update partial derivatives of \dot{r}
-    A[12,2]  = parder_pd_rdot_eq
-    A[12,7]  = parder_u_rdot_eq
-    A[12,8]  = parder_v_rdot_eq
-    A[12,9]  = parder_w_rdot_eq
-    A[12,10] = parder_p_rdot_eq
-    A[12,11] = parder_q_rdot_eq
-    A[12,12] = parder_r_rdot_eq
-
-    return A
-
-def update_B_alcm(B, parder_delta_eq):
-    #Update input jacobian matrix (B)
-
-    parder_deltaf_udot_eq = parder_delta_eq[0]
-    parder_deltat_udot_eq = parder_delta_eq[1]
-    parder_deltaf_vdot_eq = parder_delta_eq[2]
-    parder_deltar_vdot_eq = parder_delta_eq[3]
-    parder_deltae_wdot_eq = parder_delta_eq[4]
-    parder_deltaf_wdot_eq = parder_delta_eq[5]
-    parder_deltaf_qdot_eq = parder_delta_eq[6]
-    parder_deltaa_pdot_eq = parder_delta_eq[7]
-    parder_deltaf_pdot_eq = parder_delta_eq[8]
-    parder_deltar_pdot_eq = parder_delta_eq[9]
-    parder_deltae_qdot_eq = parder_delta_eq[10]
-    parder_deltaa_rdot_eq = parder_delta_eq[11]
-    parder_deltaf_rdot_eq = parder_delta_eq[12]
-    parder_deltar_rdot_eq = parder_delta_eq[13]
-
-    #Update partial derivatives of \dot{u}
-    B[7,2] = parder_deltaf_udot_eq
-    B[7,4] = parder_deltat_udot_eq
-
-    #Update partial derivatives of \dot{v}
-    B[8,2] = parder_deltaf_vdot_eq
-    B[8,3] = parder_deltar_vdot_eq
-
-    #Update partial derivatives of \dot{w}
-    B[9,1] = parder_deltae_wdot_eq
-    B[9,2] = parder_deltaf_wdot_eq
-
-    #Update partial derivatives of \dot{p}
-    B[10,0] = parder_deltaa_pdot_eq
-    B[10,2] = parder_deltaf_pdot_eq
-    B[10,3] = parder_deltar_pdot_eq
-
-    #Update partial derivatives of \dot{q}
-    B[11,1] = parder_deltae_qdot_eq
-    B[11,2] = parder_deltaf_qdot_eq
-
-    #Update partial derivatives of \dot{q}
-    B[12,0] = parder_deltaa_rdot_eq
-    B[12,2] = parder_deltar_rdot_eq
-
-    return B
 
 ''' CONTROL MODEL CLASS '''
 class ControlModel():
@@ -1612,599 +1182,211 @@ class ControlModel():
 
     def alcm(self, cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end):
         #Analytic linear control model
-        dx_al, A, B, C, D, x_al, u_al = init_alcm() #initialize state space
-        prev_t_al = TELEM_WAIT
-        prev_u_al = np.zeros((CM_INPUT_LEN,1))
+        self._init_alcm() #initialize alcm and variables
         event_start.wait() #wait for simulation start event
         while True:
-            if event_end.is_set():
-                #Close pipes
-                cm2act_in.close()
-                cm2csv_in.close()
-                rx2cm_out.close()
-                sp2cm_out.close()
-                break
-            else:
-                spdata = sp2cm_out.recv() #receive setpoint
-                rxdata = rx2cm_out.recv() #receive RX telemetry
-                if (np.any(rxdata[:,0] >= self.t)):
-                    i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
-                    rxdata = rxdata[i,:] #get first frame
-                    self.t = self.t + self.dt
-
-                    t_sim         = rxdata[0]
-                    longd         = rxdata[2]
-                    latd          = rxdata[3]
-                    hqfe_km       = rxdata[15]
-                    phi_rad       = rxdata[20]
-                    theta_rad     = rxdata[22]
-                    psi_rad       = rxdata[24]
-                    u             = rxdata[34]
-                    v             = rxdata[35]
-                    w             = rxdata[36]
-                    p             = rxdata[46]
-                    q             = rxdata[47]
-                    r             = rxdata[48]
-                    alphadot_rads = rxdata[53]
-                    sigmara_rad   = rxdata[93] 
-                    deltara       = rxdata[94]
-                    sigmala_rad   = rxdata[96]
-                    deltala       = rxdata[97]
-                    sigmae_rad    = rxdata[99]
-                    deltae        = rxdata[100]
-                    sigmar_rad    = rxdata[105]
-                    deltar        = rxdata[106]
-                    deltat        = rxdata[107]
-                    hmacb         = rxdata[111]
-                    Ixx           = rxdata[120]
-                    Ixy           = rxdata[121]
-                    Ixz           = rxdata[122]
-                    Iyy           = rxdata[123]
-                    Iyz           = rxdata[124]
-                    Izz           = rxdata[125]
-                    mass          = rxdata[126]
-
-                    # Conversions
-                    pn                    = latd
-                    pe                    = longd
-                    pd                    = - km_to_m(hqfe_km)
-                    u                     = ft_to_m(u)
-                    v                     = ft_to_m(v)
-                    w                     = ft_to_m(w)
-                    deltaa                = deltaa_acm(deltala, deltara) 
-                    Ixx                   = slugft2_to_kgm2(Ixx)
-                    Ixy                   = slugft2_to_kgm2(Ixy)
-                    Ixz                   = slugft2_to_kgm2(Ixz)
-                    Iyy                   = slugft2_to_kgm2(Iyy)
-                    Iyz                   = slugft2_to_kgm2(Iyz)
-                    Izz                   = slugft2_to_kgm2(Izz)
-                    mass                  = slug_to_kg(mass)
-                    euler                 = np.array([phi_rad, theta_rad, psi_rad])
-                    q0, q1, q2, q3        = euler_to_attquat(euler)
-
-                    #Moments of inertia
-                    Gamma  = mominert_gamma(Ixx, Ixz, Izz)
-                    Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
-                    Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
-                    Gamma3 = mominert_gamma3(Izz, Gamma)
-                    Gamma4 = mominert_gamma4(Ixz, Gamma)
-                    Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
-                    Gamma6 = mominert_gamma6(Ixz, Iyy)
-                    Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
-                    Gamma8 = mominert_gamma8(Ixx, Gamma)
-
-                    #Equilibrium point
-                    pn_eq    = spdata[0]
-                    pe_eq    = spdata[1]
-                    pd_eq    = spdata[2]
-                    phi_eq   = spdata[3]
-                    theta_eq = spdata[4]
-                    psi_eq   = spdata[5]
-                    u_eq     = spdata[6]
-                    v_eq     = spdata[7]
-                    w_eq     = spdata[8]
-                    p_eq     = spdata[9]
-                    q_eq     = spdata[10]
-                    r_eq     = spdata[11]
-
-                    q0_eq, q1_eq, q2_eq, q3_eq = euler_to_attquat(np.array([phi_eq, theta_eq, psi_eq]))
-
-                    #Assumptions of analytic control models
-                    sigmaf_rad, deltaf, deltam, n, rho_eq, grav, stall = acm_assumptions(deltat, pd_eq)
-
-                    #Misc variables equilibrium point
-                    Vauw_eq     = Vauw_acm(u_eq, w_eq)
-                    Va_eq       = Va_acm(u_eq, v_eq, w_eq)
-                    alpha_eq    = alpha_acm(u_eq, w_eq)
-                    beta_eq     = beta_acm(v_eq, Vauw_eq)
-                    J_eq        = J_acm(u_eq, n)
-                    T           = thrust_eng(J_eq, rho_eq, n)
-                    Vind2_eq    = Vind2_acm(u_eq, rho_eq, T)
-                    Vind_eq     = Vind_acm(u_eq, rho_eq, T, Vind2_eq)
-                    Vprop_eq    = Vprop_acm(u_eq, Vind_eq)
-                    qbar_eq     = qbar_acm(rho_eq, Va_eq)
-                    qbaruw_eq   = qbaruw_acm(rho_eq, Vauw_eq)
-                    qbarind_eq  = qbarind_acm(rho_eq, Vind_eq)
-                    qbarprop_eq = qbarprop_acm(rho_eq, Vprop_eq)
-                    Bw2Va_eq    = BW_SI / (2 * Va_eq)
-                    Cw2Va_eq    = CW_SI / (2 * Va_eq)
-
-                    #Tables at the equilibrium point
-                    CD1_eq = aerocoeff_CD1()
-                    CD2_eq = aerocoeff_CD2(hmacb, sigmaf_rad)
-                    CD3_eq = aerocoeff_CD3(hmacb, alpha_eq, sigmaf_rad)
-                    CD4_eq = aerocoeff_CD4(beta_eq)
-                    CC1_eq = aerocoeff_CC1(beta_eq, sigmaf_rad)
-                    CC2_eq = aerocoeff_CC2(sigmar_rad)
-                    CL1_eq = aerocoeff_CL1(hmacb, alpha_eq, stall)
-                    CL2_eq = aerocoeff_CL2(hmacb, sigmaf_rad)
-                    CL3_eq = aerocoeff_CL3(sigmae_rad)
-                    CL4_eq = aerocoeff_CL4(Cw2Va_eq, q_eq)
-                    CL5_eq = aerocoeff_CL5(Cw2Va_eq, alphadot_rads)
-                    Cl1_eq = aerocoeff_Cl1(beta_eq, alpha_eq)
-                    Cl2_eq = aerocoeff_Cl2(Bw2Va_eq, p_eq)
-                    Cl3_eq = aerocoeff_Cl3(Bw2Va_eq, r_eq, sigmaf_rad, alpha_eq, stall)
-                    Cl4_eq = aerocoeff_Cl4(sigmala_rad, sigmara_rad, alpha_eq, stall)
-                    Cl5_eq = aerocoeff_Cl5(sigmar_rad)
-                    Cm1_eq = aerocoeff_Cm1(qbar_eq)
-                    Cm2_eq = aerocoeff_Cm2(alpha_eq)
-                    Cm3_eq = aerocoeff_Cm3(Cw2Va_eq, q_eq)
-                    Cm4_eq = aerocoeff_Cm4(sigmaf_rad)
-                    Cm5_eq = aerocoeff_Cm5(Cw2Va_eq, alphadot_rads)
-                    Cm6_eq = aerocoeff_Cm6(sigmae_rad, alpha_eq)
-                    Cn1_eq = aerocoeff_Cn1(beta_eq)
-                    Cn2_eq = aerocoeff_Cn2(Bw2Va_eq, r_eq)
-                    Cn3_eq = aerocoeff_Cn3(Bw2Va_eq, r_eq, alpha_eq)
-                    Cn4_eq = aerocoeff_Cn4(sigmala_rad, sigmara_rad, alpha_eq, beta_eq)
-                    Cn5_eq = aerocoeff_Cn5(sigmar_rad)
-                    Cn6_eq = aerocoeff_Cn6()
-
-                    #Tables derivatives at the equilibrium point 
-                    parder_deltaf_TD2_eq  = parder_deltaf_TD2_interp(sigmaf_rad)
-                    parder_alpha_TD3_eq   = parder_alpha_TD3_interp(alpha_eq, sigmaf_rad)
-                    parder_deltaf_TD3_eq  = parder_deltaf_TD3_interp(alpha_eq, sigmaf_rad)
-                    parder_beta_TC1_eq    = parder_beta_TC1_interp(beta_eq, sigmaf_rad)
-                    parder_deltaf_TC1_eq  = parder_deltaf_TC1_interp(beta_eq, sigmaf_rad)
-                    parder_alpha_TL1_eq   = parder_alpha_TL1_interp(alpha_eq, stall)
-                    parder_deltaf_TL2_eq  = parder_deltaf_TL2_interp(sigmaf_rad)
-                    parder_alpha_Tl1_eq   = parder_alpha_Tl1_interp(alpha_eq)
-                    parder_deltaf_Tl31_eq = parder_deltaf_Tl31_interp(sigmaf_rad)
-                    parder_alpha_Tl32_eq  = parder_alpha_Tl32_interp(alpha_eq, r_eq)
-                    parder_r_Tl32_eq      = parder_r_Tl32_interp(alpha_eq, r_eq)
-                    parder_alpha_Tl33_eq  = parder_alpha_Tl33_interp(alpha_eq, r_eq)
-                    parder_r_Tl33_eq      = parder_r_Tl33_interp(alpha_eq, r_eq)
-                    parder_alpha_Tl4_eq   = parder_alpha_Tl4_interp(alpha_eq, stall)
-                    parder_qbar_Tm1_eq    = parder_qbar_Tm1_interp(qbar_eq)
-                    parder_alpha_Tm2_eq   = parder_alpha_Tm2_interp(alpha_eq)
-                    parder_deltaf_Tm4_eq  = parder_deltaf_Tm4_interp(deltaf)
-                    parder_deltae_Tm5_eq  = parder_deltae_Tm5_interp(deltae, alpha_eq)
-                    parder_alpha_Tm5_eq   = parder_alpha_Tm5_interp(deltae, alpha_eq)
-                    parder_beta_Tn1_eq    = parder_beta_Tn1_interp(beta_eq)
-                    parder_r_Tn3_eq       = parder_r_Tn3_interp(r_eq, alpha_eq)
-                    parder_alpha_Tn3_eq   = parder_alpha_Tn3_interp(alpha_eq, r_eq)
-                    parder_alpha_Tn4_eq   = parder_alpha_Tn4_interp(alpha_eq, beta_eq)
-                    parder_beta_Tn4_eq    = parder_beta_Tn4_interp(alpha_eq, beta_eq)
-                    parder_J_CT_eq        = parder_J_CT_interp(J_eq)
-
-                    #Misc partial derivatives evaluated at the equilibrium point
-                    parder_pd_rho_eq          = parder_pd_rho_alcm(pd_eq)
-                    parder_deltat_n_eq        = parder_deltat_n_alcm()
-                    parder_u_alpha_eq         = parder_u_alpha_alcm(w_eq, Vauw_eq)
-                    parder_w_alpha_eq         = parder_w_alpha_alcm(u_eq, Vauw_eq)
-                    parder_u_beta_eq          = parder_u_beta_alcm(u_eq, v_eq, Va_eq, Vauw_eq)
-                    parder_v_beta_eq          = parder_v_beta_alcm(Va_eq, Vauw_eq)
-                    parder_w_beta_eq          = parder_w_beta_alcm(v_eq, w_eq, Va_eq, Vauw_eq)
-                    parder_pd_Vind_eq         = parder_pd_Vind_alcm(u_eq, rho_eq, T, Vind2_eq, parder_pd_rho_eq)
-                    parder_u_Vind_eq          = parder_u_Vind_alcm(u_eq, rho_eq, T, Vind2_eq)
-                    parder_deltat_T_eq        = parder_deltat_T_alcm(u_eq, rho_eq, J_eq, n, parder_J_CT_eq, parder_deltat_n_eq)
-                    parder_deltat_Vind_eq     = parder_deltat_Vind_alcm(u_eq, rho_eq, T, Vind2_eq, parder_deltat_T_eq)
-                    parder_pd_Vprop_eq        = parder_pd_Vprop(parder_pd_Vind_eq)
-                    parder_u_Vprop_eq         = parder_u_Vprop_alcm(parder_u_Vind_eq)
-                    parder_deltat_Vprop_eq    = parder_deltat_Vprop_alcm(parder_deltat_Vind_eq)
-                    parder_pd_qbar_eq         = parder_pd_qbar_alcm(Va_eq, parder_pd_rho_eq)
-                    parder_u_qbar_eq          = parder_u_qbar_alcm(u_eq, rho_eq)
-                    parder_v_qbar_eq          = parder_v_qbar_alcm(v_eq, rho_eq)
-                    parder_w_qbar_eq          = parder_w_qbar_alcm(w_eq, rho_eq)
-                    parder_pd_qbaruw_eq       = parder_pd_qbaruw_alcm(Vauw_eq, parder_pd_rho_eq)
-                    parder_u_qbaruw_eq        = parder_u_qbaruw_alcm(parder_u_qbar_eq)
-                    parder_w_qbaruw_eq        = parder_w_qbaruw_alcm(parder_w_qbar_eq)
-                    parder_pd_qbarind_eq      = parder_pd_qbarind_alcm(rho_eq, Vind_eq, parder_pd_rho_eq, parder_pd_Vind_eq)
-                    parder_u_qbarind_eq       = parder_u_qbarind_alcm(rho_eq, Vind_eq, parder_u_Vind_eq)
-                    parder_deltat_qbarind_eq  = parder_deltat_qbarind_alcm(rho_eq, Vind_eq, parder_deltat_Vind_eq)
-                    parder_pd_qbarprop_eq     = parder_pd_qbarprop_alcm(rho_eq, Vprop_eq, parder_pd_rho_eq, parder_pd_Vprop_eq)
-                    parder_deltat_qbarprop_eq = parder_deltat_qbarprop_alcm(rho_eq, Vprop_eq, parder_deltat_Vprop_eq)
-                    parder_u_qbarprop_eq      = parder_u_qbarprop_alcm(rho_eq, Vprop_eq, parder_u_Vprop_eq)
-                    parder_pd_T_eq            = parder_pd_T_alcm(J_eq, n, parder_pd_rho_eq)
-                    parder_u_T_eq             = parder_u_T_alcm(rho_eq, J_eq, n, parder_J_CT_eq)
-                    parder_u_Va_eq            = parder_u_Va_alcm(u_eq, Va_eq)
-                    parder_v_Va_eq            = parder_v_Va_alcm(v_eq, Va_eq)
-                    parder_w_Va_eq            = parder_w_Va_alcm(w_eq, Va_eq)
-                    parder_u_Bw2Va_eq         = parder_u_Bw2Va_alcm(u_eq, Va_eq, parder_u_Va_eq)
-                    parder_v_Bw2Va_eq         = parder_v_Bw2Va_alcm(v_eq, Va_eq, parder_v_Va_eq)
-                    parder_w_Bw2Va_eq         = parder_w_Bw2Va_alcm(w_eq, Va_eq, parder_w_Va_eq)
-                    parder_u_Cw2Va_eq         = parder_u_Cw2Va_alcm(u_eq, Va_eq, parder_u_Va_eq)
-                    parder_v_Cw2Va_eq         = parder_v_Cw2Va_alcm(v_eq, Va_eq, parder_v_Va_eq)
-                    parder_w_Cw2Va_eq         = parder_w_Cw2Va_alcm(w_eq, Va_eq, parder_w_Va_eq)
-
-                    #Partial derivatives of dynamics coefficients at the equilibrium point 
-                    parder_deltaf_CD2_eq = parder_deltaf_CD2_alcm(hmacb, parder_deltaf_TD2_eq)
-                    parder_u_CD3_eq      = parder_u_CD3_alcm(hmacb, parder_alpha_TD3_eq, parder_u_alpha_eq)
-                    parder_w_CD3_eq      = parder_w_CD3_alcm(hmacb, parder_alpha_TD3_eq, parder_w_alpha_eq)
-                    parder_deltaf_CD3_eq = parder_deltaf_CD3_alcm(hmacb, parder_deltaf_TD3_eq)
-                    parder_u_CD4_eq      = parder_u_CD4_alcm(beta_eq, parder_u_beta_eq)
-                    parder_v_CD4_eq      = parder_v_CD4_alcm(beta_eq, parder_v_beta_eq)
-                    parder_w_CD4_eq      = parder_w_CD4_alcm(beta_eq, parder_w_beta_eq)
-                    parder_u_CC1_eq      = parder_u_CC1_alcm(parder_beta_TC1_eq, parder_u_beta_eq)
-                    parder_v_CC1_eq      = parder_v_CC1_alcm(parder_beta_TC1_eq, parder_v_beta_eq)
-                    parder_w_CC1_eq      = parder_w_CC1_alcm(parder_beta_TC1_eq, parder_w_beta_eq)
-                    parder_deltaf_CC1_eq = parder_deltaf_CC1_alcm(parder_deltaf_TC1_eq)
-                    parder_deltar_CC2_eq = parder_deltar_CC2_alcm()
-                    parder_u_CL1_eq      = parder_u_CL1_alcm(hmacb, parder_alpha_TL1_eq, parder_u_alpha_eq)
-                    parder_w_CL1_eq      = parder_w_CL1_alcm(hmacb, parder_alpha_TL1_eq, parder_w_alpha_eq)
-                    parder_deltaf_CL2_eq = parder_deltaf_CL2_alcm(hmacb, parder_deltaf_TL2_eq)
-                    parder_deltae_CL3_eq = parder_deltae_CL3_alcm()
-                    parder_u_CL4_eq      = parder_u_CL4_alcm(q_eq, parder_u_Cw2Va_eq)
-                    parder_v_CL4_eq      = parder_v_CL4_alcm(q_eq, parder_v_Cw2Va_eq)
-                    parder_w_CL4_eq      = parder_w_CL4_alcm(q_eq, parder_w_Cw2Va_eq)
-                    parder_q_CL4_eq      = parder_q_CL4_alcm(Cw2Va_eq)
-                    parder_u_CL5_eq      = parder_u_CL5_alcm(alphadot_rads, parder_u_Cw2Va_eq)
-                    parder_v_CL5_eq      = parder_v_CL5_alcm(alphadot_rads, parder_v_Cw2Va_eq)
-                    parder_w_CL5_eq      = parder_w_CL5_alcm(alphadot_rads, parder_w_Cw2Va_eq)
-                    parder_u_Cl1_eq      = parder_u_Cl1_alcm(beta_eq, alpha_eq, parder_u_beta_eq, parder_alpha_Tl1_eq, parder_u_alpha_eq)
-                    parder_v_Cl1_eq      = parder_v_Cl1_alcm(beta_eq, alpha_eq, parder_v_beta_eq)
-                    parder_w_Cl1_eq      = parder_w_Cl1_alcm(beta_eq, alpha_eq, parder_w_beta_eq, parder_alpha_Tl1_eq, parder_w_alpha_eq)
-                    parder_u_Cl2_eq      = parder_u_Cl2_alcm(p_eq, parder_u_Bw2Va_eq)
-                    parder_v_Cl2_eq      = parder_v_Cl2_alcm(p_eq, parder_v_Bw2Va_eq)
-                    parder_w_Cl2_eq      = parder_w_Cl2(p_eq, parder_w_Bw2Va_eq)
-                    parder_p_Cl2_eq      = parder_p_Cl2(Bw2Va_eq)
-                    parder_u_Cl3_eq      = parder_u_Cl3(Bw2Va_eq, r_eq, sigmaf_rad, alpha_eq, stall, parder_u_Bw2Va_eq, parder_alpha_Tl32_eq, parder_alpha_Tl33_eq, parder_u_alpha_eq)
-                    parder_v_Cl3_eq      = parder_v_Cl3(Bw2Va_eq, r_eq, sigmaf_rad, alpha_eq, stall, parder_v_Bw2Va_eq, parder_alpha_Tl32_eq, parder_alpha_Tl33_eq)
-                    parder_w_Cl3_eq      = parder_w_Cl3_alcm(Bw2Va_eq, r_eq, sigmaf_rad, alpha_eq, stall, parder_w_Bw2Va_eq, parder_alpha_Tl32_eq, parder_alpha_Tl33_eq, parder_w_alpha_eq)
-                    parder_deltaf_Cl3_eq = parder_deltaf_Cl3_alcm(Bw2Va_eq, r_eq, alpha_eq, stall, parder_deltaf_Tl31_eq)
-                    parder_r_Cl3_eq      = parder_r_Cl3_alcm(Bw2Va_eq, r_eq, sigmaf_rad, alpha_eq, stall, parder_r_Tl32_eq, parder_r_Tl33_eq)
-                    parder_u_Cl4_eq      = parder_u_Cl4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tl4_eq, parder_u_alpha_eq)
-                    parder_w_Cl4_eq      = parder_w_Cl4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tl4_eq, parder_u_alpha_eq)
-                    parder_deltaa_Cl4_eq = parder_deltaa_Cl4_alcm(alpha_eq, stall)
-                    parder_deltar_Cl5_eq = parder_deltar_Cl5_alcm()
-                    parder_pd_Cm1_eq     = parder_pd_Cm1_alcm(parder_qbar_Tm1_eq, parder_pd_qbar_eq)
-                    parder_u_Cm2_eq      = parder_u_Cm2_alcm(alpha_eq, parder_alpha_Tm2_eq, parder_u_alpha_eq)
-                    parder_w_Cm2_eq      = parder_w_Cm2_alcm(alpha_eq, parder_alpha_Tm2_eq, parder_w_alpha_eq)
-                    parder_u_Cm3_eq      = parder_u_Cm3_alcm(q_eq, parder_u_Cw2Va_eq)
-                    parder_v_Cm3_eq      = parder_v_Cm3_alcm(q_eq, parder_v_Cw2Va_eq)
-                    parder_w_Cm3_eq      = parder_w_Cm3_alcm(q_eq, parder_w_Cw2Va_eq)
-                    parder_q_Cm3_eq      = parder_q_Cm3_alcm(q_eq, Cw2Va_eq)
-                    parder_deltaf_Cm4_eq = parder_deltaf_Cm4_alcm(parder_deltaf_Tm4_eq)
-                    parder_u_Cm5_eq      = parder_u_Cm5_alcm(alphadot_rads, parder_u_Cw2Va_eq)
-                    parder_v_Cm5_eq      = parder_v_Cm5_alcm(alphadot_rads, parder_v_Cw2Va_eq)
-                    parder_w_Cm5_eq      = parder_w_Cm5_alcm(alphadot_rads, parder_w_Cw2Va_eq)
-                    parder_u_Cm6_eq      = parder_u_Cm6_alcm(sigmae_rad, parder_alpha_Tm5_eq, parder_u_alpha_eq)
-                    parder_w_Cm6_eq      = parder_w_Cm6_alcm(sigmae_rad, parder_alpha_Tm5_eq, parder_w_alpha_eq)
-                    parder_deltae_Cm6_eq = parder_deltae_Cm6_alcm(alpha_eq, sigmae_rad, parder_deltae_Tm5_eq)
-                    parder_u_Cn1_eq      = parder_u_Cn1_alcm(parder_beta_Tn1_eq, parder_u_beta_eq)
-                    parder_v_Cn1_eq      = parder_v_Cn1_alcm(parder_beta_Tn1_eq, parder_v_beta_eq)
-                    parder_w_Cn1_eq      = parder_w_Cn1_alcm(parder_beta_Tn1_eq, parder_w_beta_eq)
-                    parder_u_Cn2_eq      = parder_u_Cn2_alcm(r_eq, parder_u_Bw2Va_eq)
-                    parder_v_Cn2_eq      = parder_v_Cn2_alcm(r_eq, parder_v_Bw2Va_eq)
-                    parder_w_Cn2_eq      = parder_w_Cn2_alcm(r_eq, parder_w_Bw2Va_eq)
-                    parder_r_Cn2_eq      = parder_r_Cn2_alcm(Bw2Va_eq)
-                    parder_u_Cn3_eq      = parder_u_Cn3_alcm(Bw2Va_eq, r_eq, alpha_eq, parder_u_Bw2Va_eq, parder_alpha_Tn3_eq, parder_u_alpha_eq)
-                    parder_v_Cn3_eq      = parder_v_Cn3_alcm(Bw2Va_eq, r_eq, alpha_eq, parder_v_Bw2Va_eq)
-                    parder_w_Cn3_eq      = parder_w_Cn3_alcm(Bw2Va_eq, r_eq, alpha_eq, parder_w_Bw2Va_eq, parder_alpha_Tn3_eq, parder_w_alpha_eq)
-                    parder_r_Cn3_eq      = parder_r_Cn3_alcm(Bw2Va_eq, parder_r_Tn3_eq)
-                    parder_u_Cn4_eq      = parder_u_Cn4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tn4_eq, parder_beta_Tn4_eq, parder_u_alpha_eq, parder_u_beta_eq)
-                    parder_v_Cn4_eq      = parder_v_Cn4_alcm(sigmala_rad, sigmara_rad, parder_beta_Tn4_eq, parder_v_beta_eq)
-                    parder_w_Cn4_eq      = parder_w_Cn4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tn4_eq, parder_beta_Tn4_eq, parder_w_alpha_eq, parder_w_beta_eq)
-                    parder_deltaa_Cn4_eq = parder_deltaa_Cn4_alcm(alpha_eq, beta_eq)
-                    parder_deltar_Cn5_eq = parder_deltar_Cn5_alcm()
-
-                    #Partial derivatives of \dot{p_n} evaluated at the equilibrium point
-                    parder_q0_pndot_eq = 2 * (q0_eq * u_eq - q3_eq * v_eq + q2_eq * w_eq)
-                    parder_q1_pndot_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
-                    parder_q2_pndot_eq = 2 * (- q2_eq * u_eq + q1_eq * v_eq + q0_eq * w_eq)
-                    parder_q3_pndot_eq = 2 * (- q3_eq * u_eq - q0_eq * v_eq + q1_eq * w_eq)
-                    parder_u_pndot_eq  = q0_eq ** 2 + q1_eq ** 2 - q2_eq ** 2 - q3_eq ** 2
-                    parder_v_pndot_eq  = 2 * (q1_eq * q2_eq - q0_eq * q3_eq)
-                    parder_w_pndot_eq  = 2 * (q0_eq * q2_eq + q1_eq * q3_eq)
-
-                    #Partial derivatives of \dot{p_e} evaluated at the equilibrium point
-                    parder_q0_pedot_eq = 2 * (q3_eq * u_eq + q0_eq * v_eq - q1_eq * w_eq)
-                    parder_q1_pedot_eq = 2 * (q2_eq * u_eq - q1_eq * v_eq - q0_eq * w_eq)
-                    parder_q2_pedot_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
-                    parder_q3_pedot_eq = 2 * (q0_eq * u_eq - q3_eq * v_eq + q2_eq * w_eq)
-                    parder_u_pedot_eq  = 2 * (q0_eq * q3_eq + q1_eq * q2_eq)
-                    parder_v_pedot_eq  = q0_eq ** 2 + q2_eq ** 2 - q1_eq ** 2 - q3_eq ** 2
-                    parder_w_pedot_eq  = 2 * (q2_eq * q3_eq - q0_eq * q1_eq)
-
-                    #Partial derivatives of \dot{p_d} evaluated at the equilibrium point
-                    parder_q0_pddot_eq = 2 * (- q2_eq * u_eq + q1_eq * v_eq + q0_eq * w_eq)
-                    parder_q1_pddot_eq = 2 * (q3_eq * u_eq + q0_eq * v_eq - q1_eq * w_eq)
-                    parder_q2_pddot_eq = 2 * (- q0_eq * u_eq + q3_eq * v_eq - q2_eq * w_eq)
-                    parder_q3_pddot_eq = 2 * (q1_eq * u_eq + q2_eq * v_eq + q3_eq * w_eq)
-                    parder_u_pddot_eq  = 2 * (q1_eq * q3_eq - q0_eq * q2_eq)
-                    parder_v_pddot_eq  = 2 * (q0_eq * q1_eq + q2_eq * q3_eq)
-                    parder_w_pddot_eq  = q0_eq ** 2 + q3_eq ** 2 - q1_eq ** 2 - q2_eq ** 2
-
-                    #Partial derivatives of \dot{q_0} evaluated at the equilibrium point
-                    parder_q1_q0dot_eq = - 0.5 * p_eq
-                    parder_q2_q0dot_eq = - 0.5 * q_eq
-                    parder_q3_q0dot_eq = - 0.5 * r_eq
-                    parder_p_q0dot_eq  = - 0.5 * q1_eq
-                    parder_q_q0dot_eq  = - 0.5 * q2_eq
-                    parder_r_q0dot_eq  = - 0.5 * q3_eq
-
-                    #Partial derivatives of \dot{q_1} evaluated at the equilibrium point
-                    parder_q0_q1dot_eq = 0.5 * p_eq
-                    parder_q2_q1dot_eq = 0.5 * r_eq
-                    parder_q3_q1dot_eq = - 0.5 * q_eq
-                    parder_p_q1dot_eq  = 0.5 * q0_eq
-                    parder_q_q1dot_eq  = - 0.5 * q3_eq
-                    parder_r_q1dot_eq  = 0.5 * q2_eq
-
-                    #Partial derivatives of \dot{q_2} evaluated at the equilibrium point
-                    parder_q0_q2dot_eq = 0.5 * q_eq
-                    parder_q1_q2dot_eq = - 0.5 * r_eq
-                    parder_q3_q2dot_eq = 0.5 * p_eq
-                    parder_p_q2dot_eq  = 0.5 * q3_eq
-                    parder_q_q2dot_eq  = 0.5 * q0_eq
-                    parder_r_q2dot_eq  = - 0.5 * q1_eq
-
-                    #Partial derivatives of \dot{q_3} evaluated at the equilibrium point
-                    parder_q0_q3dot_eq = 0.5 * r_eq
-                    parder_q1_q3dot_eq = 0.5 * q_eq
-                    parder_q2_q3dot_eq = - 0.5 * p_eq
-                    parder_p_q3dot_eq  = - 0.5 * q2_eq
-                    parder_q_q3dot_eq  = 0.5 * q1_eq
-                    parder_r_q3dot_eq  = 0.5 * q0_eq
-
-                    #Partial derivatives of \dot{u} evaluated at the equilibrium point
-                    parder_pd_udot_eq     = (1 / mass) * (- parder_pd_qbar_eq * SW_SI * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + parder_pd_T_eq)
-                    parder_q0_udot_eq     = - 2 * G0_SI * q2_eq
-                    parder_q1_udot_eq     = 2 * G0_SI * q3_eq
-                    parder_q2_udot_eq     = - 2 * G0_SI * q0_eq
-                    parder_q3_udot_eq     = 2 * G0_SI * q1_eq
-                    parder_u_udot_eq      = (1 / mass) * (- SW_SI * (parder_u_qbar_eq * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + qbar_eq * (parder_u_CD3_eq + parder_u_CD4_eq)) + parder_u_T_eq)
-                    parder_v_udot_eq      = r_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + qbar_eq * parder_v_CD4_eq)
-                    parder_w_udot_eq      = - q_eq - (SW_SI / mass) * (parder_w_qbar_eq * (CD1_eq + CD2_eq + CD3_eq + CD4_eq) + qbar_eq * (parder_w_CD3_eq + parder_w_CD4_eq))
-                    parder_q_udot_eq      = - w_eq
-                    parder_r_udot_eq      = v_eq
-                    parder_deltaf_udot_eq = - ((qbar_eq * SW_SI) / mass) * (parder_deltaf_CD2_eq + parder_deltaf_CD3_eq)
-                    parder_deltat_udot_eq = parder_deltat_T_eq / mass
-
-                    #Partial derivatives of \dot{v} evaluated at the equilibrium point
-                    parder_pd_vdot_eq     = (1 / mass) * (parder_pd_qbar_eq * SW_SI * (CC1_eq + CC2_eq))
-                    parder_q0_vdot_eq     = 2 * G0_SI * q1_eq
-                    parder_q1_vdot_eq     = 2 * G0_SI * q0_eq
-                    parder_q2_vdot_eq     = 2 * G0_SI * q3_eq
-                    parder_q3_vdot_eq     = 2 * G0_SI * q2_eq
-                    parder_u_vdot_eq      = - r_eq + (SW_SI / mass) * (parder_u_qbar_eq * (CC1_eq + CC2_eq) + qbar_eq * parder_u_CC1_eq)
-                    parder_v_vdot_eq      = (SW_SI / mass) * (parder_v_qbar_eq * (CC1_eq + CC2_eq) + qbar_eq * parder_v_CC1_eq)
-                    parder_w_vdot_eq      = p_eq + (SW_SI / mass) * (parder_w_qbar_eq * (CC1_eq + CC2_eq) + qbar_eq * parder_w_CC1_eq)
-                    parder_p_vdot_eq      = w_eq
-                    parder_r_vdot_eq      = - u_eq
-                    parder_deltaf_vdot_eq = ((qbar_eq * SW_SI) / mass) * parder_deltaf_CC1_eq
-                    parder_deltar_vdot_eq = ((qbar_eq * SW_SI) / mass) * parder_deltar_CC2_eq
-
-                    #Partial derivatives of \dot{w} evaluated at the equilibrium point
-                    parder_pd_wdot_eq     = - (SW_SI / mass) * (parder_pd_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + parder_pd_qbaruw_eq * CL5_eq)
-                    parder_q0_wdot_eq     = 2 * G0_SI * q0_eq
-                    parder_q1_wdot_eq     = - 2 * G0_SI * q1_eq
-                    parder_q2_wdot_eq     = - 2 * G0_SI * q2_eq
-                    parder_q3_wdot_eq     = 2 * G0_SI * q3_eq
-                    parder_u_wdot_eq      = q_eq - (SW_SI / mass) * (parder_u_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + qbar_eq * (parder_u_CL1_eq + parder_u_CL4_eq) + parder_u_qbaruw_eq * CL5_eq + qbaruw_eq * parder_u_CL5_eq)
-                    parder_v_wdot_eq      = - p_eq - (SW_SI / mass) * (parder_v_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + qbar_eq * parder_v_CL4_eq + qbaruw_eq * CL5_eq)
-                    parder_w_wdot_eq      = - (SW_SI / mass) * (parder_w_qbar_eq * (CL1_eq + CL2_eq + CL3_eq + CL4_eq) + qbar_eq * (parder_w_CL1_eq + parder_w_CL4_eq) + parder_w_qbaruw_eq * CL5_eq + qbaruw_eq * parder_w_CL5_eq)
-                    parder_p_wdot_eq      = - v_eq
-                    parder_q_wdot_eq      = u_eq - ((qbar_eq * SW_SI) / mass) * parder_q_CL4_eq
-                    parder_deltaf_wdot_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltaf_CL2_eq
-                    parder_deltae_wdot_eq = - ((qbar_eq * SW_SI) / mass) * parder_deltae_CL3_eq
-
-                    #Partial derivatives of \dot{p} evaluated at the equilibrium point
-                    parder_pd_pdot_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + Gamma4 * (parder_pd_qbarind_eq * Cn5_eq + parder_pd_qbarprop_eq * Cn6_eq))
-                    parder_u_pdot_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma3 * (parder_u_Cl1_eq + parder_u_Cl2_eq + parder_u_Cl3_eq + parder_u_Cl4_eq) + Gamma4 * (parder_u_Cn1_eq + parder_u_Cn2_eq + parder_u_Cn3_eq + parder_u_Cn4_eq)) + Gamma4 * (parder_u_qbarind_eq * Cn5_eq + parder_u_qbarprop_eq * Cn6_eq))
-                    parder_v_pdot_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma3 * (parder_v_Cl1_eq + parder_v_Cl2_eq + parder_v_Cl3_eq) + Gamma4 * (parder_v_Cn1_eq + parder_v_Cn2_eq + parder_v_Cn3_eq + parder_v_Cn4_eq)))
-                    parder_w_pdot_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma3 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma4 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma3 * (parder_w_Cl1_eq + parder_w_Cl2_eq + parder_w_Cl3_eq + parder_w_Cl4_eq) + Gamma4 * (parder_w_Cn1_eq + parder_w_Cn2_eq + parder_w_Cn3_eq + parder_w_Cn4_eq)))
-                    parder_p_pdot_eq      = Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma3 * parder_p_Cl2_eq
-                    parder_q_pdot_eq      = Gamma1 * p_eq - Gamma2 * r_eq
-                    parder_r_pdot_eq      = - Gamma2 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_r_Cl3_eq + Gamma4 * (parder_r_Cn2_eq + parder_r_Cn3_eq))
-                    parder_deltaa_pdot_eq = SW_SI * BW_SI * qbar_eq * (Gamma3 * parder_deltaa_Cl4_eq + Gamma4 * parder_deltaa_Cn4_eq)
-                    parder_deltaf_pdot_eq = SW_SI * BW_SI * qbar_eq * Gamma3 * parder_deltaf_Cl3_eq
-                    parder_deltar_pdot_eq = SW_SI * BW_SI * (Gamma3 * qbar_eq * parder_deltar_Cl5_eq + Gamma4 * qbarind_eq * parder_deltar_Cn5_eq)
-
-                    #Partial derivatives of \dot{q} evaluated at the equilibrium point
-                    parder_pd_qdot_eq     = ((SW_SI * CW_SI) / Iyy) * (parder_pd_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * parder_pd_Cm1_eq + parder_pd_qbaruw_eq * Cm5_eq + parder_pd_qbarind_eq * Cm6_eq)
-                    parder_u_qdot_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * (parder_u_Cm2_eq + parder_u_Cm3_eq) + parder_u_qbaruw_eq * Cm5_eq + qbaruw_eq * parder_u_Cm5_eq + parder_u_qbarind_eq * Cm6_eq + qbarind_eq * parder_u_Cm6_eq)
-                    parder_v_qdot_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_v_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * parder_v_Cm3_eq + qbaruw_eq * parder_v_Cm5_eq)
-                    parder_w_qdot_eq      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_eq * (Cm1_eq + Cm2_eq + Cm3_eq + Cm4_eq) + qbar_eq * (parder_w_Cm2_eq + parder_w_Cm3_eq) + parder_w_qbaruw_eq * Cm5_eq + qbaruw_eq * parder_w_Cm5_eq + qbarind_eq * parder_w_Cm6_eq)
-                    parder_p_qdot_eq      = Gamma5 * r_eq - 2 * Gamma6 * p_eq
-                    parder_q_qdot_eq      = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_q_Cm3_eq
-                    parder_r_qdot_eq      = Gamma5 * p_eq + 2 * Gamma6 * r_eq
-                    parder_deltaf_qdot_eq = ((SW_SI * CW_SI * qbar_eq) / Iyy) * parder_deltaf_Cm4_eq
-                    parder_deltae_qdot_eq = ((SW_SI * CW_SI * qbarind_eq) / Iyy) * parder_deltae_Cm6_eq
-
-                    #Partial derivatives of \dot{r} evaluated at the equilibrium point
-                    parder_pd_rdot_eq     = SW_SI * BW_SI * (parder_pd_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + Gamma8 * (parder_pd_qbarind_eq * Cn5_eq + parder_pd_qbarprop_eq * Cn6_eq))
-                    parder_u_rdot_eq      = SW_SI * BW_SI * (parder_u_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma4 * (parder_u_Cl1_eq + parder_u_Cl2_eq + parder_u_Cl3_eq + parder_u_Cl4_eq) + Gamma8 * (parder_u_Cn1_eq + parder_u_Cn2_eq + parder_u_Cn3_eq + parder_u_Cn4_eq)) + Gamma8 * (parder_u_qbarind_eq * Cn5_eq + parder_u_qbarprop_eq * Cn6_eq))
-                    parder_v_rdot_eq      = SW_SI * BW_SI * (parder_v_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma4 * (parder_v_Cl1_eq + parder_v_Cl2_eq + parder_v_Cl3_eq) + Gamma8 * (parder_v_Cn1_eq + parder_v_Cn2_eq + parder_v_Cn3_eq + parder_v_Cn4_eq)))
-                    parder_w_rdot_eq      = SW_SI * BW_SI * (parder_w_qbar_eq * (Gamma4 * (Cl1_eq + Cl2_eq + Cl3_eq + Cl4_eq + Cl5_eq) + Gamma8 * (Cn1_eq + Cn2_eq + Cn3_eq + Cn4_eq)) + qbar_eq * (Gamma4 * (parder_w_Cl1_eq + parder_w_Cl2_eq + parder_w_Cl3_eq + parder_w_Cl4_eq) + Gamma8 * (parder_w_Cn1_eq + parder_w_Cn2_eq + parder_w_Cn3_eq + parder_w_Cn4_eq)))
-                    parder_p_rdot_eq      = Gamma7 * q_eq + SW_SI * BW_SI * qbar_eq * Gamma4 * parder_p_Cl2_eq
-                    parder_q_rdot_eq      = Gamma7 * p_eq - Gamma1 * r_eq
-                    parder_r_rdot_eq      = - Gamma1 * q_eq + SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_r_Cl3_eq + Gamma8 * (parder_r_Cn2_eq + parder_r_Cn3_eq))
-                    parder_deltaa_rdot_eq = SW_SI * BW_SI * qbar_eq * (Gamma4 * parder_deltaa_Cl4_eq + Gamma8 * parder_deltaa_Cn4_eq)
-                    parder_deltaf_rdot_eq = SW_SI * BW_SI * qbar_eq * Gamma4 * parder_deltaf_Cl3_eq
-                    parder_deltar_rdot_eq = SW_SI * BW_SI * (Gamma4 * qbar_eq * parder_deltar_Cl5_eq + Gamma8 * qbarind_eq * parder_deltar_Cn5_eq)
-
-                    parder_x_eq = np.array(
-                                           [ 
-                                            parder_q0_pndot_eq,
-                                            parder_q1_pndot_eq,
-                                            parder_q2_pndot_eq,
-                                            parder_q3_pndot_eq,
-                                            parder_u_pndot_eq,
-                                            parder_v_pndot_eq,
-                                            parder_w_pndot_eq,
-                                            parder_q0_pedot_eq,
-                                            parder_q1_pedot_eq,
-                                            parder_q2_pedot_eq,
-                                            parder_q3_pedot_eq,
-                                            parder_u_pedot_eq,
-                                            parder_v_pedot_eq,
-                                            parder_w_pedot_eq,
-                                            parder_q0_pddot_eq,
-                                            parder_q1_pddot_eq,
-                                            parder_q2_pddot_eq,
-                                            parder_q3_pddot_eq,
-                                            parder_u_pddot_eq,
-                                            parder_v_pddot_eq,
-                                            parder_w_pddot_eq,
-                                            parder_q1_q0dot_eq,
-                                            parder_q2_q0dot_eq,
-                                            parder_q3_q0dot_eq,
-                                            parder_p_q0dot_eq,
-                                            parder_q_q0dot_eq,
-                                            parder_r_q0dot_eq,
-                                            parder_q0_q1dot_eq,
-                                            parder_q2_q1dot_eq,
-                                            parder_q3_q1dot_eq,
-                                            parder_p_q1dot_eq,
-                                            parder_q_q1dot_eq,
-                                            parder_r_q1dot_eq,
-                                            parder_q0_q2dot_eq,
-                                            parder_q1_q2dot_eq,
-                                            parder_q3_q2dot_eq,
-                                            parder_p_q2dot_eq,
-                                            parder_q_q2dot_eq,
-                                            parder_r_q2dot_eq,
-                                            parder_q0_q3dot_eq,
-                                            parder_q1_q3dot_eq,
-                                            parder_q2_q3dot_eq,
-                                            parder_p_q3dot_eq,
-                                            parder_q_q3dot_eq,
-                                            parder_r_q3dot_eq,
-                                            parder_pd_udot_eq,
-                                            parder_q0_udot_eq,
-                                            parder_q1_udot_eq,
-                                            parder_q2_udot_eq,
-                                            parder_q3_udot_eq,
-                                            parder_u_udot_eq,
-                                            parder_v_udot_eq,
-                                            parder_w_udot_eq,
-                                            parder_q_udot_eq,
-                                            parder_r_udot_eq,
-                                            parder_pd_vdot_eq,
-                                            parder_q0_vdot_eq,
-                                            parder_q1_vdot_eq,
-                                            parder_q2_vdot_eq,
-                                            parder_q3_vdot_eq,
-                                            parder_u_vdot_eq,
-                                            parder_v_vdot_eq,
-                                            parder_w_vdot_eq,
-                                            parder_p_vdot_eq,
-                                            parder_r_vdot_eq,
-                                            parder_pd_wdot_eq,
-                                            parder_q0_wdot_eq,
-                                            parder_q1_wdot_eq,
-                                            parder_q2_wdot_eq,
-                                            parder_q3_wdot_eq,
-                                            parder_u_wdot_eq,
-                                            parder_v_wdot_eq,
-                                            parder_w_wdot_eq,
-                                            parder_p_wdot_eq,
-                                            parder_q_wdot_eq,
-                                            parder_pd_pdot_eq,
-                                            parder_u_pdot_eq,
-                                            parder_v_pdot_eq,
-                                            parder_w_pdot_eq,
-                                            parder_p_pdot_eq,
-                                            parder_q_pdot_eq,
-                                            parder_r_pdot_eq,
-                                            parder_pd_qdot_eq,
-                                            parder_u_qdot_eq,
-                                            parder_v_qdot_eq,
-                                            parder_w_qdot_eq,
-                                            parder_p_qdot_eq,
-                                            parder_q_qdot_eq,
-                                            parder_r_qdot_eq,
-                                            parder_pd_rdot_eq,
-                                            parder_u_rdot_eq,
-                                            parder_v_rdot_eq,
-                                            parder_w_rdot_eq,
-                                            parder_p_rdot_eq,
-                                            parder_q_rdot_eq,
-                                            parder_r_rdot_eq
-                                           ]
-                                          )
-
-                    parder_delta_eq = np.array(
-                                               [
-                                                parder_deltaf_udot_eq,
-                                                parder_deltat_udot_eq,
-                                                parder_deltaf_vdot_eq,
-                                                parder_deltar_vdot_eq,
-                                                parder_deltae_wdot_eq,
-                                                parder_deltaf_wdot_eq,
-                                                parder_deltaf_qdot_eq,
-                                                parder_deltaa_pdot_eq,
-                                                parder_deltaf_pdot_eq,
-                                                parder_deltar_pdot_eq,
-                                                parder_deltae_qdot_eq,
-                                                parder_deltaa_rdot_eq,
-                                                parder_deltaf_rdot_eq,
-                                                parder_deltar_rdot_eq
-                                               ]
-                                              )
-
-                    #State
-                    x_al = np.row_stack(
-                                        [
-                                         pn,
-                                         pe,
-                                         pd,
-                                         q0,
-                                         q1,
-                                         q2,
-                                         q3,
-                                         u,
-                                         v,
-                                         w,
-                                         p,
-                                         q,
-                                         r
-                                        ]
-                                       )
-
-                    #Input
-                    u_al = np.row_stack(
-                                        [
-                                         deltaa,
-                                         deltae,
-                                         deltaf,
-                                         deltar,
-                                         deltat,
-                                         deltam
-                                        ]
-                                       )
-
-                    T = np.array([prev_t_al, self.t])
-                    A = update_A_alcm(A, parder_x_eq)
-                    B = update_B_alcm(B, parder_delta_eq)
-                    
-                    dx_al = A @ x_al + B @ u_al
-
-                    al_ss = control.StateSpace(A, B, C, D, self.dt)
-                    al_sys = control.iosys.LinearIOSystem(al_ss, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, name='AL')
-                    cm2act_in.send(al_sys) #send analytic linear control model to actuation module
-                    t_al, y_al = control.input_output_response(al_sys, T, np.concatenate((prev_u_al, u_al),1), x_al)
-                    prev_t_al       = t_al[1]
-                    prev_u_al       = u_al
-                    self.simcm      = y_al[:,1]
-                    self.csvcm[0]   = t_sim #add timestamp
-                    self.csvcm[1:]  = self.simcm
-                    cm2csv_in.send(self.csvcm) #send state derivatives to CSV module
+            try:
+                if event_end.is_set():
+                    #Close pipes
+                    cm2act_in.close()
+                    cm2csv_in.close()
+                    rx2cm_out.close()
+                    sp2cm_out.close()
+                    break
+                else:
+                    rxdata = rx2cm_out.recv() #receive RX telemetry
+                    if (np.any(rxdata[:,0] >= self.t)):
+                        i      = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
+                        rxdata = rxdata[i,:] #RX telemetry first frame
+                        spdata = sp2cm_out.recv() #receive setpoint
+                        self.alcm_dict.update(rxdata = rxdata)
+                        self.alcm_dict.update(spdata = spdata)
+                        self.t = self.t + self.dt
+                        #Preprocessing
+                        self._preprocess_alcm()
+                        #self._prueba_eq()
+                        #Analytic linear control model
+                        self._construct_alcm()
+                        self._integrate_alcm()
+                        x_al    = self.alcm_dict['x_al']
+                        x_sp_al = self.alcm_dict['x_sp_al']
+                        x_er_al = self.alcm_dict['x_er_al']
+                        u_al    = self.alcm_dict['u_al']
+                        u_sp_al = self.alcm_dict['u_sp_al']
+                        u_er_al = self.alcm_dict['u_er_al']
+                        al_sys  = self.alcm_dict['al_sys']
+                        if (ACT_TYPE == 0) or (ACT_TYPE == 'random'): #random control
+                            pass
+                        else: 
+                            cm2act_in.send((x_al, x_sp_al, x_er_al, u_al, u_sp_al, u_er_al, al_sys)) #send ALCM to actuation module
+                        t_al    = self.alcm_dict['t_al']
+                        u_er_al = self.alcm_dict['u_er_al']
+                        self.alcm_dict.update(prev_t_al = t_al[1])
+                        self.alcm_dict.update(prev_u_er_al = u_er_al)
+                        y_er_al        = self.alcm_dict['y_er_al']
+                        self.simcm     = y_er_al[:,1]
+                        self.csvcm[0]  = rxdata[0] #add timestamp (t_sim)
+                        self.csvcm[1:] = self.simcm
+                        cm2csv_in.send(self.csvcm) #send state derivatives to CSV module
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
 
     def anlcm(self, cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end):
         #Analytic non-linear control model
         prev_t_anl = TELEM_WAIT
-        prev_u_anl = np.zeros((CM_INPUT_LEN,1))
+        prev_u_anl = np.zeros((CM_INPUT_LEN, 1))
+        event_start.wait() #wait for simulation start event
+        while True:
+            try:
+                if event_end.is_set():
+                    #Close pipes
+                    cm2act_in.close()
+                    cm2csv_in.close()
+                    rx2cm_out.close()
+                    sp2cm_out.close()
+                    break
+                else:
+                    rxdata = rx2cm_out.recv() #receive RX telemetry
+                    spdata = sp2cm_out.recv() #receive setpoint
+                    if (np.any(rxdata[:,0] >= self.t)):
+                        i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
+                        rxdata = rxdata[i,:] #first frame
+                        self.t = self.t + self.dt
+                        #RX telemetry
+                        longd         = rxdata[2]
+                        latd          = rxdata[3]
+                        hqfe_km       = rxdata[15]
+                        phi_rad       = rxdata[20]
+                        theta_rad     = rxdata[22]
+                        psi_rad       = rxdata[24]
+                        u             = rxdata[34]
+                        v             = rxdata[35]
+                        w             = rxdata[36]
+                        p             = rxdata[46]
+                        q             = rxdata[47]
+                        r             = rxdata[48]
+                        alphadot_rads = rxdata[53]
+                        sigmara_rad   = rxdata[93] 
+                        deltara       = rxdata[94]
+                        sigmala_rad   = rxdata[96]
+                        deltala       = rxdata[97]
+                        sigmae_rad    = rxdata[99]
+                        deltae        = rxdata[100]
+                        sigmar_rad    = rxdata[105]
+                        deltar        = rxdata[106]
+                        deltat        = rxdata[107]
+                        hmacb         = rxdata[111]
+                        qbar          = rxdata[112]
+                        Ixx           = rxdata[120]
+                        Ixy           = rxdata[121]
+                        Ixz           = rxdata[122]
+                        Iyy           = rxdata[123]
+                        Iyz           = rxdata[124]
+                        Izz           = rxdata[125]
+                        mass          = rxdata[126]
+                        # Conversions
+                        pn             = latd
+                        pe             = longd
+                        pd             = - km_to_m(hqfe_km)
+                        u              = ft_to_m(u)
+                        v              = ft_to_m(v)
+                        w              = ft_to_m(w)
+                        deltaa         = deltaa_acm(deltala, deltara) 
+                        qbar           = psf_to_pa(qbar) 
+                        Ixx            = slugft2_to_kgm2(Ixx)
+                        Ixy            = slugft2_to_kgm2(Ixy)
+                        Ixz            = slugft2_to_kgm2(Ixz)
+                        Iyy            = slugft2_to_kgm2(Iyy)
+                        Iyz            = slugft2_to_kgm2(Iyz)
+                        Izz            = slugft2_to_kgm2(Izz)
+                        mass           = slug_to_kg(mass)
+                        euler          = np.array([phi_rad, theta_rad, psi_rad])
+                        q0, q1, q2, q3 = euler_to_attquat(euler)
+                        #Assumptions of analytic control models
+                        sigmaf_rad, deltaf, deltam, n, rho, grav, stall = acm_assumptions(deltat, pd)
+                        #Moments of inertia
+                        Gamma  = mominert_gamma(Ixx, Ixz, Izz)
+                        Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
+                        Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
+                        Gamma3 = mominert_gamma3(Izz, Gamma)
+                        Gamma4 = mominert_gamma4(Ixz, Gamma)
+                        Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
+                        Gamma6 = mominert_gamma6(Ixz, Iyy)
+                        Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
+                        Gamma8 = mominert_gamma8(Ixx, Gamma)
+                        #Analytic non-linear control model parameters
+                        params = dict()
+                        params.update(phi_rad = phi_rad)
+                        params.update(theta_rad = theta_rad)
+                        params.update(psi_rad = psi_rad)
+                        params.update(alphadot_rads = alphadot_rads)
+                        params.update(sigmara_rad = sigmara_rad)
+                        params.update(sigmala_rad = sigmala_rad)
+                        params.update(sigmae_rad = sigmae_rad)
+                        params.update(sigmaf_rad = sigmaf_rad)
+                        params.update(sigmar_rad = sigmar_rad)
+                        params.update(hmacb = hmacb)
+                        params.update(stall = stall)
+                        params.update(Iyy = Iyy)
+                        params.update(mass = mass)
+                        params.update(grav = grav)
+                        params.update(rho = rho)
+                        params.update(n = n)
+                        params.update(Gamma = Gamma)
+                        params.update(Gamma1 = Gamma1)
+                        params.update(Gamma2 = Gamma2)
+                        params.update(Gamma3 = Gamma3)
+                        params.update(Gamma4 = Gamma4)
+                        params.update(Gamma5 = Gamma5)
+                        params.update(Gamma6 = Gamma6)
+                        params.update(Gamma7 = Gamma7)
+                        params.update(Gamma8 = Gamma8)
+                        #State
+                        x_anl = np.row_stack(
+                                             [
+                                              pn,
+                                              pe,
+                                              pd,
+                                              q0,
+                                              q1,
+                                              q2,
+                                              q3,
+                                              u,
+                                              v,
+                                              w,
+                                              p,
+                                              q,
+                                              r
+                                             ]
+                                            )
+                        #Input
+                        u_anl = np.row_stack(
+                                             [
+                                              deltaa,
+                                              deltae,
+                                              deltaf,
+                                              deltar,
+                                              deltat,
+                                              deltam
+                                             ]
+                                            )
+                        #Analytic non-linear control model
+                        times          = np.array([prev_t_anl, self.t])
+                        anl_sys        = control.iosys.NonlinearIOSystem(self._update_anl, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, params=params, dt=self.dt, name='ANL')
+                        #cm2act_in.send((x_anl, u_anl, anl_sys)) #send analytic non-linear control model to actuation module
+                        t_anl, y_anl   = control.input_output_response(anl_sys, times, np.concatenate((prev_u_anl, u_anl),1), x_anl)
+                        prev_t_anl     = t_anl[1]
+                        prev_u_anl     = u_anl
+                        self.simcm     = y_anl[:,1]
+                        self.csvcm[0]  = rxdata[0] #add timestamp (t_sim)
+                        self.csvcm[1:] = self.simcm
+                        cm2csv_in.send(self.csvcm) #send state derivatives to CSV module
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
+    def lanlcm(self, cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end):
+        #Linearized analytic non-linear control model
+        prev_t_anl = TELEM_WAIT
+        prev_u_anl = np.zeros((CM_INPUT_LEN, 1))
         event_start.wait() #wait for simulation start event
         while True:
             if event_end.is_set():
@@ -2216,13 +1398,12 @@ class ControlModel():
                 break
             else:
                 rxdata = rx2cm_out.recv() #receive RX telemetry
-                spdata = sp2cm_out.recv() #receive equilibrium point
+                spdata = sp2cm_out.recv() #receive setpoint
                 if (np.any(rxdata[:,0] >= self.t)):
                     i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
                     rxdata = rxdata[i,:] #first frame
                     self.t = self.t + self.dt
-
-                    t_sim         = rxdata[0]
+                    #RX telemetry
                     longd         = rxdata[2]
                     latd          = rxdata[3]
                     hqfe_km       = rxdata[15]
@@ -2254,29 +1435,26 @@ class ControlModel():
                     Iyz           = rxdata[124]
                     Izz           = rxdata[125]
                     mass          = rxdata[126]
-
                     # Conversions
-                    pn                    = latd
-                    pe                    = longd
-                    pd                    = - km_to_m(hqfe_km)
-                    u                     = ft_to_m(u)
-                    v                     = ft_to_m(v)
-                    w                     = ft_to_m(w)
-                    deltaa                = deltaa_acm(deltala, deltara) 
-                    qbar                  = psf_to_pa(qbar) 
-                    Ixx                   = slugft2_to_kgm2(Ixx)
-                    Ixy                   = slugft2_to_kgm2(Ixy)
-                    Ixz                   = slugft2_to_kgm2(Ixz)
-                    Iyy                   = slugft2_to_kgm2(Iyy)
-                    Iyz                   = slugft2_to_kgm2(Iyz)
-                    Izz                   = slugft2_to_kgm2(Izz)
-                    mass                  = slug_to_kg(mass)
-                    euler                 = np.array([phi_rad, theta_rad, psi_rad])
-                    q0, q1, q2, q3        = euler_to_attquat(euler)
-
+                    pn             = latd
+                    pe             = longd
+                    pd             = - km_to_m(hqfe_km)
+                    u              = ft_to_m(u)
+                    v              = ft_to_m(v)
+                    w              = ft_to_m(w)
+                    deltaa         = deltaa_acm(deltala, deltara) 
+                    qbar           = psf_to_pa(qbar) 
+                    Ixx            = slugft2_to_kgm2(Ixx)
+                    Ixy            = slugft2_to_kgm2(Ixy)
+                    Ixz            = slugft2_to_kgm2(Ixz)
+                    Iyy            = slugft2_to_kgm2(Iyy)
+                    Iyz            = slugft2_to_kgm2(Iyz)
+                    Izz            = slugft2_to_kgm2(Izz)
+                    mass           = slug_to_kg(mass)
+                    euler          = np.array([phi_rad, theta_rad, psi_rad])
+                    q0, q1, q2, q3 = euler_to_attquat(euler)
                     #Assumptions of analytic control models
                     sigmaf_rad, deltaf, deltam, n, rho, grav, stall = acm_assumptions(deltat, pd)
-
                     #Moments of inertia
                     Gamma  = mominert_gamma(Ixx, Ixz, Izz)
                     Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
@@ -2287,7 +1465,7 @@ class ControlModel():
                     Gamma6 = mominert_gamma6(Ixz, Iyy)
                     Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
                     Gamma8 = mominert_gamma8(Ixx, Gamma)
-
+                    #Analytic non-linear control model parameters
                     params = dict()
                     params.update(phi_rad = phi_rad)
                     params.update(theta_rad = theta_rad)
@@ -2299,7 +1477,6 @@ class ControlModel():
                     params.update(sigmaf_rad = sigmaf_rad)
                     params.update(sigmar_rad = sigmar_rad)
                     params.update(hmacb = hmacb)
-                    params.update(qbar = qbar)
                     params.update(stall = stall)
                     params.update(Iyy = Iyy)
                     params.update(mass = mass)
@@ -2315,7 +1492,6 @@ class ControlModel():
                     params.update(Gamma6 = Gamma6)
                     params.update(Gamma7 = Gamma7)
                     params.update(Gamma8 = Gamma8)
-
                     #State
                     x_anl = np.row_stack(
                                          [
@@ -2334,7 +1510,8 @@ class ControlModel():
                                           r
                                          ]
                                         )
-
+                    #State setpoint
+                    x_sp_anl = np.row_stack(spdata[:CM_STATE_LEN])
                     #Input
                     u_anl = np.row_stack(
                                          [
@@ -2346,14 +1523,1289 @@ class ControlModel():
                                           deltam
                                          ]
                                         )
-
-                    T = np.array([prev_t_anl, self.t])
-                    anl_sys = control.iosys.NonlinearIOSystem(update_anl, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, params=params, dt=self.dt, name='ANL')
-                    cm2act_in.send(anl_sys) #send analytic non-linear control model to actuation module
-                    t_anl, y_anl = control.input_output_response(anl_sys, T, np.concatenate((prev_u_anl, u_anl),1), x_anl)
-                    prev_t_anl      = t_anl[1]
-                    prev_u_anl      = u_anl
-                    self.simcm      = y_anl[:,1]
-                    self.csvcm[0]   = t_sim #add timestamp
-                    self.csvcm[1:]  = self.simcm
+                    #Input setpoint
+                    u_sp_anl = np.row_stack(spdata[CM_STATE_LEN:])
+                    #Analytic non-linear control model
+                    times          = np.array([prev_t_anl, self.t])
+                    anl_sys        = control.iosys.NonlinearIOSystem(self._update_anl, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, params=params, dt=self.dt, name='ANL')
+                    lanl_sys       = anl_sys.linearize(x0=x_sp_anl, u0=u_sp_anl)
+                    #cm2act_in.send((x_lanl, u_lanl, lanl_sys)) #send analytic non-linear control model to actuation module
+                    t_lanl, y_lanl = control.input_output_response(lanl_sys, times, np.concatenate((prev_u_anl, u_anl),1), x_anl)
+                    prev_t_anl     = t_lanl[1]
+                    prev_u_anl     = u_anl
+                    self.simcm     = y_lanl[:,1]
+                    self.csvcm[0]  = rxdata[0] #add timestamp (t_sim)
+                    self.csvcm[1:] = self.simcm
                     cm2csv_in.send(self.csvcm) #send state derivatives to CSV module
+
+    def _update_anl(self, time, x_anl, u_anl, params):
+        #Parameters
+        phi_rad       = params['phi_rad']
+        theta_rad     = params['theta_rad']
+        psi_rad       = params['psi_rad']
+        alphadot_rads = params['alphadot_rads']
+        sigmara_rad   = params['sigmara_rad']
+        sigmala_rad   = params['sigmala_rad']
+        sigmae_rad    = params['sigmae_rad']
+        sigmaf_rad    = params['sigmaf_rad']
+        sigmar_rad    = params['sigmar_rad']
+        hmacb         = params['hmacb']
+        stall         = params['stall']
+        Iyy           = params['Iyy']
+        mass          = params['mass']
+        grav          = params['grav']
+        rho           = params['rho']
+        n             = params['n']
+        Gamma         = params['Gamma']
+        Gamma1        = params['Gamma1']
+        Gamma2        = params['Gamma2']
+        Gamma3        = params['Gamma3']
+        Gamma4        = params['Gamma4']
+        Gamma5        = params['Gamma5']
+        Gamma6        = params['Gamma6']
+        Gamma7        = params['Gamma7']
+        Gamma8        = params['Gamma8']
+        #State
+        pn = x_anl[0]
+        pe = x_anl[1]
+        pd = x_anl[2]
+        q0 = x_anl[3]
+        q1 = x_anl[4]
+        q2 = x_anl[5]
+        q3 = x_anl[6]
+        u  = x_anl[7]
+        v  = x_anl[8]
+        w  = x_anl[9]
+        p  = x_anl[10]
+        q  = x_anl[11]
+        r  = x_anl[12]
+        #Input
+        deltaa = u_anl[0]
+        deltae = u_anl[1]
+        deltaf = u_anl[2]
+        deltar = u_anl[3]
+        deltat = u_anl[4]
+        deltam = u_anl[5]
+        #Rotations
+        euler = np.array([phi_rad, theta_rad, psi_rad])
+        qbv   = body_to_vehicle(phi_rad, theta_rad, psi_rad)
+        quat  = euler_to_attquat(euler)
+        #Physical variables
+        Vauw      = Vauw_acm(u, w)
+        Va        = Va_acm(u, v, w)
+        alpha_rad = alpha_acm(u, w)
+        beta      = beta_acm(v, Vauw)
+        J         = J_acm(u, n)
+        T         = thrust_eng(J, rho, n)
+        Vind2     = Vind2_acm(u, rho, T)
+        Vind      = Vind_acm(u, rho, T, Vind2)
+        Vprop     = Vprop_acm(u, Vind)
+        qbar      = qbar_acm(rho, Va)
+        qbaruw    = qbaruw_acm(rho, Vauw)
+        qbarind   = qbarind_acm(rho, Vind)
+        qbarprop  = qbarprop_acm(rho, Vprop)
+        Bw2Va     = BW_SI / (2 * Va)
+        Cw2Va     = CW_SI / (2 * Va)
+        #Dynamic tables
+        CD1 = aerocoeff_CD1()
+        CD2 = aerocoeff_CD2(hmacb, sigmaf_rad)
+        CD3 = aerocoeff_CD3(hmacb, alpha_rad, sigmaf_rad)
+        CD4 = aerocoeff_CD4(beta)
+        CC1 = aerocoeff_CC1(beta, sigmaf_rad)
+        CC2 = aerocoeff_CC2(sigmar_rad)
+        CL1 = aerocoeff_CL1(hmacb, alpha_rad, stall)
+        CL2 = aerocoeff_CL2(hmacb, sigmaf_rad)
+        CL3 = aerocoeff_CL3(sigmae_rad)
+        CL4 = aerocoeff_CL4(Cw2Va, q)
+        CL5 = aerocoeff_CL5(Cw2Va, alphadot_rads)
+        Cl1 = aerocoeff_Cl1(beta, alpha_rad)
+        Cl2 = aerocoeff_Cl2(Bw2Va, p)
+        Cl3 = aerocoeff_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall)
+        Cl4 = aerocoeff_Cl4(sigmala_rad, sigmara_rad, alpha_rad, stall)
+        Cl5 = aerocoeff_Cl5(sigmar_rad)
+        Cm1 = aerocoeff_Cm1(qbar)
+        Cm2 = aerocoeff_Cm2(alpha_rad)
+        Cm3 = aerocoeff_Cm3(Cw2Va, q)
+        Cm4 = aerocoeff_Cm4(sigmaf_rad)
+        Cm5 = aerocoeff_Cm5(Cw2Va, alphadot_rads)
+        Cm6 = aerocoeff_Cm6(sigmae_rad, alpha_rad)
+        Cn1 = aerocoeff_Cn1(beta)
+        Cn2 = aerocoeff_Cn2(Bw2Va, r)
+        Cn3 = aerocoeff_Cn3(Bw2Va, r, alpha_rad)
+        Cn4 = aerocoeff_Cn4(sigmala_rad, sigmara_rad, alpha_rad, beta)
+        Cn5 = aerocoeff_Cn5(sigmar_rad)
+        Cn6 = aerocoeff_Cn6()
+        #Dynamics
+        D          = qbar * SW_SI * (CD1 + CD2 + CD3 + CD4) 
+        C          = qbar * SW_SI * (CC1 + CC2)
+        L          = SW_SI * (qbar * (CL1 + CL2 + CL3 + CL4) + qbaruw * CL5)
+        gx, gy, gz = gravity_body(quat, mass, grav)
+        fx         = - D + gx + T
+        fy         = C + gy
+        fz         = - L + gz
+        l          = qbar * SW_SI * BW_SI * (Cl1 + Cl2 + Cl3 + Cl4 + Cl5)
+        m          = SW_SI * CW_SI * (qbar * (Cm1 + Cm2 + Cm3 + Cm4) + qbaruw * Cm5 + qbarind * Cm6)
+        n          = SW_SI * BW_SI * (qbar * (Cn1 + Cn2 + Cn3 + Cn4) + qbarind * Cn5 + qbarprop * Cn6)
+        #State derivative respect to time
+        xdot_anl        = np.zeros(CM_STATE_LEN) #initialize xdot
+        xdot_anl[0:3]   = qbv.rotation_matrix @ np.array([u, v, w]) #position in NED frame (pn, pe, pd)
+        xdot_anl[3:7]   = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) @ np.array([q0, q1, q2, q3]) #attitude in vehicle (q0, q1, q2, q3)
+        xdot_anl[7:10]  = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) @ np.array([p, q, r]) + np.array([fx, fy, fz]) / mass #linear velocity in body frame (u, v, w)
+        xdot_anl[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n]) #angular velocity in body frame (p, q, r)
+        return xdot_anl 
+
+    def _update_reduced_anl(self, time, x_red_anl, u_red_anl, params):
+        #Parameters
+        phi_rad       = params['phi_rad']
+        theta_rad     = params['theta_rad']
+        psi_rad       = params['psi_rad']
+        alphadot_rads = params['alphadot_rads']
+        sigmara_rad   = params['sigmara_rad']
+        sigmala_rad   = params['sigmala_rad']
+        sigmae_rad    = params['sigmae_rad']
+        sigmaf_rad    = params['sigmaf_rad']
+        sigmar_rad    = params['sigmar_rad']
+        hmacb         = params['hmacb']
+        stall         = params['stall']
+        Iyy           = params['Iyy']
+        mass          = params['mass']
+        grav          = params['grav']
+        rho           = params['rho']
+        n             = params['n']
+        Gamma         = params['Gamma']
+        Gamma1        = params['Gamma1']
+        Gamma2        = params['Gamma2']
+        Gamma3        = params['Gamma3']
+        Gamma4        = params['Gamma4']
+        Gamma5        = params['Gamma5']
+        Gamma6        = params['Gamma6']
+        Gamma7        = params['Gamma7']
+        Gamma8        = params['Gamma8']
+        #State
+        pd = x_red_anl[0]
+        q0 = x_red_anl[1]
+        q1 = x_red_anl[2]
+        q2 = x_red_anl[3]
+        q3 = x_red_anl[4]
+        u  = x_red_anl[5]
+        v  = x_red_anl[6]
+        w  = x_red_anl[7]
+        p  = x_red_anl[8]
+        q  = x_red_anl[9]
+        r  = x_red_anl[10]
+        #Input
+        deltaa = u_red_anl[0]
+        deltae = u_red_anl[1]
+        deltar = u_red_anl[2]
+        deltat = u_red_anl[3]
+        #Rotations
+        euler = np.array([phi_rad, theta_rad, psi_rad])
+        qbv   = body_to_vehicle(phi_rad, theta_rad, psi_rad)
+        quat  = euler_to_attquat(euler)
+        #Physical variables
+        Vauw      = Vauw_acm(u, w)
+        Va        = Va_acm(u, v, w)
+        alpha_rad = alpha_acm(u, w)
+        beta      = beta_acm(v, Vauw)
+        J         = J_acm(u, n)
+        T         = thrust_eng(J, rho, n)
+        Vind2     = Vind2_acm(u, rho, T)
+        Vind      = Vind_acm(u, rho, T, Vind2)
+        Vprop     = Vprop_acm(u, Vind)
+        qbar      = qbar_acm(rho, Va)
+        qbaruw    = qbaruw_acm(rho, Vauw)
+        qbarind   = qbarind_acm(rho, Vind)
+        qbarprop  = qbarprop_acm(rho, Vprop)
+        Bw2Va     = BW_SI / (2 * Va)
+        Cw2Va     = CW_SI / (2 * Va)
+        #Dynamic tables
+        CD1 = aerocoeff_CD1()
+        CD2 = aerocoeff_CD2(hmacb, sigmaf_rad)
+        CD3 = aerocoeff_CD3(hmacb, alpha_rad, sigmaf_rad)
+        CD4 = aerocoeff_CD4(beta)
+        CC1 = aerocoeff_CC1(beta, sigmaf_rad)
+        CC2 = aerocoeff_CC2(sigmar_rad)
+        CL1 = aerocoeff_CL1(hmacb, alpha_rad, stall)
+        CL2 = aerocoeff_CL2(hmacb, sigmaf_rad)
+        CL3 = aerocoeff_CL3(sigmae_rad)
+        CL4 = aerocoeff_CL4(Cw2Va, q)
+        CL5 = aerocoeff_CL5(Cw2Va, alphadot_rads)
+        Cl1 = aerocoeff_Cl1(beta, alpha_rad)
+        Cl2 = aerocoeff_Cl2(Bw2Va, p)
+        Cl3 = aerocoeff_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall)
+        Cl4 = aerocoeff_Cl4(sigmala_rad, sigmara_rad, alpha_rad, stall)
+        Cl5 = aerocoeff_Cl5(sigmar_rad)
+        Cm1 = aerocoeff_Cm1(qbar)
+        Cm2 = aerocoeff_Cm2(alpha_rad)
+        Cm3 = aerocoeff_Cm3(Cw2Va, q)
+        Cm4 = aerocoeff_Cm4(sigmaf_rad)
+        Cm5 = aerocoeff_Cm5(Cw2Va, alphadot_rads)
+        Cm6 = aerocoeff_Cm6(sigmae_rad, alpha_rad)
+        Cn1 = aerocoeff_Cn1(beta)
+        Cn2 = aerocoeff_Cn2(Bw2Va, r)
+        Cn3 = aerocoeff_Cn3(Bw2Va, r, alpha_rad)
+        Cn4 = aerocoeff_Cn4(sigmala_rad, sigmara_rad, alpha_rad, beta)
+        Cn5 = aerocoeff_Cn5(sigmar_rad)
+        Cn6 = aerocoeff_Cn6()
+        #Dynamics
+        D          = qbar * SW_SI * (CD1 + CD2 + CD3 + CD4) 
+        C          = qbar * SW_SI * (CC1 + CC2)
+        L          = SW_SI * (qbar * (CL1 + CL2 + CL3 + CL4) + qbaruw * CL5)
+        gx, gy, gz = gravity_body(quat, mass, grav)
+        fx         = - D + gx + T
+        fy         = C + gy
+        fz         = - L + gz
+        l          = qbar * SW_SI * BW_SI * (Cl1 + Cl2 + Cl3 + Cl4 + Cl5)
+        m          = SW_SI * CW_SI * (qbar * (Cm1 + Cm2 + Cm3 + Cm4) + qbaruw * Cm5 + qbarind * Cm6)
+        n          = SW_SI * BW_SI * (qbar * (Cn1 + Cn2 + Cn3 + Cn4) + qbarind * Cn5 + qbarprop * Cn6)
+        #State derivative respect to time
+        xdot_anl        = np.zeros(CM_STATE_LEN) #initialize xdot
+        xdot_anl[0:3]   = qbv.rotation_matrix @ np.array([u, v, w]) #position in NED frame (pn, pe, pd)
+        xdot_anl[3:7]   = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) @ np.array([q0, q1, q2, q3]) #attitude in vehicle (q0, q1, q2, q3)
+        xdot_anl[7:10]  = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) @ np.array([p, q, r]) + np.array([fx, fy, fz]) / mass #linear velocity in body frame (u, v, w)
+        xdot_anl[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n]) #angular velocity in body frame (p, q, r)
+        xdot_anl = xdot_anl[2:]
+        return xdot_anl 
+
+    def _init_alcm(self):
+        self.alcm_dict     = {}
+        self.inputs_er_str = [item + '_er' for item in self.inputs_str]
+        self.states_er_str = [item + '_er' for item in self.states_str]
+        #Initialize state space
+        xdot_al = np.zeros((CM_STATE_LEN, 1)) #state derivative respect to time
+        x_al    = xdot_al #state
+        x_sp_al = xdot_al #state setpoint
+        x_er_al = x_al #state error
+        u_al    = np.zeros((CM_INPUT_LEN, 1)) #input
+        u_sp_al = u_al #state setpoint
+        u_er_al = u_al #input error
+        A       = np.zeros((CM_STATE_LEN, CM_STATE_LEN)) #state-state jacobian
+        B       = np.zeros((CM_STATE_LEN, CM_INPUT_LEN)) #state-input jacobian
+        C       = np.eye(CM_STATE_LEN) #output-state jacobian (y = x)
+        D       = np.zeros((CM_STATE_LEN, CM_INPUT_LEN)) #output-input jacobian
+        #Initialize variables
+        prev_t_al    = TELEM_WAIT
+        prev_u_er_al = u_er_al
+        #Update state space dictionary
+        self.alcm_dict.update(prev_t_al = prev_t_al)
+        self.alcm_dict.update(xdot_al = xdot_al)
+        self.alcm_dict.update(x_al = x_al)
+        self.alcm_dict.update(x_sp_al = x_sp_al)
+        self.alcm_dict.update(x_er_al = x_er_al)
+        self.alcm_dict.update(u_al = u_al)
+        self.alcm_dict.update(u_sp_al = u_sp_al)
+        self.alcm_dict.update(u_er_al = u_er_al)
+        self.alcm_dict.update(prev_u_er_al = prev_u_er_al)
+        self.alcm_dict.update(A = A)
+        self.alcm_dict.update(B = B)
+        self.alcm_dict.update(C = C)
+        self.alcm_dict.update(D = D)
+
+    def _preprocess_alcm(self):
+        rxdata = self.alcm_dict['rxdata']
+        spdata = self.alcm_dict['spdata']
+        #RX telemetry
+        longd         = rxdata[2]
+        latd          = rxdata[3]
+        hqfe_km       = rxdata[15]
+        phi_rad       = rxdata[20]
+        theta_rad     = rxdata[22]
+        psi_rad       = rxdata[24]
+        u             = rxdata[34]
+        v             = rxdata[35]
+        w             = rxdata[36]
+        p             = rxdata[46]
+        q             = rxdata[47]
+        r             = rxdata[48]
+        alphadot_rads = rxdata[53]
+        sigmara_rad   = rxdata[93] 
+        deltara       = rxdata[94]
+        sigmala_rad   = rxdata[96]
+        deltala       = rxdata[97]
+        sigmae_rad    = rxdata[99]
+        deltae        = rxdata[100]
+        sigmar_rad    = rxdata[105]
+        deltar        = rxdata[106]
+        deltat        = rxdata[107]
+        hmacb         = rxdata[111]
+        Ixx           = rxdata[120]
+        Ixy           = rxdata[121]
+        Ixz           = rxdata[122]
+        Iyy           = rxdata[123]
+        Iyz           = rxdata[124]
+        Izz           = rxdata[125]
+        mass          = rxdata[126]
+        #Setpoint
+        pn_sp     = spdata[0]
+        pe_sp     = spdata[1]
+        pd_sp     = spdata[2]
+        q0_sp     = spdata[3]
+        q1_sp     = spdata[4]
+        q2_sp     = spdata[5]
+        q3_sp     = spdata[6]
+        u_sp      = spdata[7]
+        v_sp      = spdata[8]
+        w_sp      = spdata[9]
+        p_sp      = spdata[10]
+        q_sp      = spdata[11]
+        r_sp      = spdata[12]
+        deltaa_sp = spdata[13]
+        deltae_sp = spdata[14]
+        deltaf_sp = spdata[15]
+        deltar_sp = spdata[16]
+        deltat_sp = spdata[17]
+        deltam_sp = spdata[18]
+        #Conversions
+        pn             = latd
+        pe             = longd
+        pd             = - km_to_m(hqfe_km)
+        u              = ft_to_m(u)
+        v              = ft_to_m(v)
+        w              = ft_to_m(w)
+        deltaa         = deltaa_acm(deltala, deltara) 
+        Ixx            = slugft2_to_kgm2(Ixx)
+        Ixy            = slugft2_to_kgm2(Ixy)
+        Ixz            = slugft2_to_kgm2(Ixz)
+        Iyy            = slugft2_to_kgm2(Iyy)
+        Iyz            = slugft2_to_kgm2(Iyz)
+        Izz            = slugft2_to_kgm2(Izz)
+        mass           = slug_to_kg(mass)
+        euler          = np.array([phi_rad, theta_rad, psi_rad])
+        q0, q1, q2, q3 = euler_to_attquat(euler)
+        #Assumptions of analytic control models
+        sigmaf_rad, deltaf, deltam, n, rho_sp, grav, stall = acm_assumptions(deltat, pd_sp)
+        #Moments of inertia
+        Gamma  = mominert_gamma(Ixx, Ixz, Izz)
+        Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
+        Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
+        Gamma3 = mominert_gamma3(Izz, Gamma)
+        Gamma4 = mominert_gamma4(Ixz, Gamma)
+        Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
+        Gamma6 = mominert_gamma6(Ixz, Iyy)
+        Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
+        Gamma8 = mominert_gamma8(Ixx, Gamma)
+        #Physical variables evaluated at the setpoint
+        Vauw_sp     = Vauw_acm(u_sp, w_sp)
+        Va_sp       = Va_acm(u_sp, v_sp, w_sp)
+        alpha_sp    = alpha_acm(u_sp, w_sp)
+        beta_sp     = beta_acm(v_sp, Vauw_sp)
+        J_sp        = J_acm(u_sp, n)
+        T           = thrust_eng(J_sp, rho_sp, n)
+        Vind2_sp    = Vind2_acm(u_sp, rho_sp, T)
+        Vind_sp     = Vind_acm(u_sp, rho_sp, T, Vind2_sp)
+        Vprop_sp    = Vprop_acm(u_sp, Vind_sp)
+        qbar_sp     = qbar_acm(rho_sp, Va_sp)
+        qbaruw_sp   = qbaruw_acm(rho_sp, Vauw_sp)
+        qbarind_sp  = qbarind_acm(rho_sp, Vind_sp)
+        qbarprop_sp = qbarprop_acm(rho_sp, Vprop_sp)
+        Bw2Va_sp    = BW_SI / (2 * Va_sp)
+        Cw2Va_sp    = CW_SI / (2 * Va_sp)
+        #State
+        x_al = np.row_stack(
+                            [
+                             pn,
+                             pe,
+                             pd,
+                             q0,
+                             q1,
+                             q2,
+                             q3,
+                             u,
+                             v,
+                             w,
+                             p,
+                             q,
+                             r
+                            ]
+                           )
+        #State setpoint
+        x_sp_al = np.row_stack(spdata[:CM_STATE_LEN])
+        #State error
+        x_er_al = x_al - x_sp_al
+        #Input
+        u_al = np.row_stack(
+                            [
+                             deltaa,
+                             deltae,
+                             deltaf,
+                             deltar,
+                             deltat,
+                             deltam
+                            ]
+                           )
+        #Input setpoint
+        u_sp_al = np.row_stack(spdata[CM_STATE_LEN:])
+        #Input error
+        u_er_al = u_al - u_sp_al
+        #Construct physical variables dictionary
+        phys_dict = {} #storage of variables with physical meaning
+        phys_dict.update(phi_rad = phi_rad)
+        phys_dict.update(theta_rad = theta_rad)
+        phys_dict.update(psi_rad = psi_rad)
+        phys_dict.update(alphadot_rads = alphadot_rads)
+        phys_dict.update(sigmara_rad = sigmara_rad)
+        phys_dict.update(deltara = deltara)
+        phys_dict.update(sigmala_rad = sigmala_rad)
+        phys_dict.update(deltala = deltala)
+        phys_dict.update(sigmae_rad = sigmae_rad)
+        phys_dict.update(deltae = deltae)
+        phys_dict.update(sigmar_rad = sigmar_rad)
+        phys_dict.update(deltar = deltar)
+        phys_dict.update(deltat = deltat)
+        phys_dict.update(hmacb = hmacb)
+        phys_dict.update(Ixx = Ixx)
+        phys_dict.update(Ixy = Ixy)
+        phys_dict.update(Ixz = Ixz)
+        phys_dict.update(Iyy = Iyy)
+        phys_dict.update(Iyz = Iyz)
+        phys_dict.update(Izz = Izz)
+        phys_dict.update(mass = mass)
+        phys_dict.update(Gamma = Gamma)
+        phys_dict.update(Gamma1 = Gamma1)
+        phys_dict.update(Gamma2 = Gamma2)
+        phys_dict.update(Gamma3 = Gamma3)
+        phys_dict.update(Gamma4 = Gamma4)
+        phys_dict.update(Gamma5 = Gamma5)
+        phys_dict.update(Gamma6 = Gamma6)
+        phys_dict.update(Gamma7 = Gamma7)
+        phys_dict.update(Gamma8 = Gamma8)
+        phys_dict.update(Vauw_sp = Vauw_sp)
+        phys_dict.update(Va_sp = Va_sp)
+        phys_dict.update(alpha_sp = alpha_sp)
+        phys_dict.update(beta_sp = beta_sp)
+        phys_dict.update(J_sp = J_sp)
+        phys_dict.update(T = T)
+        phys_dict.update(Vind2_sp = Vind2_sp)
+        phys_dict.update(Vind_sp = Vind_sp)
+        phys_dict.update(Vprop_sp = Vprop_sp)
+        phys_dict.update(qbar_sp = qbar_sp)
+        phys_dict.update(qbaruw_sp = qbaruw_sp)
+        phys_dict.update(qbarind_sp = qbarind_sp)
+        phys_dict.update(qbarprop_sp = qbarprop_sp)
+        phys_dict.update(Bw2Va_sp = Bw2Va_sp)
+        phys_dict.update(Cw2Va_sp = Cw2Va_sp)
+        phys_dict.update(sigmaf_rad = sigmaf_rad)
+        phys_dict.update(deltaf = deltaf)
+        phys_dict.update(deltam = deltam)
+        phys_dict.update(n = n)
+        phys_dict.update(rho_sp = rho_sp)
+        phys_dict.update(grav = grav)
+        phys_dict.update(stall = stall)
+        #Update ALCM dictionary
+        self.alcm_dict.update(x_al = x_al)
+        self.alcm_dict.update(x_sp_al = x_sp_al)
+        self.alcm_dict.update(x_er_al = x_er_al)
+        self.alcm_dict.update(u_al = u_al)
+        self.alcm_dict.update(u_sp_al = u_sp_al)
+        self.alcm_dict.update(u_er_al = u_er_al)
+        self.alcm_dict.update(phys_dict = phys_dict)
+
+    def _update_A_alcm(self):
+        #Retrieve data
+        A           = self.alcm_dict['A']
+        parder_x_sp = self.alcm_dict['parder_x_sp']
+        #Partial derivatives of state respect to state variables evaluated at the setpoint
+        parder_q0_pndot_sp = parder_x_sp[0]
+        parder_q1_pndot_sp = parder_x_sp[1]
+        parder_q2_pndot_sp = parder_x_sp[2]
+        parder_q3_pndot_sp = parder_x_sp[3]
+        parder_u_pndot_sp  = parder_x_sp[4]
+        parder_v_pndot_sp  = parder_x_sp[5]
+        parder_w_pndot_sp  = parder_x_sp[6]
+        parder_q0_pedot_sp = parder_x_sp[7]
+        parder_q1_pedot_sp = parder_x_sp[8]
+        parder_q2_pedot_sp = parder_x_sp[9]
+        parder_q3_pedot_sp = parder_x_sp[10]
+        parder_u_pedot_sp  = parder_x_sp[11]
+        parder_v_pedot_sp  = parder_x_sp[12]
+        parder_w_pedot_sp  = parder_x_sp[13]
+        parder_q0_pddot_sp = parder_x_sp[14]
+        parder_q1_pddot_sp = parder_x_sp[15]
+        parder_q2_pddot_sp = parder_x_sp[16]
+        parder_q3_pddot_sp = parder_x_sp[17]
+        parder_u_pddot_sp  = parder_x_sp[18]
+        parder_v_pddot_sp  = parder_x_sp[19]
+        parder_w_pddot_sp  = parder_x_sp[20]
+        parder_q1_q0dot_sp = parder_x_sp[21]
+        parder_q2_q0dot_sp = parder_x_sp[22]
+        parder_q3_q0dot_sp = parder_x_sp[23]
+        parder_p_q0dot_sp  = parder_x_sp[24]
+        parder_q_q0dot_sp  = parder_x_sp[25]
+        parder_r_q0dot_sp  = parder_x_sp[26]
+        parder_q0_q1dot_sp = parder_x_sp[27]
+        parder_q2_q1dot_sp = parder_x_sp[28]
+        parder_q3_q1dot_sp = parder_x_sp[29]
+        parder_p_q1dot_sp  = parder_x_sp[30]
+        parder_q_q1dot_sp  = parder_x_sp[31]
+        parder_r_q1dot_sp  = parder_x_sp[32]
+        parder_q0_q2dot_sp = parder_x_sp[33]
+        parder_q1_q2dot_sp = parder_x_sp[34]
+        parder_q3_q2dot_sp = parder_x_sp[35]
+        parder_p_q2dot_sp  = parder_x_sp[36]
+        parder_q_q2dot_sp  = parder_x_sp[37]
+        parder_r_q2dot_sp  = parder_x_sp[38]
+        parder_q0_q3dot_sp = parder_x_sp[39]
+        parder_q1_q3dot_sp = parder_x_sp[40]
+        parder_q2_q3dot_sp = parder_x_sp[41]
+        parder_p_q3dot_sp  = parder_x_sp[42]
+        parder_q_q3dot_sp  = parder_x_sp[43]
+        parder_r_q3dot_sp  = parder_x_sp[44]
+        parder_pd_udot_sp  = parder_x_sp[45]
+        parder_q0_udot_sp  = parder_x_sp[46]
+        parder_q1_udot_sp  = parder_x_sp[47]
+        parder_q2_udot_sp  = parder_x_sp[48]
+        parder_q3_udot_sp  = parder_x_sp[49]
+        parder_u_udot_sp   = parder_x_sp[50]
+        parder_v_udot_sp   = parder_x_sp[51]
+        parder_w_udot_sp   = parder_x_sp[52]
+        parder_q_udot_sp   = parder_x_sp[53]
+        parder_r_udot_sp   = parder_x_sp[54]
+        parder_pd_vdot_sp  = parder_x_sp[55]
+        parder_q0_vdot_sp  = parder_x_sp[56]
+        parder_q1_vdot_sp  = parder_x_sp[57]
+        parder_q2_vdot_sp  = parder_x_sp[58]
+        parder_q3_vdot_sp  = parder_x_sp[59]
+        parder_u_vdot_sp   = parder_x_sp[60]
+        parder_v_vdot_sp   = parder_x_sp[61]
+        parder_w_vdot_sp   = parder_x_sp[62]
+        parder_p_vdot_sp   = parder_x_sp[63]
+        parder_r_vdot_sp   = parder_x_sp[64]
+        parder_pd_wdot_sp  = parder_x_sp[65]
+        parder_q0_wdot_sp  = parder_x_sp[66]
+        parder_q1_wdot_sp  = parder_x_sp[67]
+        parder_q2_wdot_sp  = parder_x_sp[68]
+        parder_q3_wdot_sp  = parder_x_sp[69]
+        parder_u_wdot_sp   = parder_x_sp[70]
+        parder_v_wdot_sp   = parder_x_sp[71]
+        parder_w_wdot_sp   = parder_x_sp[72]
+        parder_p_wdot_sp   = parder_x_sp[73]
+        parder_q_wdot_sp   = parder_x_sp[74]
+        parder_pd_pdot_sp  = parder_x_sp[75]
+        parder_u_pdot_sp   = parder_x_sp[76]
+        parder_v_pdot_sp   = parder_x_sp[77]
+        parder_w_pdot_sp   = parder_x_sp[78]
+        parder_p_pdot_sp   = parder_x_sp[79]
+        parder_q_pdot_sp   = parder_x_sp[80]
+        parder_r_pdot_sp   = parder_x_sp[81]
+        parder_pd_qdot_sp  = parder_x_sp[82]
+        parder_u_qdot_sp   = parder_x_sp[83]
+        parder_v_qdot_sp   = parder_x_sp[84]
+        parder_w_qdot_sp   = parder_x_sp[85]
+        parder_p_qdot_sp   = parder_x_sp[86]
+        parder_q_qdot_sp   = parder_x_sp[87]
+        parder_r_qdot_sp   = parder_x_sp[88]
+        parder_pd_rdot_sp  = parder_x_sp[89]
+        parder_u_rdot_sp   = parder_x_sp[90]
+        parder_v_rdot_sp   = parder_x_sp[91]
+        parder_w_rdot_sp   = parder_x_sp[92]
+        parder_p_rdot_sp   = parder_x_sp[93]
+        parder_q_rdot_sp   = parder_x_sp[94]
+        parder_r_rdot_sp   = parder_x_sp[95]
+        #Partial derivatives of pndot respect to state variables
+        A[0,3] = parder_q0_pndot_sp
+        A[0,4] = parder_q1_pndot_sp
+        A[0,5] = parder_q2_pndot_sp
+        A[0,6] = parder_q3_pndot_sp
+        A[0,7] = parder_u_pndot_sp
+        A[0,8] = parder_v_pndot_sp
+        A[0,9] = parder_w_pndot_sp
+        #Partial derivatives of pedot respect to state variables
+        A[1,3] = parder_q0_pedot_sp
+        A[1,4] = parder_q1_pedot_sp
+        A[1,5] = parder_q2_pedot_sp
+        A[1,6] = parder_q3_pedot_sp
+        A[1,7] = parder_u_pedot_sp
+        A[1,8] = parder_v_pedot_sp
+        A[1,9] = parder_w_pedot_sp
+        #Partial derivatives of pddot respect to state variables
+        A[2,3] = parder_q0_pddot_sp
+        A[2,4] = parder_q1_pddot_sp
+        A[2,5] = parder_q2_pddot_sp
+        A[2,6] = parder_q3_pddot_sp
+        A[2,7] = parder_u_pddot_sp
+        A[2,8] = parder_v_pddot_sp
+        A[2,9] = parder_w_pddot_sp
+        #Partial derivatives of q0dot respect to state variables
+        A[3,4]  = parder_q1_q0dot_sp
+        A[3,5]  = parder_q2_q0dot_sp
+        A[3,6]  = parder_q3_q0dot_sp
+        A[3,10] = parder_p_q0dot_sp
+        A[3,11] = parder_q_q0dot_sp
+        A[3,12] = parder_r_q0dot_sp
+        #Partial derivatives of q1dot respect to state variables
+        A[4,3]  = parder_q0_q1dot_sp
+        A[4,5]  = parder_q2_q1dot_sp
+        A[4,6]  = parder_q3_q1dot_sp
+        A[4,10] = parder_p_q1dot_sp
+        A[4,11] = parder_q_q1dot_sp
+        A[4,12] = parder_r_q1dot_sp
+        #Partial derivatives of q2dot respect to state variables
+        A[5,3]  = parder_q0_q2dot_sp
+        A[5,4]  = parder_q1_q2dot_sp
+        A[5,6]  = parder_q3_q2dot_sp
+        A[5,10] = parder_p_q2dot_sp
+        A[5,11] = parder_q_q2dot_sp
+        A[5,12] = parder_r_q2dot_sp
+        #Partial derivatives of q3dot respect to state variables
+        A[6,3]  = parder_q0_q3dot_sp
+        A[6,4]  = parder_q1_q3dot_sp
+        A[6,5]  = parder_q2_q3dot_sp
+        A[6,10] = parder_p_q3dot_sp
+        A[6,11] = parder_q_q3dot_sp
+        A[6,12] = parder_r_q3dot_sp
+        #Partial derivatives of udot respect to state variables
+        A[7,2]  = parder_pd_udot_sp
+        A[7,3]  = parder_q0_udot_sp
+        A[7,4]  = parder_q1_udot_sp
+        A[7,5]  = parder_q2_udot_sp
+        A[7,6]  = parder_q3_udot_sp
+        A[7,7]  = parder_u_udot_sp
+        A[7,8]  = parder_v_udot_sp
+        A[7,9]  = parder_w_udot_sp
+        A[7,11] = parder_q_udot_sp
+        A[7,12] = parder_r_udot_sp
+        #Partial derivatives of vdot respect to state variables
+        A[8,2]  = parder_pd_vdot_sp
+        A[8,3]  = parder_q0_vdot_sp
+        A[8,4]  = parder_q1_vdot_sp
+        A[8,5]  = parder_q2_vdot_sp
+        A[8,6]  = parder_q3_vdot_sp
+        A[8,7]  = parder_u_vdot_sp
+        A[8,8]  = parder_v_vdot_sp
+        A[8,9]  = parder_w_vdot_sp
+        A[8,10] = parder_p_vdot_sp
+        A[8,12] = parder_r_vdot_sp
+        #Partial derivatives of wdot respect to state variables
+        A[9,2]  = parder_pd_wdot_sp
+        A[9,3]  = parder_q0_wdot_sp
+        A[9,4]  = parder_q1_wdot_sp
+        A[9,5]  = parder_q2_wdot_sp
+        A[9,6]  = parder_q3_wdot_sp
+        A[9,7]  = parder_u_wdot_sp
+        A[9,8]  = parder_v_wdot_sp
+        A[9,9]  = parder_w_wdot_sp
+        A[9,10] = parder_p_wdot_sp
+        A[9,11] = parder_q_wdot_sp
+        #Partial derivatives of pdot respect to state variables
+        A[10,2]  = parder_pd_pdot_sp
+        A[10,7]  = parder_u_pdot_sp
+        A[10,8]  = parder_v_pdot_sp
+        A[10,9]  = parder_w_pdot_sp
+        A[10,10] = parder_p_pdot_sp
+        A[10,11] = parder_q_pdot_sp
+        A[10,12] = parder_r_pdot_sp
+        #Partial derivatives of qdot respect to state variables
+        A[11,2]  = parder_pd_qdot_sp
+        A[11,7]  = parder_u_qdot_sp
+        A[11,8]  = parder_v_qdot_sp
+        A[11,9]  = parder_w_qdot_sp
+        A[11,10] = parder_p_qdot_sp
+        A[11,11] = parder_q_qdot_sp
+        A[11,12] = parder_r_qdot_sp
+        #Partial derivatives of rdot respect to state variables
+        A[12,2]  = parder_pd_rdot_sp
+        A[12,7]  = parder_u_rdot_sp
+        A[12,8]  = parder_v_rdot_sp
+        A[12,9]  = parder_w_rdot_sp
+        A[12,10] = parder_p_rdot_sp
+        A[12,11] = parder_q_rdot_sp
+        A[12,12] = parder_r_rdot_sp
+        #Update A
+        self.alcm_dict.update(A = A)
+
+    def _update_B_alcm(self):
+        #B is reduced by 2 columns corresponding to deltaf and deltam because they are assumed constant in the analytic linear control model
+        #Retrieve data
+        B               = self.alcm_dict['B']
+        parder_delta_sp = self.alcm_dict['parder_delta_sp']
+        #State partial derivatives respect to input variables evaluated at the setpoint
+        parder_deltat_udot_sp = parder_delta_sp[0]
+        parder_deltar_vdot_sp = parder_delta_sp[1]
+        parder_deltae_wdot_sp = parder_delta_sp[2]
+        parder_deltaa_pdot_sp = parder_delta_sp[3]
+        parder_deltar_pdot_sp = parder_delta_sp[4]
+        parder_deltae_qdot_sp = parder_delta_sp[5]
+        parder_deltaa_rdot_sp = parder_delta_sp[6]
+        parder_deltar_rdot_sp = parder_delta_sp[7]
+        #Partial derivatives of udot respect to input variables
+        B[7,4] = parder_deltat_udot_sp
+        #Partial derivatives of vdot respect to input variables
+        B[8,3] = parder_deltar_vdot_sp
+        #Partial derivatives of wdot respect to input variables
+        B[9,1] = parder_deltae_wdot_sp
+        #Partial derivatives of pdot respect to input variables
+        B[10,0] = parder_deltaa_pdot_sp
+        B[10,3] = parder_deltar_pdot_sp
+        #Partial derivatives of qdot respect to input variables
+        B[11,1] = parder_deltae_qdot_sp
+        #Partial derivatives of rdot respect to input variables
+        B[12,0] = parder_deltaa_rdot_sp
+        B[12,3] = parder_deltar_rdot_sp
+        #Update B
+        self.alcm_dict.update(B = B)
+
+    def _construct_alcm(self):
+        #Retrieve data
+        x_er_al = self.alcm_dict['x_er_al']
+        u_er_al = self.alcm_dict['u_er_al']
+        A       = self.alcm_dict['A']
+        B       = self.alcm_dict['B']
+        C       = self.alcm_dict['C']
+        D       = self.alcm_dict['D']
+        #Compute partial derivatives
+        self._parder_alcm()
+        #Update state space
+        self._update_A_alcm()
+        self._update_B_alcm()
+        #Analytic linear control model
+        xdot_er_al  = A @ x_er_al + B @ u_er_al
+        al_ss       = control.StateSpace(A, B, C, D) #state space
+        al_sys      = control.iosys.LinearIOSystem(al_ss, inputs=self.inputs_er_str, outputs=self.states_er_str, states=self.states_er_str, name='AL') #linear input-output system
+        #Update ALCM dictionary
+        self.alcm_dict.update(xdot_er_al = xdot_er_al)
+        self.alcm_dict.update(al_sys = al_sys)
+
+    def _integrate_alcm(self):
+        al_sys        = self.alcm_dict['al_sys']
+        prev_t_al     = self.alcm_dict['prev_t_al']
+        x_er_al       = self.alcm_dict['x_er_al']
+        u_er_al       = self.alcm_dict['u_er_al']
+        prev_u_er_al  = self.alcm_dict['prev_u_er_al']
+        times         = np.array([prev_t_al, self.t])
+        t_al, y_er_al = control.input_output_response(al_sys, times, np.concatenate((prev_u_er_al, u_er_al),1), x_er_al)
+        #Update ALCM dictionary
+        self.alcm_dict.update(t_al = t_al)
+        self.alcm_dict.update(y_er_al = y_er_al)
+
+    def _prueba_eq(self):
+        #Analytic non-linear control model parameters
+        phys_dict     = self.alcm_dict['phys_dict'] #physical variables dictionary
+        phi_rad       = phys_dict['phi_rad']
+        theta_rad     = phys_dict['theta_rad']
+        psi_rad       = phys_dict['psi_rad']
+        alphadot_rads = phys_dict['alphadot_rads']
+        sigmara_rad   = phys_dict['sigmara_rad']
+        sigmala_rad   = phys_dict['sigmala_rad']
+        sigmae_rad    = phys_dict['sigmae_rad']
+        sigmaf_rad    = phys_dict['sigmaf_rad']
+        sigmar_rad    = phys_dict['sigmar_rad']
+        hmacb         = phys_dict['hmacb']
+        rho_sp        = phys_dict['rho_sp']
+        stall         = phys_dict['stall']
+        Iyy           = phys_dict['Iyy']
+        mass          = phys_dict['mass']
+        grav          = phys_dict['grav']
+        n             = phys_dict['n']
+        Gamma         = phys_dict['Gamma']
+        Gamma1        = phys_dict['Gamma1']
+        Gamma2        = phys_dict['Gamma2']
+        Gamma3        = phys_dict['Gamma3']
+        Gamma4        = phys_dict['Gamma4']
+        Gamma5        = phys_dict['Gamma5']
+        Gamma6        = phys_dict['Gamma6']
+        Gamma7        = phys_dict['Gamma7']
+        Gamma8        = phys_dict['Gamma8']
+        params = {}
+        params.update(phi_rad = phi_rad)
+        params.update(theta_rad = theta_rad)
+        params.update(psi_rad = psi_rad)
+        params.update(alphadot_rads = alphadot_rads)
+        params.update(sigmara_rad = sigmara_rad)
+        params.update(sigmala_rad = sigmala_rad)
+        params.update(sigmae_rad = sigmae_rad)
+        params.update(sigmaf_rad = sigmaf_rad)
+        params.update(sigmar_rad = sigmar_rad)
+        params.update(hmacb = hmacb)
+        params.update(stall = stall)
+        params.update(Iyy = Iyy)
+        params.update(mass = mass)
+        params.update(grav = grav)
+        params.update(rho = rho_sp)
+        params.update(n = n)
+        params.update(Gamma = Gamma)
+        params.update(Gamma1 = Gamma1)
+        params.update(Gamma2 = Gamma2)
+        params.update(Gamma3 = Gamma3)
+        params.update(Gamma4 = Gamma4)
+        params.update(Gamma5 = Gamma5)
+        params.update(Gamma6 = Gamma6)
+        params.update(Gamma7 = Gamma7)
+        params.update(Gamma8 = Gamma8)
+        #Equilibrium
+        x_al                  = self.alcm_dict['x_al']
+        u_al                  = self.alcm_dict['u_al']
+        x_red_al              = x_al[2:]
+        u_red_al              = np.vstack((u_al[0:2], u_al[3:5]))
+        red_inputs_str        = itemgetter(0,1,3,4)(self.inputs_str)
+        anl_sys               = control.iosys.NonlinearIOSystem(self._update_reduced_anl, inputs=red_inputs_str, outputs=self.states_str[2:], states=self.states_str[2:], params=params, name='ANL')
+        x_eq_al, u_eq_al, y_eq_al, result = control.iosys.find_eqpt(anl_sys, x0=x_red_al, u0=u_red_al, y0=None, params=params, return_y=True, return_result=True)
+        x_eq_al = np.vstack((0, 0, x_eq_al))
+        u_eq_al = np.vstack((x_eq_al[0:2], 0, x_eq_al[3:5], 1))
+        self.alcm_dict.update(x_sp_al = x_eq_al)
+
+    def _parder_alcm(self):
+        #State setpoint
+        x_sp_al   = self.alcm_dict['x_sp_al']
+        pn_sp     = x_sp_al[0]
+        pe_sp     = x_sp_al[1]
+        pd_sp     = x_sp_al[2]
+        q0_sp     = x_sp_al[3]
+        q1_sp     = x_sp_al[4]
+        q2_sp     = x_sp_al[5]
+        q3_sp     = x_sp_al[6]
+        u_sp      = x_sp_al[7]
+        v_sp      = x_sp_al[8]
+        w_sp      = x_sp_al[9]
+        p_sp      = x_sp_al[10]
+        q_sp      = x_sp_al[11]
+        r_sp      = x_sp_al[12]
+        #Input setpoint
+        u_sp_al   = self.alcm_dict['u_sp_al']
+        deltaa_sp = u_sp_al[0]
+        deltae_sp = u_sp_al[1]
+        deltaf_sp = u_sp_al[2]
+        deltar_sp = u_sp_al[3]
+        deltat_sp = u_sp_al[4]
+        deltam_sp = u_sp_al[5]
+        #Physical variables
+        phys_dict     = self.alcm_dict['phys_dict'] #physical variables dictionary
+        phi_rad       = phys_dict['phi_rad']
+        theta_rad     = phys_dict['theta_rad']
+        psi_rad       = phys_dict['psi_rad']
+        alphadot_rads = phys_dict['alphadot_rads']
+        sigmara_rad   = phys_dict['sigmara_rad']
+        deltara       = phys_dict['deltara']
+        sigmala_rad   = phys_dict['sigmala_rad']
+        deltala       = phys_dict['deltala']
+        sigmae_rad    = phys_dict['sigmae_rad']
+        deltae        = phys_dict['deltae']
+        sigmar_rad    = phys_dict['sigmar_rad']
+        deltar        = phys_dict['deltar']
+        deltat        = phys_dict['deltat']
+        hmacb         = phys_dict['hmacb']
+        Ixx           = phys_dict['Ixx']
+        Ixy           = phys_dict['Ixy']
+        Ixz           = phys_dict['Ixz']
+        Iyy           = phys_dict['Iyy']
+        Iyz           = phys_dict['Iyz']
+        Izz           = phys_dict['Izz']
+        mass          = phys_dict['mass']
+        Gamma         = phys_dict['Gamma']
+        Gamma1        = phys_dict['Gamma1']
+        Gamma2        = phys_dict['Gamma2']
+        Gamma3        = phys_dict['Gamma3']
+        Gamma4        = phys_dict['Gamma4']
+        Gamma5        = phys_dict['Gamma5']
+        Gamma6        = phys_dict['Gamma6']
+        Gamma7        = phys_dict['Gamma7']
+        Gamma8        = phys_dict['Gamma8']
+        Vauw_sp       = phys_dict['Vauw_sp']
+        Va_sp         = phys_dict['Va_sp']
+        alpha_sp      = phys_dict['alpha_sp']
+        beta_sp       = phys_dict['beta_sp']
+        J_sp          = phys_dict['J_sp']
+        T             = phys_dict['T']
+        Vind2_sp      = phys_dict['Vind2_sp']
+        Vind_sp       = phys_dict['Vind_sp']
+        Vprop_sp      = phys_dict['Vprop_sp']
+        qbar_sp       = phys_dict['qbar_sp']
+        qbaruw_sp     = phys_dict['qbaruw_sp']
+        qbarind_sp    = phys_dict['qbarind_sp']
+        qbarprop_sp   = phys_dict['qbarprop_sp']
+        Bw2Va_sp      = phys_dict['Bw2Va_sp']
+        Cw2Va_sp      = phys_dict['Cw2Va_sp']
+        sigmaf_rad    = phys_dict['sigmaf_rad']
+        deltaf        = phys_dict['deltaf']
+        deltam        = phys_dict['deltam']
+        n             = phys_dict['n']
+        rho_sp        = phys_dict['rho_sp']
+        grav          = phys_dict['grav']
+        stall         = phys_dict['stall']
+        #Dynamics tables evaluated at the setpoint
+        CD1_sp = aerocoeff_CD1()
+        CD2_sp = aerocoeff_CD2(hmacb, sigmaf_rad)
+        CD3_sp = aerocoeff_CD3(hmacb, alpha_sp, sigmaf_rad)
+        CD4_sp = aerocoeff_CD4(beta_sp)
+        CC1_sp = aerocoeff_CC1(beta_sp, sigmaf_rad)
+        CC2_sp = aerocoeff_CC2(sigmar_rad)
+        CL1_sp = aerocoeff_CL1(hmacb, alpha_sp, stall)
+        CL2_sp = aerocoeff_CL2(hmacb, sigmaf_rad)
+        CL3_sp = aerocoeff_CL3(sigmae_rad)
+        CL4_sp = aerocoeff_CL4(Cw2Va_sp, q_sp)
+        CL5_sp = aerocoeff_CL5(Cw2Va_sp, alphadot_rads)
+        Cl1_sp = aerocoeff_Cl1(beta_sp, alpha_sp)
+        Cl2_sp = aerocoeff_Cl2(Bw2Va_sp, p_sp)
+        Cl3_sp = aerocoeff_Cl3(Bw2Va_sp, r_sp, sigmaf_rad, alpha_sp, stall)
+        Cl4_sp = aerocoeff_Cl4(sigmala_rad, sigmara_rad, alpha_sp, stall)
+        Cl5_sp = aerocoeff_Cl5(sigmar_rad)
+        Cm1_sp = aerocoeff_Cm1(qbar_sp)
+        Cm2_sp = aerocoeff_Cm2(alpha_sp)
+        Cm3_sp = aerocoeff_Cm3(Cw2Va_sp, q_sp)
+        Cm4_sp = aerocoeff_Cm4(sigmaf_rad)
+        Cm5_sp = aerocoeff_Cm5(Cw2Va_sp, alphadot_rads)
+        Cm6_sp = aerocoeff_Cm6(sigmae_rad, alpha_sp)
+        Cn1_sp = aerocoeff_Cn1(beta_sp)
+        Cn2_sp = aerocoeff_Cn2(Bw2Va_sp, r_sp)
+        Cn3_sp = aerocoeff_Cn3(Bw2Va_sp, r_sp, alpha_sp)
+        Cn4_sp = aerocoeff_Cn4(sigmala_rad, sigmara_rad, alpha_sp, beta_sp)
+        Cn5_sp = aerocoeff_Cn5(sigmar_rad)
+        Cn6_sp = aerocoeff_Cn6()
+        #Derivatives of dynamic tables respect to physical variables evaluated at the setpoint 
+        parder_alpha_TD3_sp  = parder_alpha_TD3_interp(alpha_sp, sigmaf_rad)
+        parder_beta_TC1_sp   = parder_beta_TC1_interp(beta_sp, sigmaf_rad)
+        parder_alpha_TL1_sp  = parder_alpha_TL1_interp(alpha_sp, stall)
+        parder_alpha_Tl1_sp  = parder_alpha_Tl1_interp(alpha_sp)
+        parder_alpha_Tl32_sp = parder_alpha_Tl32_interp(alpha_sp, r_sp)
+        parder_r_Tl32_sp     = parder_r_Tl32_interp(alpha_sp, r_sp)
+        parder_alpha_Tl33_sp = parder_alpha_Tl33_interp(alpha_sp, r_sp)
+        parder_r_Tl33_sp     = parder_r_Tl33_interp(alpha_sp, r_sp)
+        parder_alpha_Tl4_sp  = parder_alpha_Tl4_interp(alpha_sp, stall)
+        parder_qbar_Tm1_sp   = parder_qbar_Tm1_interp(qbar_sp)
+        parder_alpha_Tm2_sp  = parder_alpha_Tm2_interp(alpha_sp)
+        parder_deltae_Tm5_sp = parder_deltae_Tm5_interp(deltae_sp, alpha_sp)
+        parder_alpha_Tm5_sp  = parder_alpha_Tm5_interp(deltae_sp, alpha_sp)
+        parder_beta_Tn1_sp   = parder_beta_Tn1_interp(beta_sp)
+        parder_r_Tn3_sp      = parder_r_Tn3_interp(r_sp, alpha_sp)
+        parder_alpha_Tn3_sp  = parder_alpha_Tn3_interp(alpha_sp, r_sp)
+        parder_alpha_Tn4_sp  = parder_alpha_Tn4_interp(alpha_sp, beta_sp)
+        parder_beta_Tn4_sp   = parder_beta_Tn4_interp(alpha_sp, beta_sp)
+        parder_J_CT_sp       = parder_J_CT_interp(J_sp)
+        #Derivatives of physical variables respect to state variables evaluated at the setpoint
+        parder_pd_rho_sp          = parder_pd_rho_alcm(pd_sp)
+        parder_deltat_n_sp        = parder_deltat_n_alcm()
+        parder_u_alpha_sp         = parder_u_alpha_alcm(w_sp, Vauw_sp)
+        parder_w_alpha_sp         = parder_w_alpha_alcm(u_sp, Vauw_sp)
+        parder_u_beta_sp          = parder_u_beta_alcm(u_sp, v_sp, Va_sp, Vauw_sp)
+        parder_v_beta_sp          = parder_v_beta_alcm(Va_sp, Vauw_sp)
+        parder_w_beta_sp          = parder_w_beta_alcm(v_sp, w_sp, Va_sp, Vauw_sp)
+        parder_pd_Vind_sp         = parder_pd_Vind_alcm(u_sp, rho_sp, T, Vind2_sp, parder_pd_rho_sp)
+        parder_u_Vind_sp          = parder_u_Vind_alcm(u_sp, rho_sp, T, Vind2_sp)
+        parder_deltat_T_sp        = parder_deltat_T_alcm(u_sp, rho_sp, J_sp, n, parder_J_CT_sp, parder_deltat_n_sp)
+        parder_deltat_Vind_sp     = parder_deltat_Vind_alcm(u_sp, rho_sp, T, Vind2_sp, parder_deltat_T_sp)
+        parder_pd_Vprop_sp        = parder_pd_Vprop(parder_pd_Vind_sp)
+        parder_u_Vprop_sp         = parder_u_Vprop_alcm(parder_u_Vind_sp)
+        parder_deltat_Vprop_sp    = parder_deltat_Vprop_alcm(parder_deltat_Vind_sp)
+        parder_pd_qbar_sp         = parder_pd_qbar_alcm(Va_sp, parder_pd_rho_sp)
+        parder_u_qbar_sp          = parder_u_qbar_alcm(u_sp, rho_sp)
+        parder_v_qbar_sp          = parder_v_qbar_alcm(v_sp, rho_sp)
+        parder_w_qbar_sp          = parder_w_qbar_alcm(w_sp, rho_sp)
+        parder_pd_qbaruw_sp       = parder_pd_qbaruw_alcm(Vauw_sp, parder_pd_rho_sp)
+        parder_u_qbaruw_sp        = parder_u_qbaruw_alcm(parder_u_qbar_sp)
+        parder_w_qbaruw_sp        = parder_w_qbaruw_alcm(parder_w_qbar_sp)
+        parder_pd_qbarind_sp      = parder_pd_qbarind_alcm(rho_sp, Vind_sp, parder_pd_rho_sp, parder_pd_Vind_sp)
+        parder_u_qbarind_sp       = parder_u_qbarind_alcm(rho_sp, Vind_sp, parder_u_Vind_sp)
+        parder_deltat_qbarind_sp  = parder_deltat_qbarind_alcm(rho_sp, Vind_sp, parder_deltat_Vind_sp)
+        parder_pd_qbarprop_sp     = parder_pd_qbarprop_alcm(rho_sp, Vprop_sp, parder_pd_rho_sp, parder_pd_Vprop_sp)
+        parder_deltat_qbarprop_sp = parder_deltat_qbarprop_alcm(rho_sp, Vprop_sp, parder_deltat_Vprop_sp)
+        parder_u_qbarprop_sp      = parder_u_qbarprop_alcm(rho_sp, Vprop_sp, parder_u_Vprop_sp)
+        parder_pd_T_sp            = parder_pd_T_alcm(J_sp, n, parder_pd_rho_sp)
+        parder_u_T_sp             = parder_u_T_alcm(rho_sp, J_sp, n, parder_J_CT_sp)
+        parder_u_Va_sp            = parder_u_Va_alcm(u_sp, Va_sp)
+        parder_v_Va_sp            = parder_v_Va_alcm(v_sp, Va_sp)
+        parder_w_Va_sp            = parder_w_Va_alcm(w_sp, Va_sp)
+        parder_u_Bw2Va_sp         = parder_u_Bw2Va_alcm(u_sp, Va_sp, parder_u_Va_sp)
+        parder_v_Bw2Va_sp         = parder_v_Bw2Va_alcm(v_sp, Va_sp, parder_v_Va_sp)
+        parder_w_Bw2Va_sp         = parder_w_Bw2Va_alcm(w_sp, Va_sp, parder_w_Va_sp)
+        parder_u_Cw2Va_sp         = parder_u_Cw2Va_alcm(u_sp, Va_sp, parder_u_Va_sp)
+        parder_v_Cw2Va_sp         = parder_v_Cw2Va_alcm(v_sp, Va_sp, parder_v_Va_sp)
+        parder_w_Cw2Va_sp         = parder_w_Cw2Va_alcm(w_sp, Va_sp, parder_w_Va_sp)
+        #Partial derivatives of dynamics coefficients respect to state variables evaluated at the setpoint 
+        parder_u_CD3_sp      = parder_u_CD3_alcm(hmacb, parder_alpha_TD3_sp, parder_u_alpha_sp)
+        parder_w_CD3_sp      = parder_w_CD3_alcm(hmacb, parder_alpha_TD3_sp, parder_w_alpha_sp)
+        parder_u_CD4_sp      = parder_u_CD4_alcm(beta_sp, parder_u_beta_sp)
+        parder_v_CD4_sp      = parder_v_CD4_alcm(beta_sp, parder_v_beta_sp)
+        parder_w_CD4_sp      = parder_w_CD4_alcm(beta_sp, parder_w_beta_sp)
+        parder_u_CC1_sp      = parder_u_CC1_alcm(parder_beta_TC1_sp, parder_u_beta_sp)
+        parder_v_CC1_sp      = parder_v_CC1_alcm(parder_beta_TC1_sp, parder_v_beta_sp)
+        parder_w_CC1_sp      = parder_w_CC1_alcm(parder_beta_TC1_sp, parder_w_beta_sp)
+        parder_deltar_CC2_sp = parder_deltar_CC2_alcm()
+        parder_u_CL1_sp      = parder_u_CL1_alcm(hmacb, parder_alpha_TL1_sp, parder_u_alpha_sp)
+        parder_w_CL1_sp      = parder_w_CL1_alcm(hmacb, parder_alpha_TL1_sp, parder_w_alpha_sp)
+        parder_deltae_CL3_sp = parder_deltae_CL3_alcm()
+        parder_u_CL4_sp      = parder_u_CL4_alcm(q_sp, parder_u_Cw2Va_sp)
+        parder_v_CL4_sp      = parder_v_CL4_alcm(q_sp, parder_v_Cw2Va_sp)
+        parder_w_CL4_sp      = parder_w_CL4_alcm(q_sp, parder_w_Cw2Va_sp)
+        parder_q_CL4_sp      = parder_q_CL4_alcm(Cw2Va_sp)
+        parder_u_CL5_sp      = parder_u_CL5_alcm(alphadot_rads, parder_u_Cw2Va_sp)
+        parder_v_CL5_sp      = parder_v_CL5_alcm(alphadot_rads, parder_v_Cw2Va_sp)
+        parder_w_CL5_sp      = parder_w_CL5_alcm(alphadot_rads, parder_w_Cw2Va_sp)
+        parder_u_Cl1_sp      = parder_u_Cl1_alcm(beta_sp, alpha_sp, parder_u_beta_sp, parder_alpha_Tl1_sp, parder_u_alpha_sp)
+        parder_v_Cl1_sp      = parder_v_Cl1_alcm(beta_sp, alpha_sp, parder_v_beta_sp)
+        parder_w_Cl1_sp      = parder_w_Cl1_alcm(beta_sp, alpha_sp, parder_w_beta_sp, parder_alpha_Tl1_sp, parder_w_alpha_sp)
+        parder_u_Cl2_sp      = parder_u_Cl2_alcm(p_sp, parder_u_Bw2Va_sp)
+        parder_v_Cl2_sp      = parder_v_Cl2_alcm(p_sp, parder_v_Bw2Va_sp)
+        parder_w_Cl2_sp      = parder_w_Cl2(p_sp, parder_w_Bw2Va_sp)
+        parder_p_Cl2_sp      = parder_p_Cl2(Bw2Va_sp)
+        parder_u_Cl3_sp      = parder_u_Cl3(Bw2Va_sp, r_sp, sigmaf_rad, alpha_sp, stall, parder_u_Bw2Va_sp, parder_alpha_Tl32_sp, parder_alpha_Tl33_sp, parder_u_alpha_sp)
+        parder_v_Cl3_sp      = parder_v_Cl3(Bw2Va_sp, r_sp, sigmaf_rad, alpha_sp, stall, parder_v_Bw2Va_sp, parder_alpha_Tl32_sp, parder_alpha_Tl33_sp)
+        parder_w_Cl3_sp      = parder_w_Cl3_alcm(Bw2Va_sp, r_sp, sigmaf_rad, alpha_sp, stall, parder_w_Bw2Va_sp, parder_alpha_Tl32_sp, parder_alpha_Tl33_sp, parder_w_alpha_sp)
+        parder_r_Cl3_sp      = parder_r_Cl3_alcm(Bw2Va_sp, r_sp, sigmaf_rad, alpha_sp, stall, parder_r_Tl32_sp, parder_r_Tl33_sp)
+        parder_u_Cl4_sp      = parder_u_Cl4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tl4_sp, parder_u_alpha_sp)
+        parder_w_Cl4_sp      = parder_w_Cl4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tl4_sp, parder_u_alpha_sp)
+        parder_deltaa_Cl4_sp = parder_deltaa_Cl4_alcm(alpha_sp, stall)
+        parder_deltar_Cl5_sp = parder_deltar_Cl5_alcm()
+        parder_pd_Cm1_sp     = parder_pd_Cm1_alcm(parder_qbar_Tm1_sp, parder_pd_qbar_sp)
+        parder_u_Cm2_sp      = parder_u_Cm2_alcm(alpha_sp, parder_alpha_Tm2_sp, parder_u_alpha_sp)
+        parder_w_Cm2_sp      = parder_w_Cm2_alcm(alpha_sp, parder_alpha_Tm2_sp, parder_w_alpha_sp)
+        parder_u_Cm3_sp      = parder_u_Cm3_alcm(q_sp, parder_u_Cw2Va_sp)
+        parder_v_Cm3_sp      = parder_v_Cm3_alcm(q_sp, parder_v_Cw2Va_sp)
+        parder_w_Cm3_sp      = parder_w_Cm3_alcm(q_sp, parder_w_Cw2Va_sp)
+        parder_q_Cm3_sp      = parder_q_Cm3_alcm(q_sp, Cw2Va_sp)
+        parder_u_Cm5_sp      = parder_u_Cm5_alcm(alphadot_rads, parder_u_Cw2Va_sp)
+        parder_v_Cm5_sp      = parder_v_Cm5_alcm(alphadot_rads, parder_v_Cw2Va_sp)
+        parder_w_Cm5_sp      = parder_w_Cm5_alcm(alphadot_rads, parder_w_Cw2Va_sp)
+        parder_u_Cm6_sp      = parder_u_Cm6_alcm(sigmae_rad, parder_alpha_Tm5_sp, parder_u_alpha_sp)
+        parder_w_Cm6_sp      = parder_w_Cm6_alcm(sigmae_rad, parder_alpha_Tm5_sp, parder_w_alpha_sp)
+        parder_deltae_Cm6_sp = parder_deltae_Cm6_alcm(alpha_sp, sigmae_rad, parder_deltae_Tm5_sp)
+        parder_u_Cn1_sp      = parder_u_Cn1_alcm(parder_beta_Tn1_sp, parder_u_beta_sp)
+        parder_v_Cn1_sp      = parder_v_Cn1_alcm(parder_beta_Tn1_sp, parder_v_beta_sp)
+        parder_w_Cn1_sp      = parder_w_Cn1_alcm(parder_beta_Tn1_sp, parder_w_beta_sp)
+        parder_u_Cn2_sp      = parder_u_Cn2_alcm(r_sp, parder_u_Bw2Va_sp)
+        parder_v_Cn2_sp      = parder_v_Cn2_alcm(r_sp, parder_v_Bw2Va_sp)
+        parder_w_Cn2_sp      = parder_w_Cn2_alcm(r_sp, parder_w_Bw2Va_sp)
+        parder_r_Cn2_sp      = parder_r_Cn2_alcm(Bw2Va_sp)
+        parder_u_Cn3_sp      = parder_u_Cn3_alcm(Bw2Va_sp, r_sp, alpha_sp, parder_u_Bw2Va_sp, parder_alpha_Tn3_sp, parder_u_alpha_sp)
+        parder_v_Cn3_sp      = parder_v_Cn3_alcm(Bw2Va_sp, r_sp, alpha_sp, parder_v_Bw2Va_sp)
+        parder_w_Cn3_sp      = parder_w_Cn3_alcm(Bw2Va_sp, r_sp, alpha_sp, parder_w_Bw2Va_sp, parder_alpha_Tn3_sp, parder_w_alpha_sp)
+        parder_r_Cn3_sp      = parder_r_Cn3_alcm(Bw2Va_sp, parder_r_Tn3_sp)
+        parder_u_Cn4_sp      = parder_u_Cn4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tn4_sp, parder_beta_Tn4_sp, parder_u_alpha_sp, parder_u_beta_sp)
+        parder_v_Cn4_sp      = parder_v_Cn4_alcm(sigmala_rad, sigmara_rad, parder_beta_Tn4_sp, parder_v_beta_sp)
+        parder_w_Cn4_sp      = parder_w_Cn4_alcm(sigmala_rad, sigmara_rad, parder_alpha_Tn4_sp, parder_beta_Tn4_sp, parder_w_alpha_sp, parder_w_beta_sp)
+        parder_deltaa_Cn4_sp = parder_deltaa_Cn4_alcm(alpha_sp, beta_sp)
+        parder_deltar_Cn5_sp = parder_deltar_Cn5_alcm()
+        #Partial derivatives of pndot respect to state variables evaluated at the setpoint
+        parder_q0_pndot_sp = 2 * (q0_sp * u_sp - q3_sp * v_sp + q2_sp * w_sp)
+        parder_q1_pndot_sp = 2 * (q1_sp * u_sp + q2_sp * v_sp + q3_sp * w_sp)
+        parder_q2_pndot_sp = 2 * (- q2_sp * u_sp + q1_sp * v_sp + q0_sp * w_sp)
+        parder_q3_pndot_sp = 2 * (- q3_sp * u_sp - q0_sp * v_sp + q1_sp * w_sp)
+        parder_u_pndot_sp  = q0_sp ** 2 + q1_sp ** 2 - q2_sp ** 2 - q3_sp ** 2
+        parder_v_pndot_sp  = 2 * (q1_sp * q2_sp - q0_sp * q3_sp)
+        parder_w_pndot_sp  = 2 * (q0_sp * q2_sp + q1_sp * q3_sp)
+        #Partial derivatives of pedot respect to state variables evaluated at the setpoint
+        parder_q0_pedot_sp = 2 * (q3_sp * u_sp + q0_sp * v_sp - q1_sp * w_sp)
+        parder_q1_pedot_sp = 2 * (q2_sp * u_sp - q1_sp * v_sp - q0_sp * w_sp)
+        parder_q2_pedot_sp = 2 * (q1_sp * u_sp + q2_sp * v_sp + q3_sp * w_sp)
+        parder_q3_pedot_sp = 2 * (q0_sp * u_sp - q3_sp * v_sp + q2_sp * w_sp)
+        parder_u_pedot_sp  = 2 * (q0_sp * q3_sp + q1_sp * q2_sp)
+        parder_v_pedot_sp  = q0_sp ** 2 + q2_sp ** 2 - q1_sp ** 2 - q3_sp ** 2
+        parder_w_pedot_sp  = 2 * (q2_sp * q3_sp - q0_sp * q1_sp)
+        #Partial derivatives of pddot respect to state variables evaluated at the setpoint
+        parder_q0_pddot_sp = 2 * (- q2_sp * u_sp + q1_sp * v_sp + q0_sp * w_sp)
+        parder_q1_pddot_sp = 2 * (q3_sp * u_sp + q0_sp * v_sp - q1_sp * w_sp)
+        parder_q2_pddot_sp = 2 * (- q0_sp * u_sp + q3_sp * v_sp - q2_sp * w_sp)
+        parder_q3_pddot_sp = 2 * (q1_sp * u_sp + q2_sp * v_sp + q3_sp * w_sp)
+        parder_u_pddot_sp  = 2 * (q1_sp * q3_sp - q0_sp * q2_sp)
+        parder_v_pddot_sp  = 2 * (q0_sp * q1_sp + q2_sp * q3_sp)
+        parder_w_pddot_sp  = q0_sp ** 2 + q3_sp ** 2 - q1_sp ** 2 - q2_sp ** 2
+        #Partial derivatives of q0dot respect to state variables evaluated at the setpoint
+        parder_q1_q0dot_sp = - 0.5 * p_sp
+        parder_q2_q0dot_sp = - 0.5 * q_sp
+        parder_q3_q0dot_sp = - 0.5 * r_sp
+        parder_p_q0dot_sp  = - 0.5 * q1_sp
+        parder_q_q0dot_sp  = - 0.5 * q2_sp
+        parder_r_q0dot_sp  = - 0.5 * q3_sp
+        #Partial derivatives of q1dot respect to state variables evaluated at the setpoint
+        parder_q0_q1dot_sp = 0.5 * p_sp
+        parder_q2_q1dot_sp = 0.5 * r_sp
+        parder_q3_q1dot_sp = - 0.5 * q_sp
+        parder_p_q1dot_sp  = 0.5 * q0_sp
+        parder_q_q1dot_sp  = - 0.5 * q3_sp
+        parder_r_q1dot_sp  = 0.5 * q2_sp
+        #Partial derivatives of q2dot respect to state variables evaluated at the setpoint
+        parder_q0_q2dot_sp = 0.5 * q_sp
+        parder_q1_q2dot_sp = - 0.5 * r_sp
+        parder_q3_q2dot_sp = 0.5 * p_sp
+        parder_p_q2dot_sp  = 0.5 * q3_sp
+        parder_q_q2dot_sp  = 0.5 * q0_sp
+        parder_r_q2dot_sp  = - 0.5 * q1_sp
+        #Partial derivatives of q3dot respect to state variables evaluated at the setpoint
+        parder_q0_q3dot_sp = 0.5 * r_sp
+        parder_q1_q3dot_sp = 0.5 * q_sp
+        parder_q2_q3dot_sp = - 0.5 * p_sp
+        parder_p_q3dot_sp  = - 0.5 * q2_sp
+        parder_q_q3dot_sp  = 0.5 * q1_sp
+        parder_r_q3dot_sp  = 0.5 * q0_sp
+        #Partial derivatives of udot respect to state variables evaluated at the setpoint
+        parder_pd_udot_sp     = (1 / mass) * (- parder_pd_qbar_sp * SW_SI * (CD1_sp + CD2_sp + CD3_sp + CD4_sp) + parder_pd_T_sp)
+        parder_q0_udot_sp     = - 2 * G0_SI * q2_sp
+        parder_q1_udot_sp     = 2 * G0_SI * q3_sp
+        parder_q2_udot_sp     = - 2 * G0_SI * q0_sp
+        parder_q3_udot_sp     = 2 * G0_SI * q1_sp
+        parder_u_udot_sp      = (1 / mass) * (- SW_SI * (parder_u_qbar_sp * (CD1_sp + CD2_sp + CD3_sp + CD4_sp) + qbar_sp * (parder_u_CD3_sp + parder_u_CD4_sp)) + parder_u_T_sp)
+        parder_v_udot_sp      = r_sp - (SW_SI / mass) * (parder_v_qbar_sp * (CD1_sp + CD2_sp + CD3_sp + CD4_sp) + qbar_sp * parder_v_CD4_sp)
+        parder_w_udot_sp      = - q_sp - (SW_SI / mass) * (parder_w_qbar_sp * (CD1_sp + CD2_sp + CD3_sp + CD4_sp) + qbar_sp * (parder_w_CD3_sp + parder_w_CD4_sp))
+        parder_q_udot_sp      = - w_sp
+        parder_r_udot_sp      = v_sp
+        parder_deltat_udot_sp = parder_deltat_T_sp / mass
+        #Partial derivatives of vdot respect to state variables evaluated at the setpoint
+        parder_pd_vdot_sp     = (1 / mass) * (parder_pd_qbar_sp * SW_SI * (CC1_sp + CC2_sp))
+        parder_q0_vdot_sp     = 2 * G0_SI * q1_sp
+        parder_q1_vdot_sp     = 2 * G0_SI * q0_sp
+        parder_q2_vdot_sp     = 2 * G0_SI * q3_sp
+        parder_q3_vdot_sp     = 2 * G0_SI * q2_sp
+        parder_u_vdot_sp      = - r_sp + (SW_SI / mass) * (parder_u_qbar_sp * (CC1_sp + CC2_sp) + qbar_sp * parder_u_CC1_sp)
+        parder_v_vdot_sp      = (SW_SI / mass) * (parder_v_qbar_sp * (CC1_sp + CC2_sp) + qbar_sp * parder_v_CC1_sp)
+        parder_w_vdot_sp      = p_sp + (SW_SI / mass) * (parder_w_qbar_sp * (CC1_sp + CC2_sp) + qbar_sp * parder_w_CC1_sp)
+        parder_p_vdot_sp      = w_sp
+        parder_r_vdot_sp      = - u_sp
+        parder_deltar_vdot_sp = ((qbar_sp * SW_SI) / mass) * parder_deltar_CC2_sp
+        #Partial derivatives of wdot respect to state variables evaluated at the setpoint
+        parder_pd_wdot_sp     = - (SW_SI / mass) * (parder_pd_qbar_sp * (CL1_sp + CL2_sp + CL3_sp + CL4_sp) + parder_pd_qbaruw_sp * CL5_sp)
+        parder_q0_wdot_sp     = 2 * G0_SI * q0_sp
+        parder_q1_wdot_sp     = - 2 * G0_SI * q1_sp
+        parder_q2_wdot_sp     = - 2 * G0_SI * q2_sp
+        parder_q3_wdot_sp     = 2 * G0_SI * q3_sp
+        parder_u_wdot_sp      = q_sp - (SW_SI / mass) * (parder_u_qbar_sp * (CL1_sp + CL2_sp + CL3_sp + CL4_sp) + qbar_sp * (parder_u_CL1_sp + parder_u_CL4_sp) + parder_u_qbaruw_sp * CL5_sp + qbaruw_sp * parder_u_CL5_sp)
+        parder_v_wdot_sp      = - p_sp - (SW_SI / mass) * (parder_v_qbar_sp * (CL1_sp + CL2_sp + CL3_sp + CL4_sp) + qbar_sp * parder_v_CL4_sp + qbaruw_sp * CL5_sp)
+        parder_w_wdot_sp      = - (SW_SI / mass) * (parder_w_qbar_sp * (CL1_sp + CL2_sp + CL3_sp + CL4_sp) + qbar_sp * (parder_w_CL1_sp + parder_w_CL4_sp) + parder_w_qbaruw_sp * CL5_sp + qbaruw_sp * parder_w_CL5_sp)
+        parder_p_wdot_sp      = - v_sp
+        parder_q_wdot_sp      = u_sp - ((qbar_sp * SW_SI) / mass) * parder_q_CL4_sp
+        parder_deltae_wdot_sp = - ((qbar_sp * SW_SI) / mass) * parder_deltae_CL3_sp
+        #Partial derivatives of pdot respect to state variables evaluated at the setpoint
+        parder_pd_pdot_sp     = SW_SI * BW_SI * (parder_pd_qbar_sp * (Gamma3 * (Cl1_sp + Cl2_sp + Cl3_sp + Cl4_sp + Cl5_sp) + Gamma4 * (Cn1_sp + Cn2_sp + Cn3_sp + Cn4_sp)) + Gamma4 * (parder_pd_qbarind_sp * Cn5_sp + parder_pd_qbarprop_sp * Cn6_sp))
+        parder_u_pdot_sp      = SW_SI * BW_SI * (parder_u_qbar_sp * (Gamma3 * (Cl1_sp + Cl2_sp + Cl3_sp + Cl4_sp + Cl5_sp) + Gamma4 * (Cn1_sp + Cn2_sp + Cn3_sp + Cn4_sp)) + qbar_sp * (Gamma3 * (parder_u_Cl1_sp + parder_u_Cl2_sp + parder_u_Cl3_sp + parder_u_Cl4_sp) + Gamma4 * (parder_u_Cn1_sp + parder_u_Cn2_sp + parder_u_Cn3_sp + parder_u_Cn4_sp)) + Gamma4 * (parder_u_qbarind_sp * Cn5_sp + parder_u_qbarprop_sp * Cn6_sp))
+        parder_v_pdot_sp      = SW_SI * BW_SI * (parder_v_qbar_sp * (Gamma3 * (Cl1_sp + Cl2_sp + Cl3_sp + Cl4_sp + Cl5_sp) + Gamma4 * (Cn1_sp + Cn2_sp + Cn3_sp + Cn4_sp)) + qbar_sp * (Gamma3 * (parder_v_Cl1_sp + parder_v_Cl2_sp + parder_v_Cl3_sp) + Gamma4 * (parder_v_Cn1_sp + parder_v_Cn2_sp + parder_v_Cn3_sp + parder_v_Cn4_sp)))
+        parder_w_pdot_sp      = SW_SI * BW_SI * (parder_w_qbar_sp * (Gamma3 * (Cl1_sp + Cl2_sp + Cl3_sp + Cl4_sp + Cl5_sp) + Gamma4 * (Cn1_sp + Cn2_sp + Cn3_sp + Cn4_sp)) + qbar_sp * (Gamma3 * (parder_w_Cl1_sp + parder_w_Cl2_sp + parder_w_Cl3_sp + parder_w_Cl4_sp) + Gamma4 * (parder_w_Cn1_sp + parder_w_Cn2_sp + parder_w_Cn3_sp + parder_w_Cn4_sp)))
+        parder_p_pdot_sp      = Gamma1 * q_sp + SW_SI * BW_SI * qbar_sp * Gamma3 * parder_p_Cl2_sp
+        parder_q_pdot_sp      = Gamma1 * p_sp - Gamma2 * r_sp
+        parder_r_pdot_sp      = - Gamma2 * q_sp + SW_SI * BW_SI * qbar_sp * (Gamma3 * parder_r_Cl3_sp + Gamma4 * (parder_r_Cn2_sp + parder_r_Cn3_sp))
+        parder_deltaa_pdot_sp = SW_SI * BW_SI * qbar_sp * (Gamma3 * parder_deltaa_Cl4_sp + Gamma4 * parder_deltaa_Cn4_sp)
+        parder_deltar_pdot_sp = SW_SI * BW_SI * (Gamma3 * qbar_sp * parder_deltar_Cl5_sp + Gamma4 * qbarind_sp * parder_deltar_Cn5_sp)
+        #Partial derivatives of qdot respect to state variables evaluated at the setpoint
+        parder_pd_qdot_sp     = ((SW_SI * CW_SI) / Iyy) * (parder_pd_qbar_sp * (Cm1_sp + Cm2_sp + Cm3_sp + Cm4_sp) + qbar_sp * parder_pd_Cm1_sp + parder_pd_qbaruw_sp * Cm5_sp + parder_pd_qbarind_sp * Cm6_sp)
+        parder_u_qdot_sp      = ((SW_SI * CW_SI) / Iyy) * (parder_u_qbar_sp * (Cm1_sp + Cm2_sp + Cm3_sp + Cm4_sp) + qbar_sp * (parder_u_Cm2_sp + parder_u_Cm3_sp) + parder_u_qbaruw_sp * Cm5_sp + qbaruw_sp * parder_u_Cm5_sp + parder_u_qbarind_sp * Cm6_sp + qbarind_sp * parder_u_Cm6_sp)
+        parder_v_qdot_sp      = ((SW_SI * CW_SI) / Iyy) * (parder_v_qbar_sp * (Cm1_sp + Cm2_sp + Cm3_sp + Cm4_sp) + qbar_sp * parder_v_Cm3_sp + qbaruw_sp * parder_v_Cm5_sp)
+        parder_w_qdot_sp      = ((SW_SI * CW_SI) / Iyy) * (parder_w_qbar_sp * (Cm1_sp + Cm2_sp + Cm3_sp + Cm4_sp) + qbar_sp * (parder_w_Cm2_sp + parder_w_Cm3_sp) + parder_w_qbaruw_sp * Cm5_sp + qbaruw_sp * parder_w_Cm5_sp + qbarind_sp * parder_w_Cm6_sp)
+        parder_p_qdot_sp      = Gamma5 * r_sp - 2 * Gamma6 * p_sp
+        parder_q_qdot_sp      = ((SW_SI * CW_SI * qbar_sp) / Iyy) * parder_q_Cm3_sp
+        parder_r_qdot_sp      = Gamma5 * p_sp + 2 * Gamma6 * r_sp
+        parder_deltae_qdot_sp = ((SW_SI * CW_SI * qbarind_sp) / Iyy) * parder_deltae_Cm6_sp
+        #Partial derivatives of rdot respect to state variables evaluated at the setpoint
+        parder_pd_rdot_sp     = SW_SI * BW_SI * (parder_pd_qbar_sp * (Gamma4 * (Cl1_sp + Cl2_sp + Cl3_sp + Cl4_sp + Cl5_sp) + Gamma8 * (Cn1_sp + Cn2_sp + Cn3_sp + Cn4_sp)) + Gamma8 * (parder_pd_qbarind_sp * Cn5_sp + parder_pd_qbarprop_sp * Cn6_sp))
+        parder_u_rdot_sp      = SW_SI * BW_SI * (parder_u_qbar_sp * (Gamma4 * (Cl1_sp + Cl2_sp + Cl3_sp + Cl4_sp + Cl5_sp) + Gamma8 * (Cn1_sp + Cn2_sp + Cn3_sp + Cn4_sp)) + qbar_sp * (Gamma4 * (parder_u_Cl1_sp + parder_u_Cl2_sp + parder_u_Cl3_sp + parder_u_Cl4_sp) + Gamma8 * (parder_u_Cn1_sp + parder_u_Cn2_sp + parder_u_Cn3_sp + parder_u_Cn4_sp)) + Gamma8 * (parder_u_qbarind_sp * Cn5_sp + parder_u_qbarprop_sp * Cn6_sp))
+        parder_v_rdot_sp      = SW_SI * BW_SI * (parder_v_qbar_sp * (Gamma4 * (Cl1_sp + Cl2_sp + Cl3_sp + Cl4_sp + Cl5_sp) + Gamma8 * (Cn1_sp + Cn2_sp + Cn3_sp + Cn4_sp)) + qbar_sp * (Gamma4 * (parder_v_Cl1_sp + parder_v_Cl2_sp + parder_v_Cl3_sp) + Gamma8 * (parder_v_Cn1_sp + parder_v_Cn2_sp + parder_v_Cn3_sp + parder_v_Cn4_sp)))
+        parder_w_rdot_sp      = SW_SI * BW_SI * (parder_w_qbar_sp * (Gamma4 * (Cl1_sp + Cl2_sp + Cl3_sp + Cl4_sp + Cl5_sp) + Gamma8 * (Cn1_sp + Cn2_sp + Cn3_sp + Cn4_sp)) + qbar_sp * (Gamma4 * (parder_w_Cl1_sp + parder_w_Cl2_sp + parder_w_Cl3_sp + parder_w_Cl4_sp) + Gamma8 * (parder_w_Cn1_sp + parder_w_Cn2_sp + parder_w_Cn3_sp + parder_w_Cn4_sp)))
+        parder_p_rdot_sp      = Gamma7 * q_sp + SW_SI * BW_SI * qbar_sp * Gamma4 * parder_p_Cl2_sp
+        parder_q_rdot_sp      = Gamma7 * p_sp - Gamma1 * r_sp
+        parder_r_rdot_sp      = - Gamma1 * q_sp + SW_SI * BW_SI * qbar_sp * (Gamma4 * parder_r_Cl3_sp + Gamma8 * (parder_r_Cn2_sp + parder_r_Cn3_sp))
+        parder_deltaa_rdot_sp = SW_SI * BW_SI * qbar_sp * (Gamma4 * parder_deltaa_Cl4_sp + Gamma8 * parder_deltaa_Cn4_sp)
+        parder_deltar_rdot_sp = SW_SI * BW_SI * (Gamma4 * qbar_sp * parder_deltar_Cl5_sp + Gamma8 * qbarind_sp * parder_deltar_Cn5_sp)
+        #Partial derivatives of state respect to state (A) evaluated at the setpoint
+        parder_x_sp = np.array(
+                               [ 
+                                parder_q0_pndot_sp,
+                                parder_q1_pndot_sp,
+                                parder_q2_pndot_sp,
+                                parder_q3_pndot_sp,
+                                parder_u_pndot_sp,
+                                parder_v_pndot_sp,
+                                parder_w_pndot_sp,
+                                parder_q0_pedot_sp,
+                                parder_q1_pedot_sp,
+                                parder_q2_pedot_sp,
+                                parder_q3_pedot_sp,
+                                parder_u_pedot_sp,
+                                parder_v_pedot_sp,
+                                parder_w_pedot_sp,
+                                parder_q0_pddot_sp,
+                                parder_q1_pddot_sp,
+                                parder_q2_pddot_sp,
+                                parder_q3_pddot_sp,
+                                parder_u_pddot_sp,
+                                parder_v_pddot_sp,
+                                parder_w_pddot_sp,
+                                parder_q1_q0dot_sp,
+                                parder_q2_q0dot_sp,
+                                parder_q3_q0dot_sp,
+                                parder_p_q0dot_sp,
+                                parder_q_q0dot_sp,
+                                parder_r_q0dot_sp,
+                                parder_q0_q1dot_sp,
+                                parder_q2_q1dot_sp,
+                                parder_q3_q1dot_sp,
+                                parder_p_q1dot_sp,
+                                parder_q_q1dot_sp,
+                                parder_r_q1dot_sp,
+                                parder_q0_q2dot_sp,
+                                parder_q1_q2dot_sp,
+                                parder_q3_q2dot_sp,
+                                parder_p_q2dot_sp,
+                                parder_q_q2dot_sp,
+                                parder_r_q2dot_sp,
+                                parder_q0_q3dot_sp,
+                                parder_q1_q3dot_sp,
+                                parder_q2_q3dot_sp,
+                                parder_p_q3dot_sp,
+                                parder_q_q3dot_sp,
+                                parder_r_q3dot_sp,
+                                parder_pd_udot_sp,
+                                parder_q0_udot_sp,
+                                parder_q1_udot_sp,
+                                parder_q2_udot_sp,
+                                parder_q3_udot_sp,
+                                parder_u_udot_sp,
+                                parder_v_udot_sp,
+                                parder_w_udot_sp,
+                                parder_q_udot_sp,
+                                parder_r_udot_sp,
+                                parder_pd_vdot_sp,
+                                parder_q0_vdot_sp,
+                                parder_q1_vdot_sp,
+                                parder_q2_vdot_sp,
+                                parder_q3_vdot_sp,
+                                parder_u_vdot_sp,
+                                parder_v_vdot_sp,
+                                parder_w_vdot_sp,
+                                parder_p_vdot_sp,
+                                parder_r_vdot_sp,
+                                parder_pd_wdot_sp,
+                                parder_q0_wdot_sp,
+                                parder_q1_wdot_sp,
+                                parder_q2_wdot_sp,
+                                parder_q3_wdot_sp,
+                                parder_u_wdot_sp,
+                                parder_v_wdot_sp,
+                                parder_w_wdot_sp,
+                                parder_p_wdot_sp,
+                                parder_q_wdot_sp,
+                                parder_pd_pdot_sp,
+                                parder_u_pdot_sp,
+                                parder_v_pdot_sp,
+                                parder_w_pdot_sp,
+                                parder_p_pdot_sp,
+                                parder_q_pdot_sp,
+                                parder_r_pdot_sp,
+                                parder_pd_qdot_sp,
+                                parder_u_qdot_sp,
+                                parder_v_qdot_sp,
+                                parder_w_qdot_sp,
+                                parder_p_qdot_sp,
+                                parder_q_qdot_sp,
+                                parder_r_qdot_sp,
+                                parder_pd_rdot_sp,
+                                parder_u_rdot_sp,
+                                parder_v_rdot_sp,
+                                parder_w_rdot_sp,
+                                parder_p_rdot_sp,
+                                parder_q_rdot_sp,
+                                parder_r_rdot_sp
+                               ]
+                               , dtype=float
+                              )
+        #Partial derivatives of state respect to input (B) evaluated at the setpoint
+        parder_delta_sp = np.array(
+                                   [
+                                    parder_deltat_udot_sp,
+                                    parder_deltar_vdot_sp,
+                                    parder_deltae_wdot_sp,
+                                    parder_deltaa_pdot_sp,
+                                    parder_deltar_pdot_sp,
+                                    parder_deltae_qdot_sp,
+                                    parder_deltaa_rdot_sp,
+                                    parder_deltar_rdot_sp
+                                   ]
+                                   , dtype=float
+                                  )
+        #Update ALCM dictionary
+        self.alcm_dict.update(parder_x_sp = parder_x_sp)
+        self.alcm_dict.update(parder_delta_sp = parder_delta_sp)

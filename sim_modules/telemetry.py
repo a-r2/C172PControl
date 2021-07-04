@@ -1,5 +1,6 @@
 import numpy as np
 import socket
+import sys
 
 from constants import *
 from settings import *
@@ -10,7 +11,7 @@ class Telemetry():
         self.RX_PORT       = TELEM_RX_PORT
         self.TX_IP_ADDRESS = TELEM_TX_IP_ADDRESS
         self.TX_PORT       = TELEM_TX_PORT
-    def receive(self, rx2act_in, rx2csv_in, rx2dyn_in, rx2eq_in, rx2cm_in, rx2sup_in, event_rxtcp, event_start, event_end):
+    def receive(self, rx2act_in, rx2csv_in, rx2dyn_in, rx2sp_in, rx2cm_in, rx2sup_in, event_rxtcp, event_start, event_end):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP RX socket
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #set RX socket reusability
         sock.bind((self.RX_IP_ADDRESS, self.RX_PORT)) #bind TCP RX socket to ip and port
@@ -37,10 +38,10 @@ class Telemetry():
                     i = np.where(framesarray[:,0] >= TELEM_WAIT)[0][0] #find first frame index
                     framesarray = framesarray[i:,:] #remove earlier frames
                     rx2act_in.send(framesarray) #send RX telemetry to calculate actuation 
+                    rx2cm_in.send(framesarray) #send RX telemetry to calculate control model 
                     rx2csv_in.send(framesarray) #send RX telemetry to store in CSV
                     rx2dyn_in.send(framesarray) #send RX telemetry to calculate dynamics
-                    rx2eq_in.send(framesarray) #send RX telemetry to calculate equilibrium point 
-                    rx2cm_in.send(framesarray) #send RX telemetry to calculate control model 
+                    rx2sp_in.send(framesarray) #send RX telemetry to calculate equilibrium point 
                     rx2sup_in.send(framesarray) #send RX telemetry to calculate supervisor 
                     event_start.set() #set simulation start event
                     framesarray = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty data frames array
@@ -48,23 +49,23 @@ class Telemetry():
                 else:
                     framesarray = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty data frames array
             except:
-                pass
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
         #Connected loop
         while True:
-            if event_end.is_set():
-                #Close pipes
-                rx2act_in.close()
-                rx2csv_in.close()
-                rx2dyn_in.close()
-                rx2eq_in.close()
-                rx2cm_in.close()
-                rx2sup_in.close()
-                #Close socket
-                sock.shutdown(socket.SHUT_RDWR)
-                sock.close()
-                break
-            else:
-                try:
+            try:
+                if event_end.is_set():
+                    #Close pipes
+                    rx2act_in.close()
+                    rx2csv_in.close()
+                    rx2dyn_in.close()
+                    rx2sp_in.close()
+                    rx2cm_in.close()
+                    rx2sup_in.close()
+                    #Close socket
+                    sock.shutdown(socket.SHUT_RDWR)
+                    sock.close()
+                    break
+                else:
                     tcpdata = conn.recv(TELEM_RX_BUFFER_SIZE) #TCP data buffer
                     tcpdata = tcpdata.decode() #decode TCP data
                     tcpframes = tcpdata.split('\n') #split TCP data into frames 
@@ -76,16 +77,16 @@ class Telemetry():
                     framesarray = framesarray[:framescount,:]
                     if (framescount > 0): #if at least one frame was received
                         rx2act_in.send(framesarray) #send RX telemetry to calculate actuation 
+                        rx2cm_in.send(framesarray) #send RX telemetry to calculate control model 
                         rx2csv_in.send(framesarray) #send RX telemetry to store in CSV
                         rx2dyn_in.send(framesarray) #send RX telemetry to calculate dynamics
-                        rx2eq_in.send(framesarray) #send RX telemetry to calculate equilibrium point 
-                        rx2cm_in.send(framesarray) #send RX telemetry to calculate control model 
+                        rx2sp_in.send(framesarray) #send RX telemetry to calculate equilibrium point 
                         rx2sup_in.send(framesarray) #send RX telemetry to calculate supervisor 
                         framesarray = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty data frames array
                     else:
                         framesarray = np.empty((MODEL_HZ, TELEM_RX_LEN)) #empty data frames array
-                except:
-                    pass
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
 
     def transmit(self, act2tx_out, event_rxtcp, event_txtcp, event_start, event_end):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP) #TCP TX socket
@@ -97,16 +98,16 @@ class Telemetry():
         event_txtcp.set() #wait for TX TCP connection event
         event_start.wait() #wait for simulation start event
         while True:
-            if event_end.is_set():
-                #Close pipe
-                act2tx_out.close()
-                #Close socket
-                sock.shutdown(socket.SHUT_RDWR)
-                sock.close()
-                break
-            else:
-                try:
+            try:
+                if event_end.is_set():
+                    #Close pipe
+                    act2tx_out.close()
+                    #Close socket
+                    sock.shutdown(socket.SHUT_RDWR)
+                    sock.close()
+                    break
+                else:
                     txdata = act2tx_out.recv()
                     sock.sendall(txdata.encode()) #sending TX telemetry data
-                except:
-                    pass
+            except:
+                raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
