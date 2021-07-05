@@ -77,8 +77,13 @@ class Actuation():
                             u_sp_ral        = self.fsf_dict['u_sp_ral']
                             K               = self.fsf_dict['K']
                             u_er_clral      = - K @ x_er_ral #reduced closed-loop model actuation
-                            u_clral         = (u_er_clral / abs(u_er_clral).max()) + u_sp_ral
-                            u_clral         = u_clral / abs(u_clral).max()
+                            u_clral         = u_er_clral + u_sp_ral
+                            for i in range(len(u_clral)):
+                                if i == 3:
+                                    u_clral[i] = min(1,max(0,u_clral[i]))
+                                else:
+                                    u_clral[i] = min(1,max(-1,u_clral[i]))
+                            print(' '.join(('u_clral:', str(u_clral))))
                             self.simact     = np.vstack((u_clral[:2], u_al[2], u_clral[2:], u_al[5], 0, 0, 0))
                             self.simact     = self.simact.flatten()
                             self.csvact[0]  = rxdata[0] #add timestamp
@@ -154,12 +159,16 @@ class Actuation():
     def _find_act(self):
         ral_sys  = self.fsf_dict['ral_sys']
         ral_poles = ral_sys.pole()
+        print(' '.join(('OL RAL poles:', str(ral_poles))))
         new_poles = ral_poles
         for i in range(len(new_poles)):
             if new_poles[i].real > 0:
-                new_poles[i] = - 10 * new_poles[i].real + 1j * new_poles[i].imag
+                new_poles[i] = - new_poles[i].real + 1j * new_poles[i].imag
+            elif new_poles[i].real < 0:
+                new_poles[i] = new_poles[i].real + 1j * new_poles[i].imag
             elif new_poles[i].real == 0:
                 new_poles[i] = - 10 * abs(np.random.random(1)) + 1j * new_poles[i].imag
+        print(' '.join(('CL RAL poles:', str(new_poles))))
         K = control.place(ral_sys.A, ral_sys.B, new_poles)
         #Closed-loop state space
         cl_ral_sys = control.StateSpace(ral_sys.A - ral_sys.B @ K, np.zeros(ral_sys.B.shape), ral_sys.C, np.zeros(ral_sys.D.shape))

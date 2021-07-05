@@ -1177,12 +1177,11 @@ class ControlModel():
         self.dt         = 1 / CM_HZ
         self.inputs_str = CM_INPUT_STR
         self.states_str = CM_STATE_STR
-        self.simcm      = np.zeros(CM_STATE_LEN) #array for storing actuation
-        self.csvcm      = np.zeros(CM_STATE_LEN + 1) #array for storing csv actuation
+        self.csvdata    = np.zeros(CM_STATE_LEN + 1) #array for storing csv actuation
 
     def alcm(self, cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end):
         #Analytic linear control model
-        self._init_alcm() #initialize alcm and variables
+        alcm_dict, phys_dict = self._init_alcm() #initialize alcm
         event_start.wait() #wait for simulation start event
         while True:
             try:
@@ -1196,45 +1195,23 @@ class ControlModel():
                 else:
                     rxdata = rx2cm_out.recv() #receive RX telemetry
                     if (np.any(rxdata[:,0] >= self.t)):
-                        i      = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
-                        rxdata = rxdata[i,:] #RX telemetry first frame
                         spdata = sp2cm_out.recv() #receive setpoint
-                        self.alcm_dict.update(rxdata = rxdata)
-                        self.alcm_dict.update(spdata = spdata)
-                        self.t = self.t + self.dt
-                        #Preprocessing
-                        self._preprocess_alcm()
-                        #self._prueba_eq()
-                        #Analytic linear control model
-                        self._construct_alcm()
-                        self._integrate_alcm()
-                        x_al    = self.alcm_dict['x_al']
-                        x_sp_al = self.alcm_dict['x_sp_al']
-                        x_er_al = self.alcm_dict['x_er_al']
-                        u_al    = self.alcm_dict['u_al']
-                        u_sp_al = self.alcm_dict['u_sp_al']
-                        u_er_al = self.alcm_dict['u_er_al']
-                        al_sys  = self.alcm_dict['al_sys']
-                        if (ACT_TYPE == 0) or (ACT_TYPE == 'random'): #random control
-                            pass
-                        else: 
-                            cm2act_in.send((x_al, x_sp_al, x_er_al, u_al, u_sp_al, u_er_al, al_sys)) #send ALCM to actuation module
-                        t_al    = self.alcm_dict['t_al']
-                        u_er_al = self.alcm_dict['u_er_al']
-                        self.alcm_dict.update(prev_t_al = t_al[1])
-                        self.alcm_dict.update(prev_u_er_al = u_er_al)
-                        y_er_al        = self.alcm_dict['y_er_al']
-                        self.simcm     = y_er_al[:,1]
-                        self.csvcm[0]  = rxdata[0] #add timestamp (t_sim)
-                        self.csvcm[1:] = self.simcm
-                        cm2csv_in.send(self.csvcm) #send state derivatives to CSV module
+                        #Preprocess piped-in data
+                        rxtime, alcm_dict, phys_dict = self._preprocess_alcm(alcm_dict, phys_dict, rxdata, spdata)
+                        #Step control model
+                        alcm_dict = self._build_alcm(alcm_dict, phys_dict)
+                        alcm_dict = self._step_alcm(alcm_dict)
+                        #Pipe out to actuation and CSV logging
+                        actdata = self._build_pipe_data_alcm(alcm_dict, rxtime)
+                        self._pipe_alcm(cm2act_in, cm2csv_in, actdata)
+                        #Update loop variables
+                        alcm_dict = self._loop_update_alcm(alcm_dict)
             except:
                 raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
 
     def anlcm(self, cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end):
         #Analytic non-linear control model
-        prev_t_anl = TELEM_WAIT
-        prev_u_anl = np.zeros((CM_INPUT_LEN, 1))
+        anlcm_dict, phys_dict = self._init_anlcm() #initialize anlcm
         event_start.wait() #wait for simulation start event
         while True:
             try:
@@ -1247,324 +1224,279 @@ class ControlModel():
                     break
                 else:
                     rxdata = rx2cm_out.recv() #receive RX telemetry
-                    spdata = sp2cm_out.recv() #receive setpoint
                     if (np.any(rxdata[:,0] >= self.t)):
-                        i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
-                        rxdata = rxdata[i,:] #first frame
-                        self.t = self.t + self.dt
-                        #RX telemetry
-                        longd         = rxdata[2]
-                        latd          = rxdata[3]
-                        hqfe_km       = rxdata[15]
-                        phi_rad       = rxdata[20]
-                        theta_rad     = rxdata[22]
-                        psi_rad       = rxdata[24]
-                        u             = rxdata[34]
-                        v             = rxdata[35]
-                        w             = rxdata[36]
-                        p             = rxdata[46]
-                        q             = rxdata[47]
-                        r             = rxdata[48]
-                        alphadot_rads = rxdata[53]
-                        sigmara_rad   = rxdata[93] 
-                        deltara       = rxdata[94]
-                        sigmala_rad   = rxdata[96]
-                        deltala       = rxdata[97]
-                        sigmae_rad    = rxdata[99]
-                        deltae        = rxdata[100]
-                        sigmar_rad    = rxdata[105]
-                        deltar        = rxdata[106]
-                        deltat        = rxdata[107]
-                        hmacb         = rxdata[111]
-                        qbar          = rxdata[112]
-                        Ixx           = rxdata[120]
-                        Ixy           = rxdata[121]
-                        Ixz           = rxdata[122]
-                        Iyy           = rxdata[123]
-                        Iyz           = rxdata[124]
-                        Izz           = rxdata[125]
-                        mass          = rxdata[126]
-                        # Conversions
-                        pn             = latd
-                        pe             = longd
-                        pd             = - km_to_m(hqfe_km)
-                        u              = ft_to_m(u)
-                        v              = ft_to_m(v)
-                        w              = ft_to_m(w)
-                        deltaa         = deltaa_acm(deltala, deltara) 
-                        qbar           = psf_to_pa(qbar) 
-                        Ixx            = slugft2_to_kgm2(Ixx)
-                        Ixy            = slugft2_to_kgm2(Ixy)
-                        Ixz            = slugft2_to_kgm2(Ixz)
-                        Iyy            = slugft2_to_kgm2(Iyy)
-                        Iyz            = slugft2_to_kgm2(Iyz)
-                        Izz            = slugft2_to_kgm2(Izz)
-                        mass           = slug_to_kg(mass)
-                        euler          = np.array([phi_rad, theta_rad, psi_rad])
-                        q0, q1, q2, q3 = euler_to_attquat(euler)
-                        #Assumptions of analytic control models
-                        sigmaf_rad, deltaf, deltam, n, rho, grav, stall = acm_assumptions(deltat, pd)
-                        #Moments of inertia
-                        Gamma  = mominert_gamma(Ixx, Ixz, Izz)
-                        Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
-                        Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
-                        Gamma3 = mominert_gamma3(Izz, Gamma)
-                        Gamma4 = mominert_gamma4(Ixz, Gamma)
-                        Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
-                        Gamma6 = mominert_gamma6(Ixz, Iyy)
-                        Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
-                        Gamma8 = mominert_gamma8(Ixx, Gamma)
-                        #Analytic non-linear control model parameters
-                        params = dict()
-                        params.update(phi_rad = phi_rad)
-                        params.update(theta_rad = theta_rad)
-                        params.update(psi_rad = psi_rad)
-                        params.update(alphadot_rads = alphadot_rads)
-                        params.update(sigmara_rad = sigmara_rad)
-                        params.update(sigmala_rad = sigmala_rad)
-                        params.update(sigmae_rad = sigmae_rad)
-                        params.update(sigmaf_rad = sigmaf_rad)
-                        params.update(sigmar_rad = sigmar_rad)
-                        params.update(hmacb = hmacb)
-                        params.update(stall = stall)
-                        params.update(Iyy = Iyy)
-                        params.update(mass = mass)
-                        params.update(grav = grav)
-                        params.update(rho = rho)
-                        params.update(n = n)
-                        params.update(Gamma = Gamma)
-                        params.update(Gamma1 = Gamma1)
-                        params.update(Gamma2 = Gamma2)
-                        params.update(Gamma3 = Gamma3)
-                        params.update(Gamma4 = Gamma4)
-                        params.update(Gamma5 = Gamma5)
-                        params.update(Gamma6 = Gamma6)
-                        params.update(Gamma7 = Gamma7)
-                        params.update(Gamma8 = Gamma8)
-                        #State
-                        x_anl = np.row_stack(
-                                             [
-                                              pn,
-                                              pe,
-                                              pd,
-                                              q0,
-                                              q1,
-                                              q2,
-                                              q3,
-                                              u,
-                                              v,
-                                              w,
-                                              p,
-                                              q,
-                                              r
-                                             ]
-                                            )
-                        #Input
-                        u_anl = np.row_stack(
-                                             [
-                                              deltaa,
-                                              deltae,
-                                              deltaf,
-                                              deltar,
-                                              deltat,
-                                              deltam
-                                             ]
-                                            )
-                        #Analytic non-linear control model
-                        times          = np.array([prev_t_anl, self.t])
-                        anl_sys        = control.iosys.NonlinearIOSystem(self._update_anl, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, params=params, dt=self.dt, name='ANL')
-                        #cm2act_in.send((x_anl, u_anl, anl_sys)) #send analytic non-linear control model to actuation module
-                        t_anl, y_anl   = control.input_output_response(anl_sys, times, np.concatenate((prev_u_anl, u_anl),1), x_anl)
-                        prev_t_anl     = t_anl[1]
-                        prev_u_anl     = u_anl
-                        self.simcm     = y_anl[:,1]
-                        self.csvcm[0]  = rxdata[0] #add timestamp (t_sim)
-                        self.csvcm[1:] = self.simcm
-                        cm2csv_in.send(self.csvcm) #send state derivatives to CSV module
+                        spdata = sp2cm_out.recv() #receive setpoint
+                        #Preprocess piped-in data
+                        rxtime, anlcm_dict, phys_dict = self._preprocess_anlcm(anlcm_dict, phys_dict, rxdata, spdata)
+                        #Step control model
+                        anlcm_dict = self._build_anlcm(anlcm_dict)
+                        anlcm_dict = self._step_anlcm(anlcm_dict)
+                        #Pipe out to actuation and CSV logging
+                        actdata = self._build_pipe_data_anlcm(anlcm_dict, rxtime)
+                        self._pipe_anlcm(cm2act_in, cm2csv_in, actdata)
+                        #Update loop variables
+                        anlcm_dict = self._loop_update_anlcm(anlcm_dict)
             except:
                 raise RuntimeError('.'.join((__name__, sys._getframe().f_code.co_name)))
-    def lanlcm(self, cm2act_in, cm2csv_in, rx2cm_out, sp2cm_out, event_start, event_end):
-        #Linearized analytic non-linear control model
-        prev_t_anl = TELEM_WAIT
-        prev_u_anl = np.zeros((CM_INPUT_LEN, 1))
-        event_start.wait() #wait for simulation start event
-        while True:
-            if event_end.is_set():
-                #Close pipes
-                cm2act_in.close()
-                cm2csv_in.close()
-                rx2cm_out.close()
-                sp2cm_out.close()
-                break
-            else:
-                rxdata = rx2cm_out.recv() #receive RX telemetry
-                spdata = sp2cm_out.recv() #receive setpoint
-                if (np.any(rxdata[:,0] >= self.t)):
-                    i = np.where(rxdata[:,0] >= self.t)[0][0] #find first frame index
-                    rxdata = rxdata[i,:] #first frame
-                    self.t = self.t + self.dt
-                    #RX telemetry
-                    longd         = rxdata[2]
-                    latd          = rxdata[3]
-                    hqfe_km       = rxdata[15]
-                    phi_rad       = rxdata[20]
-                    theta_rad     = rxdata[22]
-                    psi_rad       = rxdata[24]
-                    u             = rxdata[34]
-                    v             = rxdata[35]
-                    w             = rxdata[36]
-                    p             = rxdata[46]
-                    q             = rxdata[47]
-                    r             = rxdata[48]
-                    alphadot_rads = rxdata[53]
-                    sigmara_rad   = rxdata[93] 
-                    deltara       = rxdata[94]
-                    sigmala_rad   = rxdata[96]
-                    deltala       = rxdata[97]
-                    sigmae_rad    = rxdata[99]
-                    deltae        = rxdata[100]
-                    sigmar_rad    = rxdata[105]
-                    deltar        = rxdata[106]
-                    deltat        = rxdata[107]
-                    hmacb         = rxdata[111]
-                    qbar          = rxdata[112]
-                    Ixx           = rxdata[120]
-                    Ixy           = rxdata[121]
-                    Ixz           = rxdata[122]
-                    Iyy           = rxdata[123]
-                    Iyz           = rxdata[124]
-                    Izz           = rxdata[125]
-                    mass          = rxdata[126]
-                    # Conversions
-                    pn             = latd
-                    pe             = longd
-                    pd             = - km_to_m(hqfe_km)
-                    u              = ft_to_m(u)
-                    v              = ft_to_m(v)
-                    w              = ft_to_m(w)
-                    deltaa         = deltaa_acm(deltala, deltara) 
-                    qbar           = psf_to_pa(qbar) 
-                    Ixx            = slugft2_to_kgm2(Ixx)
-                    Ixy            = slugft2_to_kgm2(Ixy)
-                    Ixz            = slugft2_to_kgm2(Ixz)
-                    Iyy            = slugft2_to_kgm2(Iyy)
-                    Iyz            = slugft2_to_kgm2(Iyz)
-                    Izz            = slugft2_to_kgm2(Izz)
-                    mass           = slug_to_kg(mass)
-                    euler          = np.array([phi_rad, theta_rad, psi_rad])
-                    q0, q1, q2, q3 = euler_to_attquat(euler)
-                    #Assumptions of analytic control models
-                    sigmaf_rad, deltaf, deltam, n, rho, grav, stall = acm_assumptions(deltat, pd)
-                    #Moments of inertia
-                    Gamma  = mominert_gamma(Ixx, Ixz, Izz)
-                    Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
-                    Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
-                    Gamma3 = mominert_gamma3(Izz, Gamma)
-                    Gamma4 = mominert_gamma4(Ixz, Gamma)
-                    Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
-                    Gamma6 = mominert_gamma6(Ixz, Iyy)
-                    Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
-                    Gamma8 = mominert_gamma8(Ixx, Gamma)
-                    #Analytic non-linear control model parameters
-                    params = dict()
-                    params.update(phi_rad = phi_rad)
-                    params.update(theta_rad = theta_rad)
-                    params.update(psi_rad = psi_rad)
-                    params.update(alphadot_rads = alphadot_rads)
-                    params.update(sigmara_rad = sigmara_rad)
-                    params.update(sigmala_rad = sigmala_rad)
-                    params.update(sigmae_rad = sigmae_rad)
-                    params.update(sigmaf_rad = sigmaf_rad)
-                    params.update(sigmar_rad = sigmar_rad)
-                    params.update(hmacb = hmacb)
-                    params.update(stall = stall)
-                    params.update(Iyy = Iyy)
-                    params.update(mass = mass)
-                    params.update(grav = grav)
-                    params.update(rho = rho)
-                    params.update(n = n)
-                    params.update(Gamma = Gamma)
-                    params.update(Gamma1 = Gamma1)
-                    params.update(Gamma2 = Gamma2)
-                    params.update(Gamma3 = Gamma3)
-                    params.update(Gamma4 = Gamma4)
-                    params.update(Gamma5 = Gamma5)
-                    params.update(Gamma6 = Gamma6)
-                    params.update(Gamma7 = Gamma7)
-                    params.update(Gamma8 = Gamma8)
-                    #State
-                    x_anl = np.row_stack(
-                                         [
-                                          pn,
-                                          pe,
-                                          pd,
-                                          q0,
-                                          q1,
-                                          q2,
-                                          q3,
-                                          u,
-                                          v,
-                                          w,
-                                          p,
-                                          q,
-                                          r
-                                         ]
-                                        )
-                    #State setpoint
-                    x_sp_anl = np.row_stack(spdata[:CM_STATE_LEN])
-                    #Input
-                    u_anl = np.row_stack(
-                                         [
-                                          deltaa,
-                                          deltae,
-                                          deltaf,
-                                          deltar,
-                                          deltat,
-                                          deltam
-                                         ]
-                                        )
-                    #Input setpoint
-                    u_sp_anl = np.row_stack(spdata[CM_STATE_LEN:])
-                    #Analytic non-linear control model
-                    times          = np.array([prev_t_anl, self.t])
-                    anl_sys        = control.iosys.NonlinearIOSystem(self._update_anl, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, params=params, dt=self.dt, name='ANL')
-                    lanl_sys       = anl_sys.linearize(x0=x_sp_anl, u0=u_sp_anl)
-                    #cm2act_in.send((x_lanl, u_lanl, lanl_sys)) #send analytic non-linear control model to actuation module
-                    t_lanl, y_lanl = control.input_output_response(lanl_sys, times, np.concatenate((prev_u_anl, u_anl),1), x_anl)
-                    prev_t_anl     = t_lanl[1]
-                    prev_u_anl     = u_anl
-                    self.simcm     = y_lanl[:,1]
-                    self.csvcm[0]  = rxdata[0] #add timestamp (t_sim)
-                    self.csvcm[1:] = self.simcm
-                    cm2csv_in.send(self.csvcm) #send state derivatives to CSV module
 
-    def _update_anl(self, time, x_anl, u_anl, params):
+    def _preprocess_anlcm(self, anlcm_dict, phys_dict, rxdata, spdata):
+        i      = np.where(rxdata[:,0] >= self.t)[0][0] #first RX telemetry frame index
+        rxdata = rxdata[i,:] #first RX telemetry frame
+        rxtime = rxdata[0]
+        #RX telemetry
+        longd         = rxdata[2]
+        latd          = rxdata[3]
+        hqfe_km       = rxdata[15]
+        phi_rad       = rxdata[20]
+        theta_rad     = rxdata[22]
+        psi_rad       = rxdata[24]
+        u             = rxdata[34]
+        v             = rxdata[35]
+        w             = rxdata[36]
+        p             = rxdata[46]
+        q             = rxdata[47]
+        r             = rxdata[48]
+        alphadot_rads = rxdata[53]
+        sigmara_rad   = rxdata[93] 
+        deltara       = rxdata[94]
+        sigmala_rad   = rxdata[96]
+        deltala       = rxdata[97]
+        sigmae_rad    = rxdata[99]
+        deltae        = rxdata[100]
+        sigmar_rad    = rxdata[105]
+        deltar        = rxdata[106]
+        deltat        = rxdata[107]
+        hmacb         = rxdata[111]
+        qbar          = rxdata[112]
+        Ixx           = rxdata[120]
+        Ixy           = rxdata[121]
+        Ixz           = rxdata[122]
+        Iyy           = rxdata[123]
+        Iyz           = rxdata[124]
+        Izz           = rxdata[125]
+        mass          = rxdata[126]
+        # Conversions
+        pn             = latd
+        pe             = longd
+        pd             = - km_to_m(hqfe_km)
+        u              = ft_to_m(u)
+        v              = ft_to_m(v)
+        w              = ft_to_m(w)
+        deltaa         = deltaa_acm(deltala, deltara) 
+        qbar           = psf_to_pa(qbar) 
+        Ixx            = slugft2_to_kgm2(Ixx)
+        Ixy            = slugft2_to_kgm2(Ixy)
+        Ixz            = slugft2_to_kgm2(Ixz)
+        Iyy            = slugft2_to_kgm2(Iyy)
+        Iyz            = slugft2_to_kgm2(Iyz)
+        Izz            = slugft2_to_kgm2(Izz)
+        mass           = slug_to_kg(mass)
+        euler          = np.array([phi_rad, theta_rad, psi_rad])
+        q0, q1, q2, q3 = euler_to_attquat(euler)
+        #Assumptions of analytic control models
+        sigmaf_rad, deltaf, deltam, n, rho, grav, stall = acm_assumptions(deltat, pd)
+        #Moments of inertia
+        Gamma  = mominert_gamma(Ixx, Ixz, Izz)
+        Gamma1 = mominert_gamma1(Ixx, Ixz, Iyy, Izz, Gamma)
+        Gamma2 = mominert_gamma2(Ixz, Iyy, Izz, Gamma)
+        Gamma3 = mominert_gamma3(Izz, Gamma)
+        Gamma4 = mominert_gamma4(Ixz, Gamma)
+        Gamma5 = mominert_gamma5(Ixx, Iyy, Izz)
+        Gamma6 = mominert_gamma6(Ixz, Iyy)
+        Gamma7 = mominert_gamma7(Ixx, Iyy, Ixz, Gamma)
+        Gamma8 = mominert_gamma8(Ixx, Gamma)
+        #Analytic non-linear control model parameters
+        params_anl = {}
+        params_anl.update(phi_rad = phi_rad)
+        params_anl.update(theta_rad = theta_rad)
+        params_anl.update(psi_rad = psi_rad)
+        params_anl.update(alphadot_rads = alphadot_rads)
+        params_anl.update(sigmara_rad = sigmara_rad)
+        params_anl.update(sigmala_rad = sigmala_rad)
+        params_anl.update(sigmae_rad = sigmae_rad)
+        params_anl.update(sigmaf_rad = sigmaf_rad)
+        params_anl.update(sigmar_rad = sigmar_rad)
+        params_anl.update(hmacb = hmacb)
+        params_anl.update(stall = stall)
+        params_anl.update(Iyy = Iyy)
+        params_anl.update(mass = mass)
+        params_anl.update(grav = grav)
+        params_anl.update(rho = rho)
+        params_anl.update(n = n)
+        params_anl.update(Gamma = Gamma)
+        params_anl.update(Gamma1 = Gamma1)
+        params_anl.update(Gamma2 = Gamma2)
+        params_anl.update(Gamma3 = Gamma3)
+        params_anl.update(Gamma4 = Gamma4)
+        params_anl.update(Gamma5 = Gamma5)
+        params_anl.update(Gamma6 = Gamma6)
+        params_anl.update(Gamma7 = Gamma7)
+        params_anl.update(Gamma8 = Gamma8)
+        #State
+        x_anl = np.row_stack(
+                             [
+                              pn,
+                              pe,
+                              pd,
+                              q0,
+                              q1,
+                              q2,
+                              q3,
+                              u,
+                              v,
+                              w,
+                              p,
+                              q,
+                              r
+                             ]
+                            )
+        #State setpoint
+        x_sp_anl = np.row_stack(spdata[:CM_STATE_LEN])
+        #Input
+        u_anl = np.row_stack(
+                             [
+                              deltaa,
+                              deltae,
+                              deltaf,
+                              deltar,
+                              deltat,
+                              deltam
+                             ]
+                            )
+        #Input setpoint
+        u_sp_anl = np.row_stack(spdata[CM_STATE_LEN:])
+        #Update ALCM dictionary
+        anlcm_dict.update(x_anl = x_anl)
+        anlcm_dict.update(x_sp_anl = x_sp_anl)
+        anlcm_dict.update(u_anl = u_anl)
+        anlcm_dict.update(u_sp_anl = u_sp_anl)
+        anlcm_dict.update(params_anl = params_anl)
+        #Construct physical variables dictionary
+        phys_dict.update(phi_rad = phi_rad)
+        phys_dict.update(theta_rad = theta_rad)
+        phys_dict.update(psi_rad = psi_rad)
+        phys_dict.update(alphadot_rads = alphadot_rads)
+        phys_dict.update(sigmara_rad = sigmara_rad)
+        phys_dict.update(deltara = deltara)
+        phys_dict.update(sigmala_rad = sigmala_rad)
+        phys_dict.update(deltala = deltala)
+        phys_dict.update(deltaa = deltaa)
+        phys_dict.update(sigmae_rad = sigmae_rad)
+        phys_dict.update(deltae = deltae)
+        phys_dict.update(sigmar_rad = sigmar_rad)
+        phys_dict.update(deltar = deltar)
+        phys_dict.update(deltat = deltat)
+        phys_dict.update(hmacb = hmacb)
+        phys_dict.update(qbar = qbar)
+        phys_dict.update(Ixx = Ixx)
+        phys_dict.update(Ixy = Ixy)
+        phys_dict.update(Ixz = Ixz)
+        phys_dict.update(Iyy = Iyy)
+        phys_dict.update(Iyz = Iyz)
+        phys_dict.update(Izz = Izz)
+        phys_dict.update(mass = mass)
+        phys_dict.update(Gamma = Gamma)
+        phys_dict.update(Gamma1 = Gamma1)
+        phys_dict.update(Gamma2 = Gamma2)
+        phys_dict.update(Gamma3 = Gamma3)
+        phys_dict.update(Gamma4 = Gamma4)
+        phys_dict.update(Gamma5 = Gamma5)
+        phys_dict.update(Gamma6 = Gamma6)
+        phys_dict.update(Gamma7 = Gamma7)
+        phys_dict.update(Gamma8 = Gamma8)
+        phys_dict.update(sigmaf_rad = sigmaf_rad)
+        phys_dict.update(deltaf = deltaf)
+        phys_dict.update(deltam = deltam)
+        phys_dict.update(n = n)
+        phys_dict.update(rho = rho)
+        phys_dict.update(grav = grav)
+        phys_dict.update(stall = stall)
+        phys_dict.update(q0 = q0)
+        phys_dict.update(q1 = q1)
+        phys_dict.update(q2 = q2)
+        phys_dict.update(q3 = q3)
+        return rxtime, anlcm_dict, phys_dict
+
+    def _build_anlcm(self, anlcm_dict):
+        params_anl   = anlcm_dict['params_anl']
+        #Analytic linear control model
+        anl_sys      = control.iosys.NonlinearIOSystem(self._update_anl, inputs=self.inputs_str, outputs=self.states_str, states=self.states_str, params=params_anl, name='ANL')
+        #Update ANLCM dictionary
+        anlcm_dict.update(anl_sys = anl_sys)
+        return anlcm_dict
+
+    def _step_anlcm(self, anlcm_dict):
+        #Analytic non-linear control model
+        prev_t_anl   = anlcm_dict['prev_t_anl']
+        prev_u_anl   = anlcm_dict['prev_u_anl']
+        x_anl        = anlcm_dict['x_anl']
+        u_anl        = anlcm_dict['u_anl']
+        anl_sys      = anlcm_dict['anl_sys']
+        times        = np.array([prev_t_anl, self.t + self.dt])
+        t_anl, y_anl = control.input_output_response(anl_sys, times, np.concatenate((prev_u_anl, u_anl),1), x_anl)
+        t_anl        = t_anl[1]
+        y_anl        = y_anl[:,1]
+        #Update ANLCM dictionary
+        anlcm_dict.update(t_anl = t_anl)
+        anlcm_dict.update(y_anl = y_anl)
+        return anlcm_dict
+
+    def _build_pipe_data_anlcm(self, anlcm_dict, rxtime):
+        #Actuation pipe data
+        x_anl    = anlcm_dict['x_anl']
+        x_sp_anl = anlcm_dict['x_sp_anl']
+        u_anl    = anlcm_dict['u_anl']
+        u_sp_anl = anlcm_dict['u_sp_anl']
+        anl_sys  = anlcm_dict['anl_sys']
+        actdata = (x_anl, x_sp_anl, u_anl, u_sp_anl, anl_sys)
+        #CSV pipe data
+        y_anl            = anlcm_dict['y_anl']
+        self.csvdata[0]  = rxtime
+        self.csvdata[1:] = y_anl
+        return actdata
+
+    def _pipe_anlcm(self, cm2act_in, cm2csv_in, actdata):
+        if (ACT_TYPE == 0) or (ACT_TYPE == 'random'): #random control
+            pass
+        else: 
+            cm2act_in.send(actdata)
+        cm2csv_in.send(self.csvdata)
+
+    def _loop_update_anlcm(self, anlcm_dict):
+        t_anl = anlcm_dict['t_anl']
+        u_anl = anlcm_dict['u_anl']
+        anlcm_dict.update(prev_t_anl = t_anl)
+        anlcm_dict.update(prev_u_anl = u_anl)
+        self.t = self.t + self.dt
+        return anlcm_dict
+
+    def _update_anl(self, time, x_anl, u_anl, params_anl):
         #Parameters
-        phi_rad       = params['phi_rad']
-        theta_rad     = params['theta_rad']
-        psi_rad       = params['psi_rad']
-        alphadot_rads = params['alphadot_rads']
-        sigmara_rad   = params['sigmara_rad']
-        sigmala_rad   = params['sigmala_rad']
-        sigmae_rad    = params['sigmae_rad']
-        sigmaf_rad    = params['sigmaf_rad']
-        sigmar_rad    = params['sigmar_rad']
-        hmacb         = params['hmacb']
-        stall         = params['stall']
-        Iyy           = params['Iyy']
-        mass          = params['mass']
-        grav          = params['grav']
-        rho           = params['rho']
-        n             = params['n']
-        Gamma         = params['Gamma']
-        Gamma1        = params['Gamma1']
-        Gamma2        = params['Gamma2']
-        Gamma3        = params['Gamma3']
-        Gamma4        = params['Gamma4']
-        Gamma5        = params['Gamma5']
-        Gamma6        = params['Gamma6']
-        Gamma7        = params['Gamma7']
-        Gamma8        = params['Gamma8']
+        phi_rad       = params_anl['phi_rad']
+        theta_rad     = params_anl['theta_rad']
+        psi_rad       = params_anl['psi_rad']
+        alphadot_rads = params_anl['alphadot_rads']
+        sigmara_rad   = params_anl['sigmara_rad']
+        sigmala_rad   = params_anl['sigmala_rad']
+        sigmae_rad    = params_anl['sigmae_rad']
+        sigmaf_rad    = params_anl['sigmaf_rad']
+        sigmar_rad    = params_anl['sigmar_rad']
+        hmacb         = params_anl['hmacb']
+        stall         = params_anl['stall']
+        Iyy           = params_anl['Iyy']
+        mass          = params_anl['mass']
+        grav          = params_anl['grav']
+        rho           = params_anl['rho']
+        n             = params_anl['n']
+        Gamma         = params_anl['Gamma']
+        Gamma1        = params_anl['Gamma1']
+        Gamma2        = params_anl['Gamma2']
+        Gamma3        = params_anl['Gamma3']
+        Gamma4        = params_anl['Gamma4']
+        Gamma5        = params_anl['Gamma5']
+        Gamma6        = params_anl['Gamma6']
+        Gamma7        = params_anl['Gamma7']
+        Gamma8        = params_anl['Gamma8']
         #State
         pn = x_anl[0]
         pe = x_anl[1]
@@ -1654,124 +1586,14 @@ class ControlModel():
         xdot_anl[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n]) #angular velocity in body frame (p, q, r)
         return xdot_anl 
 
-    def _update_reduced_anl(self, time, x_red_anl, u_red_anl, params):
-        #Parameters
-        phi_rad       = params['phi_rad']
-        theta_rad     = params['theta_rad']
-        psi_rad       = params['psi_rad']
-        alphadot_rads = params['alphadot_rads']
-        sigmara_rad   = params['sigmara_rad']
-        sigmala_rad   = params['sigmala_rad']
-        sigmae_rad    = params['sigmae_rad']
-        sigmaf_rad    = params['sigmaf_rad']
-        sigmar_rad    = params['sigmar_rad']
-        hmacb         = params['hmacb']
-        stall         = params['stall']
-        Iyy           = params['Iyy']
-        mass          = params['mass']
-        grav          = params['grav']
-        rho           = params['rho']
-        n             = params['n']
-        Gamma         = params['Gamma']
-        Gamma1        = params['Gamma1']
-        Gamma2        = params['Gamma2']
-        Gamma3        = params['Gamma3']
-        Gamma4        = params['Gamma4']
-        Gamma5        = params['Gamma5']
-        Gamma6        = params['Gamma6']
-        Gamma7        = params['Gamma7']
-        Gamma8        = params['Gamma8']
-        #State
-        pd = x_red_anl[0]
-        q0 = x_red_anl[1]
-        q1 = x_red_anl[2]
-        q2 = x_red_anl[3]
-        q3 = x_red_anl[4]
-        u  = x_red_anl[5]
-        v  = x_red_anl[6]
-        w  = x_red_anl[7]
-        p  = x_red_anl[8]
-        q  = x_red_anl[9]
-        r  = x_red_anl[10]
-        #Input
-        deltaa = u_red_anl[0]
-        deltae = u_red_anl[1]
-        deltar = u_red_anl[2]
-        deltat = u_red_anl[3]
-        #Rotations
-        euler = np.array([phi_rad, theta_rad, psi_rad])
-        qbv   = body_to_vehicle(phi_rad, theta_rad, psi_rad)
-        quat  = euler_to_attquat(euler)
-        #Physical variables
-        Vauw      = Vauw_acm(u, w)
-        Va        = Va_acm(u, v, w)
-        alpha_rad = alpha_acm(u, w)
-        beta      = beta_acm(v, Vauw)
-        J         = J_acm(u, n)
-        T         = thrust_eng(J, rho, n)
-        Vind2     = Vind2_acm(u, rho, T)
-        Vind      = Vind_acm(u, rho, T, Vind2)
-        Vprop     = Vprop_acm(u, Vind)
-        qbar      = qbar_acm(rho, Va)
-        qbaruw    = qbaruw_acm(rho, Vauw)
-        qbarind   = qbarind_acm(rho, Vind)
-        qbarprop  = qbarprop_acm(rho, Vprop)
-        Bw2Va     = BW_SI / (2 * Va)
-        Cw2Va     = CW_SI / (2 * Va)
-        #Dynamic tables
-        CD1 = aerocoeff_CD1()
-        CD2 = aerocoeff_CD2(hmacb, sigmaf_rad)
-        CD3 = aerocoeff_CD3(hmacb, alpha_rad, sigmaf_rad)
-        CD4 = aerocoeff_CD4(beta)
-        CC1 = aerocoeff_CC1(beta, sigmaf_rad)
-        CC2 = aerocoeff_CC2(sigmar_rad)
-        CL1 = aerocoeff_CL1(hmacb, alpha_rad, stall)
-        CL2 = aerocoeff_CL2(hmacb, sigmaf_rad)
-        CL3 = aerocoeff_CL3(sigmae_rad)
-        CL4 = aerocoeff_CL4(Cw2Va, q)
-        CL5 = aerocoeff_CL5(Cw2Va, alphadot_rads)
-        Cl1 = aerocoeff_Cl1(beta, alpha_rad)
-        Cl2 = aerocoeff_Cl2(Bw2Va, p)
-        Cl3 = aerocoeff_Cl3(Bw2Va, r, sigmaf_rad, alpha_rad, stall)
-        Cl4 = aerocoeff_Cl4(sigmala_rad, sigmara_rad, alpha_rad, stall)
-        Cl5 = aerocoeff_Cl5(sigmar_rad)
-        Cm1 = aerocoeff_Cm1(qbar)
-        Cm2 = aerocoeff_Cm2(alpha_rad)
-        Cm3 = aerocoeff_Cm3(Cw2Va, q)
-        Cm4 = aerocoeff_Cm4(sigmaf_rad)
-        Cm5 = aerocoeff_Cm5(Cw2Va, alphadot_rads)
-        Cm6 = aerocoeff_Cm6(sigmae_rad, alpha_rad)
-        Cn1 = aerocoeff_Cn1(beta)
-        Cn2 = aerocoeff_Cn2(Bw2Va, r)
-        Cn3 = aerocoeff_Cn3(Bw2Va, r, alpha_rad)
-        Cn4 = aerocoeff_Cn4(sigmala_rad, sigmara_rad, alpha_rad, beta)
-        Cn5 = aerocoeff_Cn5(sigmar_rad)
-        Cn6 = aerocoeff_Cn6()
-        #Dynamics
-        D          = qbar * SW_SI * (CD1 + CD2 + CD3 + CD4) 
-        C          = qbar * SW_SI * (CC1 + CC2)
-        L          = SW_SI * (qbar * (CL1 + CL2 + CL3 + CL4) + qbaruw * CL5)
-        gx, gy, gz = gravity_body(quat, mass, grav)
-        fx         = - D + gx + T
-        fy         = C + gy
-        fz         = - L + gz
-        l          = qbar * SW_SI * BW_SI * (Cl1 + Cl2 + Cl3 + Cl4 + Cl5)
-        m          = SW_SI * CW_SI * (qbar * (Cm1 + Cm2 + Cm3 + Cm4) + qbaruw * Cm5 + qbarind * Cm6)
-        n          = SW_SI * BW_SI * (qbar * (Cn1 + Cn2 + Cn3 + Cn4) + qbarind * Cn5 + qbarprop * Cn6)
-        #State derivative respect to time
-        xdot_anl        = np.zeros(CM_STATE_LEN) #initialize xdot
-        xdot_anl[0:3]   = qbv.rotation_matrix @ np.array([u, v, w]) #position in NED frame (pn, pe, pd)
-        xdot_anl[3:7]   = 0.5 * np.array([[0, -p, -q, -r], [p, 0, r, -q], [q, -r, 0, p], [r, q, -p, 0]]) @ np.array([q0, q1, q2, q3]) #attitude in vehicle (q0, q1, q2, q3)
-        xdot_anl[7:10]  = np.array([[0, -w, v], [w, 0, -u], [-v, u, 0]]) @ np.array([p, q, r]) + np.array([fx, fy, fz]) / mass #linear velocity in body frame (u, v, w)
-        xdot_anl[10:13] = np.array([Gamma1*p*q-Gamma2*q*r, Gamma5*p*r-Gamma6*(p**2-r**2), Gamma7*p*q-Gamma1*q*r]) + np.array([[Gamma3, 0, Gamma4], [0, 1/Iyy, 0], [Gamma4, 0, Gamma8]]) @ np.array([l, m, n]) #angular velocity in body frame (p, q, r)
-        xdot_anl = xdot_anl[2:]
-        return xdot_anl 
-
     def _init_alcm(self):
-        self.alcm_dict     = {}
+        #Initialize dictionaries
+        alcm_dict = {}
+        phys_dict = {}
+        #Create states and inputs error strings tuple
         self.inputs_er_str = [item + '_er' for item in self.inputs_str]
         self.states_er_str = [item + '_er' for item in self.states_str]
-        #Initialize state space
+        #Initialize ALCM
         xdot_al = np.zeros((CM_STATE_LEN, 1)) #state derivative respect to time
         x_al    = xdot_al #state
         x_sp_al = xdot_al #state setpoint
@@ -1783,27 +1605,52 @@ class ControlModel():
         B       = np.zeros((CM_STATE_LEN, CM_INPUT_LEN)) #state-input jacobian
         C       = np.eye(CM_STATE_LEN) #output-state jacobian (y = x)
         D       = np.zeros((CM_STATE_LEN, CM_INPUT_LEN)) #output-input jacobian
-        #Initialize variables
+        #Initialize loop variables
         prev_t_al    = TELEM_WAIT
         prev_u_er_al = u_er_al
-        #Update state space dictionary
-        self.alcm_dict.update(prev_t_al = prev_t_al)
-        self.alcm_dict.update(xdot_al = xdot_al)
-        self.alcm_dict.update(x_al = x_al)
-        self.alcm_dict.update(x_sp_al = x_sp_al)
-        self.alcm_dict.update(x_er_al = x_er_al)
-        self.alcm_dict.update(u_al = u_al)
-        self.alcm_dict.update(u_sp_al = u_sp_al)
-        self.alcm_dict.update(u_er_al = u_er_al)
-        self.alcm_dict.update(prev_u_er_al = prev_u_er_al)
-        self.alcm_dict.update(A = A)
-        self.alcm_dict.update(B = B)
-        self.alcm_dict.update(C = C)
-        self.alcm_dict.update(D = D)
+        #Update ALCM dictionary
+        alcm_dict.update(prev_t_al = prev_t_al)
+        alcm_dict.update(xdot_al = xdot_al)
+        alcm_dict.update(x_al = x_al)
+        alcm_dict.update(x_sp_al = x_sp_al)
+        alcm_dict.update(x_er_al = x_er_al)
+        alcm_dict.update(u_al = u_al)
+        alcm_dict.update(u_sp_al = u_sp_al)
+        alcm_dict.update(u_er_al = u_er_al)
+        alcm_dict.update(prev_u_er_al = prev_u_er_al)
+        alcm_dict.update(A = A)
+        alcm_dict.update(B = B)
+        alcm_dict.update(C = C)
+        alcm_dict.update(D = D)
+        return alcm_dict, phys_dict
 
-    def _preprocess_alcm(self):
-        rxdata = self.alcm_dict['rxdata']
-        spdata = self.alcm_dict['spdata']
+    def _init_anlcm(self):
+        #Initialize dictionaries
+        anlcm_dict = {}
+        phys_dict  = {}
+        #Initialize ANLCM
+        xdot_anl = np.zeros((CM_STATE_LEN, 1)) #state derivative respect to time
+        x_anl    = xdot_anl #state
+        x_sp_anl = xdot_anl #state setpoint
+        u_anl    = np.zeros((CM_INPUT_LEN, 1)) #input
+        u_sp_anl = u_anl #state setpoint
+        #Initialize loop variables
+        prev_t_anl = TELEM_WAIT
+        prev_u_anl = u_anl
+        #Update ANLCM dictionary
+        anlcm_dict.update(prev_t_anl = prev_t_anl)
+        anlcm_dict.update(xdot_anl = xdot_anl)
+        anlcm_dict.update(x_anl = x_anl)
+        anlcm_dict.update(x_sp_anl = x_sp_anl)
+        anlcm_dict.update(u_anl = u_anl)
+        anlcm_dict.update(prev_u_anl = prev_u_anl)
+        anlcm_dict.update(u_sp_anl = u_sp_anl)
+        return anlcm_dict, phys_dict
+
+    def _preprocess_alcm(self, alcm_dict, phys_dict, rxdata, spdata):
+        i      = np.where(rxdata[:,0] >= self.t)[0][0] #first RX telemetry frame index
+        rxdata = rxdata[i,:] #first RX telemetry frame
+        rxtime = rxdata[0]
         #RX telemetry
         longd         = rxdata[2]
         latd          = rxdata[3]
@@ -1937,8 +1784,14 @@ class ControlModel():
         u_sp_al = np.row_stack(spdata[CM_STATE_LEN:])
         #Input error
         u_er_al = u_al - u_sp_al
+        #Update ALCM dictionary
+        alcm_dict.update(x_al = x_al)
+        alcm_dict.update(x_sp_al = x_sp_al)
+        alcm_dict.update(x_er_al = x_er_al)
+        alcm_dict.update(u_al = u_al)
+        alcm_dict.update(u_sp_al = u_sp_al)
+        alcm_dict.update(u_er_al = u_er_al)
         #Construct physical variables dictionary
-        phys_dict = {} #storage of variables with physical meaning
         phys_dict.update(phi_rad = phi_rad)
         phys_dict.update(theta_rad = theta_rad)
         phys_dict.update(psi_rad = psi_rad)
@@ -1947,6 +1800,7 @@ class ControlModel():
         phys_dict.update(deltara = deltara)
         phys_dict.update(sigmala_rad = sigmala_rad)
         phys_dict.update(deltala = deltala)
+        phys_dict.update(deltaa = deltaa)
         phys_dict.update(sigmae_rad = sigmae_rad)
         phys_dict.update(deltae = deltae)
         phys_dict.update(sigmar_rad = sigmar_rad)
@@ -1991,19 +1845,13 @@ class ControlModel():
         phys_dict.update(rho_sp = rho_sp)
         phys_dict.update(grav = grav)
         phys_dict.update(stall = stall)
-        #Update ALCM dictionary
-        self.alcm_dict.update(x_al = x_al)
-        self.alcm_dict.update(x_sp_al = x_sp_al)
-        self.alcm_dict.update(x_er_al = x_er_al)
-        self.alcm_dict.update(u_al = u_al)
-        self.alcm_dict.update(u_sp_al = u_sp_al)
-        self.alcm_dict.update(u_er_al = u_er_al)
-        self.alcm_dict.update(phys_dict = phys_dict)
+        phys_dict.update(q0 = q0)
+        phys_dict.update(q1 = q1)
+        phys_dict.update(q2 = q2)
+        phys_dict.update(q3 = q3)
+        return rxtime, alcm_dict, phys_dict
 
-    def _update_A_alcm(self):
-        #Retrieve data
-        A           = self.alcm_dict['A']
-        parder_x_sp = self.alcm_dict['parder_x_sp']
+    def _update_A_alcm(self, A, parder_x_sp):
         #Partial derivatives of state respect to state variables evaluated at the setpoint
         parder_q0_pndot_sp = parder_x_sp[0]
         parder_q1_pndot_sp = parder_x_sp[1]
@@ -2210,14 +2058,10 @@ class ControlModel():
         A[12,10] = parder_p_rdot_sp
         A[12,11] = parder_q_rdot_sp
         A[12,12] = parder_r_rdot_sp
-        #Update A
-        self.alcm_dict.update(A = A)
+        return A
 
-    def _update_B_alcm(self):
+    def _update_B_alcm(self, B, parder_delta_sp):
         #B is reduced by 2 columns corresponding to deltaf and deltam because they are assumed constant in the analytic linear control model
-        #Retrieve data
-        B               = self.alcm_dict['B']
-        parder_delta_sp = self.alcm_dict['parder_delta_sp']
         #State partial derivatives respect to input variables evaluated at the setpoint
         parder_deltat_udot_sp = parder_delta_sp[0]
         parder_deltar_vdot_sp = parder_delta_sp[1]
@@ -2241,111 +2085,79 @@ class ControlModel():
         #Partial derivatives of rdot respect to input variables
         B[12,0] = parder_deltaa_rdot_sp
         B[12,3] = parder_deltar_rdot_sp
-        #Update B
-        self.alcm_dict.update(B = B)
+        return B
 
-    def _construct_alcm(self):
+    def _build_alcm(self, alcm_dict, phys_dict):
         #Retrieve data
-        x_er_al = self.alcm_dict['x_er_al']
-        u_er_al = self.alcm_dict['u_er_al']
-        A       = self.alcm_dict['A']
-        B       = self.alcm_dict['B']
-        C       = self.alcm_dict['C']
-        D       = self.alcm_dict['D']
+        x_er_al = alcm_dict['x_er_al']
+        u_er_al = alcm_dict['u_er_al']
+        A       = alcm_dict['A']
+        B       = alcm_dict['B']
+        C       = alcm_dict['C']
+        D       = alcm_dict['D']
         #Compute partial derivatives
-        self._parder_alcm()
+        parder_x_sp, parder_delta_sp = self._parder_alcm(alcm_dict, phys_dict)
         #Update state space
-        self._update_A_alcm()
-        self._update_B_alcm()
+        A = self._update_A_alcm(A, parder_x_sp)
+        B = self._update_B_alcm(B, parder_delta_sp)
         #Analytic linear control model
         xdot_er_al  = A @ x_er_al + B @ u_er_al
         al_ss       = control.StateSpace(A, B, C, D) #state space
         al_sys      = control.iosys.LinearIOSystem(al_ss, inputs=self.inputs_er_str, outputs=self.states_er_str, states=self.states_er_str, name='AL') #linear input-output system
         #Update ALCM dictionary
-        self.alcm_dict.update(xdot_er_al = xdot_er_al)
-        self.alcm_dict.update(al_sys = al_sys)
+        alcm_dict.update(xdot_er_al = xdot_er_al)
+        alcm_dict.update(al_sys = al_sys)
+        return alcm_dict
 
-    def _integrate_alcm(self):
-        al_sys        = self.alcm_dict['al_sys']
-        prev_t_al     = self.alcm_dict['prev_t_al']
-        x_er_al       = self.alcm_dict['x_er_al']
-        u_er_al       = self.alcm_dict['u_er_al']
-        prev_u_er_al  = self.alcm_dict['prev_u_er_al']
-        times         = np.array([prev_t_al, self.t])
+    def _step_alcm(self, alcm_dict):
+        prev_t_al     = alcm_dict['prev_t_al']
+        prev_u_er_al  = alcm_dict['prev_u_er_al']
+        x_er_al       = alcm_dict['x_er_al']
+        u_er_al       = alcm_dict['u_er_al']
+        al_sys        = alcm_dict['al_sys']
+        times         = np.array([prev_t_al, self.t + self.dt])
         t_al, y_er_al = control.input_output_response(al_sys, times, np.concatenate((prev_u_er_al, u_er_al),1), x_er_al)
+        t_al          = t_al[1]
+        y_er_al       = y_er_al[:,1]
         #Update ALCM dictionary
-        self.alcm_dict.update(t_al = t_al)
-        self.alcm_dict.update(y_er_al = y_er_al)
+        alcm_dict.update(t_al = t_al)
+        alcm_dict.update(y_er_al = y_er_al)
+        return alcm_dict
 
-    def _prueba_eq(self):
-        #Analytic non-linear control model parameters
-        phys_dict     = self.alcm_dict['phys_dict'] #physical variables dictionary
-        phi_rad       = phys_dict['phi_rad']
-        theta_rad     = phys_dict['theta_rad']
-        psi_rad       = phys_dict['psi_rad']
-        alphadot_rads = phys_dict['alphadot_rads']
-        sigmara_rad   = phys_dict['sigmara_rad']
-        sigmala_rad   = phys_dict['sigmala_rad']
-        sigmae_rad    = phys_dict['sigmae_rad']
-        sigmaf_rad    = phys_dict['sigmaf_rad']
-        sigmar_rad    = phys_dict['sigmar_rad']
-        hmacb         = phys_dict['hmacb']
-        rho_sp        = phys_dict['rho_sp']
-        stall         = phys_dict['stall']
-        Iyy           = phys_dict['Iyy']
-        mass          = phys_dict['mass']
-        grav          = phys_dict['grav']
-        n             = phys_dict['n']
-        Gamma         = phys_dict['Gamma']
-        Gamma1        = phys_dict['Gamma1']
-        Gamma2        = phys_dict['Gamma2']
-        Gamma3        = phys_dict['Gamma3']
-        Gamma4        = phys_dict['Gamma4']
-        Gamma5        = phys_dict['Gamma5']
-        Gamma6        = phys_dict['Gamma6']
-        Gamma7        = phys_dict['Gamma7']
-        Gamma8        = phys_dict['Gamma8']
-        params = {}
-        params.update(phi_rad = phi_rad)
-        params.update(theta_rad = theta_rad)
-        params.update(psi_rad = psi_rad)
-        params.update(alphadot_rads = alphadot_rads)
-        params.update(sigmara_rad = sigmara_rad)
-        params.update(sigmala_rad = sigmala_rad)
-        params.update(sigmae_rad = sigmae_rad)
-        params.update(sigmaf_rad = sigmaf_rad)
-        params.update(sigmar_rad = sigmar_rad)
-        params.update(hmacb = hmacb)
-        params.update(stall = stall)
-        params.update(Iyy = Iyy)
-        params.update(mass = mass)
-        params.update(grav = grav)
-        params.update(rho = rho_sp)
-        params.update(n = n)
-        params.update(Gamma = Gamma)
-        params.update(Gamma1 = Gamma1)
-        params.update(Gamma2 = Gamma2)
-        params.update(Gamma3 = Gamma3)
-        params.update(Gamma4 = Gamma4)
-        params.update(Gamma5 = Gamma5)
-        params.update(Gamma6 = Gamma6)
-        params.update(Gamma7 = Gamma7)
-        params.update(Gamma8 = Gamma8)
-        #Equilibrium
-        x_al                  = self.alcm_dict['x_al']
-        u_al                  = self.alcm_dict['u_al']
-        x_red_al              = x_al[2:]
-        u_red_al              = np.vstack((u_al[0:2], u_al[3:5]))
-        red_inputs_str        = itemgetter(0,1,3,4)(self.inputs_str)
-        anl_sys               = control.iosys.NonlinearIOSystem(self._update_reduced_anl, inputs=red_inputs_str, outputs=self.states_str[2:], states=self.states_str[2:], params=params, name='ANL')
-        x_eq_al, u_eq_al, y_eq_al, result = control.iosys.find_eqpt(anl_sys, x0=x_red_al, u0=u_red_al, y0=None, params=params, return_y=True, return_result=True)
-        x_eq_al = np.vstack((0, 0, x_eq_al))
-        u_eq_al = np.vstack((x_eq_al[0:2], 0, x_eq_al[3:5], 1))
-        self.alcm_dict.update(x_sp_al = x_eq_al)
+    def _build_pipe_data_alcm(self, alcm_dict, rxtime):
+        #Actuation pipe data
+        x_al    = alcm_dict['x_al']
+        x_sp_al = alcm_dict['x_sp_al']
+        x_er_al = alcm_dict['x_er_al']
+        u_al    = alcm_dict['u_al']
+        u_sp_al = alcm_dict['u_sp_al']
+        u_er_al = alcm_dict['u_er_al']
+        al_sys  = alcm_dict['al_sys']
+        actdata = (x_al, x_sp_al, x_er_al, u_al, u_sp_al, u_er_al, al_sys)
+        #CSV pipe data
+        y_er_al          = alcm_dict['y_er_al']
+        self.csvdata[0]  = rxtime
+        self.csvdata[1:] = y_er_al + x_sp_al.squeeze()
+        return actdata
 
-    def _parder_alcm(self):
+    def _pipe_alcm(self, cm2act_in, cm2csv_in, actdata):
+        if (ACT_TYPE == 0) or (ACT_TYPE == 'random'): #random control
+            pass
+        else: 
+            cm2act_in.send(actdata)
+        cm2csv_in.send(self.csvdata)
+
+    def _loop_update_alcm(self, alcm_dict):
+        t_al    = alcm_dict['t_al']
+        u_er_al = alcm_dict['u_er_al']
+        alcm_dict.update(prev_t_al = t_al)
+        alcm_dict.update(prev_u_er_al = u_er_al)
+        self.t = self.t + self.dt
+        return alcm_dict
+
+    def _parder_alcm(self, alcm_dict, phys_dict):
         #State setpoint
-        x_sp_al   = self.alcm_dict['x_sp_al']
+        x_sp_al   = alcm_dict['x_sp_al']
         pn_sp     = x_sp_al[0]
         pe_sp     = x_sp_al[1]
         pd_sp     = x_sp_al[2]
@@ -2360,7 +2172,7 @@ class ControlModel():
         q_sp      = x_sp_al[11]
         r_sp      = x_sp_al[12]
         #Input setpoint
-        u_sp_al   = self.alcm_dict['u_sp_al']
+        u_sp_al   = alcm_dict['u_sp_al']
         deltaa_sp = u_sp_al[0]
         deltae_sp = u_sp_al[1]
         deltaf_sp = u_sp_al[2]
@@ -2368,7 +2180,6 @@ class ControlModel():
         deltat_sp = u_sp_al[4]
         deltam_sp = u_sp_al[5]
         #Physical variables
-        phys_dict     = self.alcm_dict['phys_dict'] #physical variables dictionary
         phi_rad       = phys_dict['phi_rad']
         theta_rad     = phys_dict['theta_rad']
         psi_rad       = phys_dict['psi_rad']
@@ -2806,6 +2617,4 @@ class ControlModel():
                                    ]
                                    , dtype=float
                                   )
-        #Update ALCM dictionary
-        self.alcm_dict.update(parder_x_sp = parder_x_sp)
-        self.alcm_dict.update(parder_delta_sp = parder_delta_sp)
+        return parder_x_sp, parder_delta_sp
