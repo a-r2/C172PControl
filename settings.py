@@ -1,7 +1,7 @@
 ''' ACTUATION '''
 # 0 / 'random' | 'AL', 'ANL'
 # 1 / 'fsf'    | 'AL' (https://en.wikipedia.org/wiki/Full_state_feedback)
-ACT_TYPE = 'fsf'
+ACT_TYPE = 'random'
 
 ''' CONFIG '''
 CFG_IP_ADDRESS = 'localhost'
@@ -11,7 +11,7 @@ CFG_PORT       = 60000 #config port
 # 0 / 'AL'   | Analytic linear control model
 # 1 / 'ANL'  | Analytic non-linear control model
 # 2 / 'LANL' | Linearized analytic non-linear control model
-CM_TYPE = 'AL'
+CM_TYPE = 'ANL'
 
 ''' CSV LOGGING '''
 CM_LOG_FILENAME       = 'control_model_log'
@@ -61,7 +61,7 @@ MAX_TIME_PER_FRAME = 1 / 100 #timestep per video frame
 MODEL_HZ           = 100 #model iterations per simulation second
 SIM_ITER_NUM       = 2 #number of simulation iterations(only applicable when SIM_TYPE = 1 / 'multiple')
 SIM_RATE           = 1 #simulation rate with respect to real time (recommended: 0.125, 0.25, 0.5, 1)
-SIM_TYPE           = 'multiple' #simulation type: 0 = 'single', 1 = 'multiple'
+SIM_TYPE           = 'single' #simulation type: 0 = 'single', 1 = 'multiple'
 
 ''' TELEMETRY '''
 TELEM_RX_BUFFER_SIZE = 10240 #long enough to allocate a complete frame
